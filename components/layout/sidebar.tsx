@@ -2,7 +2,7 @@
 
 import { MainSidebarContent, MainSidebarFooter } from "@/data/sidebar-items";
 import { SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
-import { Sidebar, SidebarHeader, SidebarContent } from "../custom/sidebar";
+import { Sidebar, SidebarHeader, SidebarContent } from "../custom/ui/sidebar";
 import { LogOut, Regex } from "lucide-react";
 import { Separator } from "../ui/separator";
 import { Button } from "../ui/button";

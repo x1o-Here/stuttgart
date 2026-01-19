@@ -1,21 +1,24 @@
-// Sales date, Buyer, Buyer Contact, Selling Price, Remaining Amount
-// Sales payments table
 'use client'
 
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { z } from "zod";
 import CalendarPopover from "./calendar-popover";
 import { useForm } from "react-hook-form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import PaymentsTable from "./payments-table";
+import { toDate } from "@/lib/helpers/to-date";
+import { useEffect } from "react";
+import { useVehicleContext } from "@/contexts/useVehicleContext";
+import { Input } from "@/components/ui/input";
+import EditActiveSalesDialog from "./edit-sales-active";
 
 const formSchema = z.object({
     salesDate: z.date().min(new Date("1900-01-01"), "Sales Date must be after Jan 1, 1900"),
     buyer: z.string().min(1, "Buyer is required"),
     buyerContact: z.string().min(1, "Buyer Contact is required"),
     soldPrice: z.number().min(0, "Selling Price must be positive"),
-    remainingAmount: z.number().min(0, "Remaining Amount must be positive"),
+    totalCost: z.number().min(0, "Total Cost must be positive"),
+    sRemainingAmount: z.number().min(0, "Remaining Amount must be positive"),
 })
 
 const paymentHeaders = [
@@ -26,15 +29,31 @@ const paymentHeaders = [
 ];
 
 export default function SalesContent() {
+    const { vehicle, salesDetails, salesPayments, sRemaining, totalCost } = useVehicleContext();
+
+    const soldPriceFallback = salesDetails?.salesAmount || totalCost;
+
     const form = useForm<z.infer<typeof formSchema>>({
         defaultValues: {
-            salesDate: new Date(),
-            buyer: "",
-            buyerContact: "",
-            soldPrice: 0,
-            remainingAmount: 0,
+            salesDate: toDate(salesDetails?.salesDate),
+            buyer: salesDetails?.buyerName,
+            buyerContact: salesDetails?.buyerContact,
+            totalCost: totalCost,
+            soldPrice: soldPriceFallback,
+            sRemainingAmount: sRemaining,
         },
     });
+
+    useEffect(() => {
+        form.reset({
+            salesDate: toDate(salesDetails?.salesDate),
+            buyer: salesDetails?.buyerName,
+            buyerContact: salesDetails?.buyerContact,
+            totalCost: totalCost,
+            soldPrice: soldPriceFallback,
+            sRemainingAmount: sRemaining,
+        });
+    }, [vehicle, form]);
 
     function onSubmit(data: z.infer<typeof formSchema>) {
         console.log(data);
@@ -42,109 +61,141 @@ export default function SalesContent() {
 
     return (
         <div className="p-4">
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="salesDate"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Sales Date</FormLabel>
-                                <FormControl>
-                                    <CalendarPopover
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                    />
-                                </FormControl>
-                            </FormItem>
+            <div className="h-full flex flex-col gap-y-8">
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
+                        {vehicle?.vehicleStatus === "sold" && (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="salesDate"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Sales Date</FormLabel>
+                                            <FormControl>
+                                                <CalendarPopover
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    disabled
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="buyer"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Buyer</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="text"
+                                                    disabled
+                                                    placeholder="Buyer"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="buyerContact"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Buyer Contact</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="text"
+                                                    disabled
+                                                    placeholder="Buyer Contact"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
                         )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="buyer"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Buyer</FormLabel>
-                                <FormControl>
-                                    <input
-                                        type="text"
-                                        placeholder="Buyer"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
+                        <FormField
+                            control={form.control}
+                            name="totalCost"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Total Cost</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            disabled
+                                            placeholder="Total Cost"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="soldPrice"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{vehicle?.vehicleStatus === "sold" ? "Sold Price" : "Selling Price"}</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            disabled
+                                            placeholder={vehicle?.vehicleStatus === "Sold" ? "Sold Price" : "Selling Price"}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        {vehicle?.vehicleStatus === "sold" && (
+                            <FormField
+                                control={form.control}
+                                name="sRemainingAmount"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Remaining Amount</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                disabled
+                                                placeholder="Remaining Amount"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
                         )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="buyerContact"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Buyer Contact</FormLabel>
-                                <FormControl>
-                                    <input
-                                        type="text"
-                                        placeholder="Buyer Contact"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="soldPrice"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Sold Price</FormLabel>
-                                <FormControl>
-                                    <input
-                                        type="number"
-                                        placeholder="Sold Price"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="remainingAmount"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Remaining Amount</FormLabel>
-                                <FormControl>
-                                    <input
-                                        type="number"
-                                        placeholder="Remaining Amount"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                </form>
-            </Form>
+                    </form>
+                </Form>
 
-            <Separator className="my-4" />
-
-            <div className="w-full flex flex-col gap-2">
-                <h2 className="text-lg font-medium mb-2">Sales Payments</h2>
-                <PaymentsTable
-                    headers={paymentHeaders}
-                    data={[
-                        {
-                            date: "2020-01-01",
-                            amount: "LKR 2000000",
-                            method: "Cash"
-                        }
-                    ]}
-                />
+                <EditActiveSalesDialog id={vehicle?.id} data={salesDetails} />
             </div>
+            
+            {vehicle?.vehicleStatus === "sold" && (
+                <Separator className="my-4" />
+            )}
+
+            {vehicle?.vehicleStatus === "sold" && (
+                <div className="w-full flex flex-col gap-2">
+                    <h2 className="text-lg font-medium mb-2">Sales Payments</h2>
+                    <PaymentsTable
+                        id={vehicle?.id}
+                        headers={paymentHeaders}
+                        data={salesPayments}
+                    />
+                </div>
+            )}
         </div>
     );
 }

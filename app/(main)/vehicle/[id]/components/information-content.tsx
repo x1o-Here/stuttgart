@@ -4,6 +4,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import EditInformationDialog from "./edit-information";
+import { useVehicleContext } from "@/contexts/useVehicleContext";
+import { useEffect } from "react";
 
 const formSchema = z.object({
     make: z.string().min(1, "Make is required"),
@@ -12,20 +15,30 @@ const formSchema = z.object({
 })
 
 export default function InformationContent() {
+    const { vehicle } = useVehicleContext();
+
     const form = useForm<z.infer<typeof formSchema>>({
         defaultValues: {
-            make: "",
-            yom: new Date().getFullYear(),
-            months: 0,
+            make: vehicle?.make,
+            yom: vehicle?.yom,
+            months: vehicle?.months,
         },
     });
+
+    useEffect(() => {
+        form.reset({
+            make: vehicle?.make,
+            yom: vehicle?.yom,
+            months: vehicle?.months,
+        });
+    }, [vehicle, form]);
 
     function onSubmit(data: z.infer<typeof formSchema>) {
         console.log(data);
     }
 
     return (
-        <div className="p-4">
+        <div className="flex flex-col gap-y-8 items-right justify-between p-4">
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
                     <FormField
@@ -36,7 +49,9 @@ export default function InformationContent() {
                                 <FormLabel>Make</FormLabel>
                                 <FormControl>
                                     <Input
+                                        disabled
                                         placeholder="Make"
+                                        className="text-black"
                                         {...field}
                                     />
                                 </FormControl>
@@ -52,7 +67,10 @@ export default function InformationContent() {
                                 <FormControl>
                                     <Input
                                         type="number"
+                                        disabled
                                         placeholder="Year of Manufacture"
+                                        className="text-black"
+                                        max={4}
                                         {...field}
                                     />
                                 </FormControl>
@@ -69,6 +87,7 @@ export default function InformationContent() {
                                     <Input
                                         type="number"
                                         placeholder="Number of months with us"
+                                        className="text-black"
                                         disabled
                                         {...field}
                                     />
@@ -78,6 +97,8 @@ export default function InformationContent() {
                     />
                 </form>
             </Form>
+
+            <EditInformationDialog id={vehicle?.id} data={vehicle} />
         </div>
     )
 }

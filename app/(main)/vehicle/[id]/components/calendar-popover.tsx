@@ -3,15 +3,15 @@
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 type CalendarPopoverProps = {
     value?: Date
     onChange: (date?: Date) => void
     label?: string
+    disabled?: boolean
 }
 
 function formatDate(date: Date | undefined) {
@@ -24,30 +24,32 @@ function formatDate(date: Date | undefined) {
         year: "numeric",
     })
 }
-function isValidDate(date: Date | undefined) {
-    if (!date) {
-        return false
-    }
-    return !isNaN(date.getTime())
+function isValidDate(date: Date) {
+    return date instanceof Date && !isNaN(date.getTime())
 }
 
 export default function CalendarPopover({
     value,
     onChange,
     label,
-}: CalendarPopoverProps ) {
+    disabled = false,
+}: CalendarPopoverProps) {
     const [open, setOpen] = useState(false)
     const [month, setMonth] = useState<Date | undefined>(value)
     const [inputValue, setInputValue] = useState(formatDate(value))
 
+    useEffect(() => {
+        setInputValue(formatDate(value))
+    }, [value])
+
     return (
         <div className="flex flex-col gap-3">
-            <Label htmlFor="date" className="px-1">{label}</Label>
             <div className="relative flex gap-2">
                 <Input
                     value={inputValue}
                     placeholder="June 01, 2025"
-                    className="bg-background pr-10"
+                    className="bg-background text-black pr-10"
+                    disabled={disabled}
                     onChange={(e) => {
                         const parsed = new Date(e.target.value)
                         setInputValue(e.target.value)
@@ -70,6 +72,7 @@ export default function CalendarPopover({
                         <Button
                             variant="ghost"
                             className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                            disabled={disabled}
                         >
                             <CalendarIcon className="size-3.5" />
                             <span className="sr-only">Select date</span>
@@ -89,6 +92,7 @@ export default function CalendarPopover({
                             onMonthChange={setMonth}
                             onSelect={(date) => {
                                 onChange(date)
+                                setMonth(date)
                                 setOpen(false)
                             }}
                         />

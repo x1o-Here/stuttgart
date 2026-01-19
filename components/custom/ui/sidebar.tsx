@@ -1,8 +1,8 @@
 'use client'
 
 import { cn } from "@/lib/utils"
-import { useSidebar } from "../ui/sidebar"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet"
+import { useSidebar } from "../../ui/sidebar"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../ui/sheet"
 
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 

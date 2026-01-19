@@ -1,13 +1,10 @@
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Delete, Edit } from "lucide-react";
 import AddPaymentDialog from "./add-payment-dialog";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import PaymentDeletionDialog from "./payment-deletion-dialog";
 import EditPaymentDialog from "./edit-payment";
 
 type PaymentsTableProps = {
-    id: string;
     headers: Headers[];
     data?: any[];
 }
@@ -17,7 +14,7 @@ type Headers = {
     title?: string;
 }
 
-export default function PaymentsTable({ id, headers, data }: PaymentsTableProps) {
+export default function QuotationPaymentsTable({ headers, data }: PaymentsTableProps) {
     const { accounts } = useAccountsContext();
 
     return (
@@ -68,7 +65,7 @@ export default function PaymentsTable({ id, headers, data }: PaymentsTableProps)
                 )}
                 <TableRow>
                     <TableCell colSpan={headers.length + 1} className="text-center p-1">
-                        <AddPaymentDialog id={id} />
+                        {/* <AddPaymentDialog id={id} /> */}
                     </TableCell>
                 </TableRow>
             </TableBody>
