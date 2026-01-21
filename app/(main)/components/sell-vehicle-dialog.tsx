@@ -19,6 +19,9 @@ import CalendarPopover from "../vehicle/[id]/components/calendar-popover"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { Vehicle } from "./columns"
 import axios from "axios"
+import { db } from "@/lib/firebase/firebase-client"
+import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 
 const sellVehicleSchema = z.object({
     salesDate: z.date().min(new Date("1900-01-01"), "Sales Date must be after Jan 1, 1900"),
@@ -51,11 +54,22 @@ export function SellVehicleDialog({
 
     const onSubmit = async (values: SellVehicleFormValues) => {
         try {
-            await axios.put(`/api/vehicle/${vehicle.id}/sell`, {
-                salesDate: values.salesDate.toISOString(),
+            const salesRef = doc(db, "salesDetails", vehicle.id)
+            const vehicleRef = doc(db, "vehicles", vehicle.id)
+
+            // Update salesDetails document
+            await setDoc(salesRef, {
+                salesDate: values.salesDate,
                 salesAmount: values.salesAmount,
                 buyerName: values.buyerName,
                 buyerContact: values.buyerContact,
+                updatedAt: serverTimestamp(),
+            }, { merge: true })
+
+            // Update vehicle status
+            await updateDoc(vehicleRef, {
+                vehicleStatus: "sold",
+                updatedAt: serverTimestamp(),
             })
 
             form.reset()

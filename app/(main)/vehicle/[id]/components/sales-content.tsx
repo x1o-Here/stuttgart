@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { useVehicleContext } from "@/contexts/useVehicleContext";
 import { Input } from "@/components/ui/input";
 import EditActiveSalesDialog from "./edit-sales-active";
+import EditSoldSalesDialog from "./edit-sales-sold";
 
 const formSchema = z.object({
     salesDate: z.date().min(new Date("1900-01-01"), "Sales Date must be after Jan 1, 1900"),
@@ -53,7 +54,7 @@ export default function SalesContent() {
             soldPrice: soldPriceFallback,
             sRemainingAmount: sRemaining,
         });
-    }, [vehicle, form]);
+    }, [vehicle, salesDetails, salesPayments, sRemaining, totalCost, form]);
 
     function onSubmit(data: z.infer<typeof formSchema>) {
         console.log(data);
@@ -179,9 +180,12 @@ export default function SalesContent() {
                     </form>
                 </Form>
 
-                <EditActiveSalesDialog id={vehicle?.id} data={salesDetails} />
+                {vehicle?.vehicleStatus === "active"
+                    ? <EditActiveSalesDialog id={vehicle?.id} data={salesDetails} />
+                    : <EditSoldSalesDialog id={vehicle?.id} data={salesDetails} />
+                }
             </div>
-            
+
             {vehicle?.vehicleStatus === "sold" && (
                 <Separator className="my-4" />
             )}
@@ -192,6 +196,7 @@ export default function SalesContent() {
                     <PaymentsTable
                         id={vehicle?.id}
                         headers={paymentHeaders}
+                        paymentType="sale"
                         data={salesPayments}
                     />
                 </div>

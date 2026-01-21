@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Plus } from "lucide-react"
+import { Edit, Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import z from "zod"
@@ -13,23 +13,20 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { toDate } from "@/lib/helpers/to-date"
 
 const formSchema = z.object({
-    date: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
+    salesDate: z.date().min(new Date("1900-01-01"), "Sales Date must be after Jan 1, 1900"),
+    buyer: z.string().min(1, "Buyer is required"),
+    buyerContact: z.string().min(1, "Buyer Contact is required"),
     amount: z.number().min(0, "Amount cannot be negative"),
-    method: z.string().min(1, "Payment Method is required"),
 })
 
 type FormOutput = z.infer<typeof formSchema>
 
-type Props = {
-    referenceId: string;
-    type: "purchase" | "sale";
-}
-
-export default function AddPaymentDialog({ referenceId, type }: Props) {
+export default function EditSoldSalesDialog({ id, data }: { id: string, data: any }) {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
@@ -37,69 +34,34 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
 
     const form = useForm<FormOutput>({
         defaultValues: {
-            date: new Date(),
-            amount: 0,
-            method: "",
+            salesDate: toDate(data?.salesDate),
+            buyer: data?.buyerName,
+            buyerContact: data?.buyerContact,
+            amount: data?.salesAmount,
         },
         resolver: zodResolver(formSchema),
         mode: "onSubmit",
         reValidateMode: "onSubmit",
     })
 
-    async function onSubmit(data: FormOutput) {
+    async function onSubmit(formData: FormOutput) {
         try {
-            const isPurchase = type === "purchase"
+            const salesRef = doc(db, "salesDetails", id)
 
-            /** 1️⃣ Add payment */
-            const paymentRef = isPurchase
-                ? await addDoc(
-                    collection(db, "purchaseDetails", referenceId, "purchasePayments"),
-                    {
-                        date: data.date,
-                        amount: data.amount,
-                        method: data.method,
-                        createdAt: serverTimestamp(),
-                    }
-                )
-                : await addDoc(
-                    collection(db, "salesDetails", referenceId, "salesPayments"),
-                    {
-                        date: data.date,
-                        amount: data.amount,
-                        method: data.method,
-                        createdAt: serverTimestamp(),
-                    }
-                )
+            await updateDoc(salesRef, {
+                salesDate: formData.salesDate,
+                buyer: formData.buyer,
+                buyerContact: formData.buyerContact,
+                salesAmount: formData.amount,
+                updatedAt: serverTimestamp(),
+            })
 
-            /** 2️⃣ Add transaction */
-            await addDoc(
-                collection(db, "accounts", data.method, "transactions"),
-                {
-                    date: data.date,
-                    amount: data.amount,
-                    type: isPurchase ? "debit" : "credit",
-                    description: `${type} payment`,
-                    createdAt: serverTimestamp(),
-                    paymentId: paymentRef.id,
-                    referenceId,
-                }
-            )
-
-            /** 3️⃣ Update account balance */
-            await updateDoc(
-                doc(db, "accounts", data.method),
-                {
-                    balance: increment(isPurchase ? -data.amount : data.amount),
-                }
-            )
-
-            form.reset()
+            form.reset(formData)
             setOpen(false)
-        } catch (err) {
-            console.error("Payment failed:", err)
+        } catch (error) {
+            console.error("Failed to update sales information", error)
         }
     }
-
 
     function handleCancel() {
         if (form.formState.isDirty) {
@@ -115,41 +77,75 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
             <Form {...form}>
 
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-full">Add Record</Button>
+                    <Button>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Sales Details
+                    </Button>
                 </DialogTrigger>
                 <DialogContent className="min-w-xl">
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <DialogHeader className="pb-4">
-                            <DialogTitle>Add {type === "purchase" ? "Purchase" : "Sales"} Payment</DialogTitle>
+                            <DialogTitle>Edit Sales Details</DialogTitle>
                         </DialogHeader>
                         <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
                             <div className="flex flex-col gap-4">
+                                <p className="font-medium">Purchase Detials</p>
                                 <div className="grid gap-4">
                                     <FormField
                                         control={form.control}
-                                        name="date"
+                                        name="salesDate"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Date</FormLabel>
+                                                <FormLabel>Sales Date</FormLabel>
                                                 <FormControl>
                                                     <CalendarPopover
                                                         value={field.value}
-                                                        onChange={(date) => {
-                                                            if (date) field.onChange(date)
-                                                        }}
+                                                        onChange={field.onChange}
                                                     />
                                                 </FormControl>
-                                                <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-
+                                    <FormField
+                                        control={form.control}
+                                        name="buyer"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Buyer Name</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Buyer Name"
+                                                        className="w-full text-black px-3 py-2 border border-gray-300 rounded-md"
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="buyerContact"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Buyer Contact</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Buyer Contact"
+                                                        className="w-full text-black px-3 py-2 border border-gray-300 rounded-md"
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
                                     <FormField
                                         control={form.control}
                                         name="amount"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Amount</FormLabel>
+                                                <FormLabel>Sold Price</FormLabel>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
@@ -158,34 +154,6 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
                                                         {...field}
                                                         onChange={(e) => field.onChange(Number(e.target.value))}
                                                     />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="method"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Method</FormLabel>
-                                                <FormControl>
-                                                    <Select
-                                                        value={field.value || ""}
-                                                        onValueChange={(value) => field.onChange(value)}
-                                                    >
-                                                        <SelectTrigger className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                                                            <SelectValue placeholder="Select an option" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {accounts.map((account) => (
-                                                                <SelectItem key={account.id} value={account.id}>
-                                                                    {account.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

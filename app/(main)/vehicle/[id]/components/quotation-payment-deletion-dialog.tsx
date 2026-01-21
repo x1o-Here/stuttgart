@@ -10,26 +10,24 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import { addDoc, collection, deleteDoc, doc, increment, serverTimestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, deleteDoc, doc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { Delete } from "lucide-react"
 
 interface DeletionDialogProps {
-    type: "purchase" | "sale"
-    vehicleId: string
+    quotationId: string
     paymentId: string
-    accountId: string
     amount: number
+    method: string
     title?: string
     description?: string
 }
 
-export default function PaymentDeletionDialog({
-    type,
-    vehicleId,
+export default function QuotationPaymentDeletionDialog({
+    quotationId,
     paymentId,
-    accountId,
     amount,
+    method,
     title = "Are you sure?",
     description = "This action cannot be undone.",
 }: DeletionDialogProps) {
@@ -37,39 +35,26 @@ export default function PaymentDeletionDialog({
 
     const handleConfirm = async () => {
         try {
-            // 🔹 Determine paths
-            const paymentRef =
-                type === "purchase"
-                    ? doc(db, "purchaseDetails", vehicleId, "purchasePayments", paymentId)
-                    : doc(db, "salesDetails", vehicleId, "salesPayments", paymentId)
+            /** 1️⃣ Delete quotation payment */
+            await deleteDoc(
+                doc(db, "quotations", quotationId, "quotationPayments", paymentId)
+            )
 
-            // 🔹 Determine reversal logic
-            const transactionType = type === "purchase" ? "credit" : "debit"
-            const balanceChange = type === "purchase" ? amount : -amount
-
-            // 1️⃣ Delete payment document
-            await deleteDoc(paymentRef)
-
-            // 2️⃣ Add reversal transaction
+            /** 2️⃣ Credit reversal transaction */
             await addDoc(
-                collection(db, "accounts", accountId, "transactions"),
+                collection(db, "accounts", method, "transactions"),
                 {
                     date: new Date(),
                     amount,
-                    type: transactionType,
-                    description: `${type} payment deletion for ${vehicleId}`,
+                    type: "credit",
+                    description: "Quotation payment reversal",
                     createdAt: serverTimestamp(),
                 }
             )
 
-            // 3️⃣ Update account balance
-            await updateDoc(doc(db, "accounts", accountId), {
-                balance: increment(balanceChange),
-            })
-
             setOpen(false)
         } catch (error) {
-            console.error("Failed to delete payment:", error)
+            console.error("Payment deletion failed:", error)
         }
     }
 

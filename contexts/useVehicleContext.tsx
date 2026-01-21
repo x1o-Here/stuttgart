@@ -93,7 +93,7 @@ export function VehicleProvider({ children, vehicleId }: { children: ReactNode; 
         })
 
         // Purchase payments
-        const purchasePaymentsCol = collection(db, "purchaseDetails", vehicleId, "purchasePayment")
+        const purchasePaymentsCol = collection(db, "purchaseDetails", vehicleId, "purchasePayments")
         const unsubscribePurchasePayments = onSnapshot(purchasePaymentsCol, (snap) => {
             const payments = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
             setPurchasePayments(payments)

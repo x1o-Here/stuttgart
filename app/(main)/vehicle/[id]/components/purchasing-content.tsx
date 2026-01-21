@@ -209,6 +209,7 @@ export default function PurchasingContent() {
                 <PaymentsTable
                     id={vehicle?.id}
                     headers={paymentHeaders}
+                    paymentType="purchase"
                     data={purchasePayments}
                 />
             </div>

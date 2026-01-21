@@ -43,7 +43,7 @@ export default function EditActiveSalesDialog({ id, data }: { id: string, data: 
             const salesRef = doc(db, "salesDetails", id)
 
             await updateDoc(salesRef, {
-                amount: formData.amount,
+                salesAmount: formData.amount,
                 updatedAt: serverTimestamp(),
             })
 

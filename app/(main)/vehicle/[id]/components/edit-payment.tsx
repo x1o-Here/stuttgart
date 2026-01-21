@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { toDate } from "@/lib/helpers/to-date"
 
@@ -25,7 +25,24 @@ const formSchema = z.object({
 
 type FormOutput = z.infer<typeof formSchema>
 
-export default function EditPaymentDialog({ id, data }: { id: string, data: any }) {
+type EditPaymentDialogProps = {
+    referenceId: string          // purchaseDetails.id OR salesDetails.id
+    paymentId: string
+    data: {
+        date: any
+        amount: number
+        method: string
+    }
+    type: "purchase" | "sale"
+}
+
+
+export default function EditPaymentDialog({
+    referenceId,
+    paymentId,
+    data,
+    type
+}: EditPaymentDialogProps) {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
@@ -43,28 +60,51 @@ export default function EditPaymentDialog({ id, data }: { id: string, data: any 
     })
 
     async function onSubmit(formData: FormOutput) {
-        if (!formData.method) return console.error("No account selected")
-
         try {
-            const paymentRef = doc(db, "purchaseDetails", id, "purchasePayment", data.id)
+            const isPurchase = type === "purchase"
 
-            // 1️⃣ Reverse previous transaction
-            if (data.amount && data.method) {
-                const reversalTransaction = {
+            /** 1️⃣ Reverse previous transaction */
+            await addDoc(
+                collection(db, "accounts", data.method, "transactions"),
+                {
                     date: new Date(),
                     amount: data.amount,
-                    type: "credit",
-                    description: `Payment reversal for vehicle ${id}`,
+                    type: isPurchase ? "credit" : "debit",
+                    description: `${type} payment reversal`,
                     createdAt: serverTimestamp(),
-                    paymentId: data.id,
+                    paymentId,
+                    referenceId,
                 }
-                await addDoc(
-                    collection(db, "accounts", data.method, "transactions"),
-                    reversalTransaction
-                )
-            }
+            )
 
-            // 2️⃣ Update the payment document
+            /** 2️⃣ Apply new transaction */
+            await addDoc(
+                collection(db, "accounts", formData.method, "transactions"),
+                {
+                    date: formData.date,
+                    amount: formData.amount,
+                    type: isPurchase ? "debit" : "credit",
+                    description: `${type} payment`,
+                    createdAt: serverTimestamp(),
+                    paymentId,
+                    referenceId,
+                }
+            )
+
+            /** 3️⃣ Update account balances */
+            await updateDoc(doc(db, "accounts", data.method), {
+                balance: increment(isPurchase ? data.amount : -data.amount),
+            })
+
+            await updateDoc(doc(db, "accounts", formData.method), {
+                balance: increment(isPurchase ? -formData.amount : formData.amount),
+            })
+
+            /** 4️⃣ Update payment document */
+            const paymentRef = isPurchase
+                ? doc(db, "purchaseDetails", referenceId, "purchasePayments", paymentId)
+                : doc(db, "salesDetails", referenceId, "salesPayments", paymentId)
+
             await updateDoc(paymentRef, {
                 date: formData.date,
                 amount: formData.amount,
@@ -72,25 +112,10 @@ export default function EditPaymentDialog({ id, data }: { id: string, data: any 
                 updatedAt: serverTimestamp(),
             })
 
-            // 3️⃣ Create new transaction for the new amount/account
-            const newTransaction = {
-                date: formData.date,
-                amount: formData.amount,
-                type: "debit",
-                description: `Payment for vehicle ${id}`,
-                createdAt: serverTimestamp(),
-                paymentId: data.id,
-            }
-            await addDoc(
-                collection(db, "accounts", formData.method, "transactions"),
-                newTransaction
-            )
-
-            console.log("Payment updated successfully!")
             form.reset(formData)
             setOpen(false)
-        } catch (error) {
-            console.error("Failed to update payment:", error)
+        } catch (err) {
+            console.error("Edit payment failed:", err)
         }
     }
 
@@ -113,11 +138,10 @@ export default function EditPaymentDialog({ id, data }: { id: string, data: any 
                 <DialogContent className="min-w-xl">
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <DialogHeader className="pb-4">
-                            <DialogTitle>Edit Purchase Payment</DialogTitle>
+                            <DialogTitle>Edit {type} payment</DialogTitle>
                         </DialogHeader>
                         <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
                             <div className="flex flex-col gap-4">
-                                <p className="font-medium">Purchase Detials</p>
                                 <div className="grid gap-4">
                                     <FormField
                                         control={form.control}

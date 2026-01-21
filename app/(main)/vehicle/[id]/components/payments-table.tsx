@@ -9,6 +9,7 @@ import EditPaymentDialog from "./edit-payment";
 type PaymentsTableProps = {
     id: string;
     headers: Headers[];
+    paymentType: "purchase" | "sale";
     data?: any[];
 }
 
@@ -17,7 +18,7 @@ type Headers = {
     title?: string;
 }
 
-export default function PaymentsTable({ id, headers, data }: PaymentsTableProps) {
+export default function PaymentsTable({ id, paymentType, headers, data }: PaymentsTableProps) {
     const { accounts } = useAccountsContext();
 
     return (
@@ -50,11 +51,17 @@ export default function PaymentsTable({ id, headers, data }: PaymentsTableProps)
                         })}
 
                         <TableCell className="flex gap-2">
-                            <EditPaymentDialog id={id} data={row} />
-                            <PaymentDeletionDialog 
-                                vehicleId={id} 
+                            <EditPaymentDialog 
+                                referenceId={id} 
                                 paymentId={row.id} 
-                                accountId={row.accountId}
+                                data={row} 
+                                type={paymentType} 
+                            />
+                            <PaymentDeletionDialog
+                                type={paymentType}
+                                vehicleId={id}
+                                paymentId={row.id}
+                                accountId={row.method}
                                 amount={row.amount}
                             />
                         </TableCell>
@@ -68,7 +75,7 @@ export default function PaymentsTable({ id, headers, data }: PaymentsTableProps)
                 )}
                 <TableRow>
                     <TableCell colSpan={headers.length + 1} className="text-center p-1">
-                        <AddPaymentDialog id={id} />
+                        <AddPaymentDialog referenceId={id} type={paymentType} />
                     </TableCell>
                 </TableRow>
             </TableBody>

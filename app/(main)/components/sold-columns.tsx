@@ -1,6 +1,10 @@
 import { ColumnDef, FilterFnOption } from "@tanstack/react-table";
 import { Vehicle } from "./columns";
 import ActionsDropdownMenu from "./actions-dropdown";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Eye } from "lucide-react";
+import { toDate } from "@/lib/helpers/to-date";
 
 export type SoldVehicle = Vehicle & {
     soldDate?: string;
@@ -12,10 +16,7 @@ export const soldColumns: ColumnDef<SoldVehicle>[] = [
         accessorKey: "soldDate",
         header: "Sale Date",
         filterFn: "salesDate" as FilterFnOption<SoldVehicle>,
-        cell: ({ row }) => {
-            const saleDate = row.original.soldDate || row.getValue("soldDate") || "";
-            return <span>{new Date(saleDate).toLocaleDateString()}</span>;
-        },
+        cell: ({ row }) => new Date(toDate(row.getValue("soldDate") as string)).toLocaleDateString(),
     },
     {
         accessorKey: "vehicleNo",
@@ -96,6 +97,22 @@ export const soldColumns: ColumnDef<SoldVehicle>[] = [
     {
         id: "actions",
         header: "Actions",
-        cell: ({ row }) => <ActionsDropdownMenu vehicle={row.original} />,
+        cell: ({ row }) => {
+            const router = useRouter();
+            const vehicle = row.original;
+
+            return (
+                <div className="flex items-center gap-2">
+                    <Button
+                        size="icon-sm"
+                        variant="outline"
+                        onClick={() => router.push(`/vehicle/${vehicle.id}`)}
+                    >
+                        <Eye className="h-4 w-4" />
+                    </Button>
+                    <ActionsDropdownMenu vehicle={vehicle} />
+                </div>
+            );
+        },
     },
 ];

@@ -8,6 +8,8 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import PaymentsTable from "./payments-table";
 import QuotationPaymentsTable from "./quotation-payment-table";
+import QuotationDeletionDialog from "./quotation-deletion-dialog";
+import EditMaintenanceDialog from "./edit-quotation";
 
 type PaymentsTableProps = {
     data?: any[];
@@ -85,14 +87,9 @@ export default function MaintenanceTable({ data }: PaymentsTableProps) {
                                     return <TableCell key={header.id}>{value}</TableCell>
                                 })}
 
-                                <TableCell className="flex gap-2">
-                                    <EditPaymentDialog id={id} data={row} />
-                                    <PaymentDeletionDialog
-                                        vehicleId={id}
-                                        paymentId={row.id}
-                                        accountId={row.accountId}
-                                        amount={row.amount}
-                                    />
+                                <TableCell onClick={(e) => e.stopPropagation()} className="flex gap-2">
+                                    <EditMaintenanceDialog id={quotation.id} data={quotation.data} />
+                                    <QuotationDeletionDialog quotationId={quotation.id} />
                                 </TableCell>
                             </TableRow>
 
@@ -102,6 +99,7 @@ export default function MaintenanceTable({ data }: PaymentsTableProps) {
                                         <QuotationPaymentsTable
                                             headers={PAYMENT_HEADERS}
                                             data={quotation.payments}
+                                            quotationId={quotation.id}
                                         />
                                     </TableCell>
                                 </TableRow>

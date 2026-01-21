@@ -6,15 +6,17 @@ import { Eye, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ActionsDropdownMenu from "./actions-dropdown";
 import { Badge } from "@/components/ui/badge";
+import { toDate } from "@/lib/helpers/to-date";
 
 export type Vehicle = {
     id: string;
-    purchasedDate: string;
+    purchasedDate?: string;
     vehicleNo: string;
     make: string;
     yom: number;
     pCost: number;
     pRemaining?: number;
+    sRemaining?: number;
     totalCost?: number;
     sPrice: number;
     vehicleStatus: "active" | "in-maintenance" | "sold";
@@ -27,7 +29,7 @@ export const columns: ColumnDef<Vehicle>[] = [
         accessorKey: "purchasedDate",
         header: "Purchased Date",
         filterFn: "purchasedDate" as FilterFnOption<Vehicle>,
-        cell: ({ row }) => new Date(row.getValue("purchasedDate") as string).toLocaleDateString(),
+        cell: ({ row }) => new Date(toDate(row.getValue("purchasedDate") as string)).toLocaleDateString(),
     },
     {
         accessorKey: "vehicleNo",

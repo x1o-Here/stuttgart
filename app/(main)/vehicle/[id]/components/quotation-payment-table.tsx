@@ -3,10 +3,14 @@ import AddPaymentDialog from "./add-payment-dialog";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import PaymentDeletionDialog from "./payment-deletion-dialog";
 import EditPaymentDialog from "./edit-payment";
+import EditQuotationPaymentDialog from "./edit-quotation-payment";
+import QuotationPaymentDeletionDialog from "./quotation-payment-deletion-dialog";
+import AddQuotationPaymentDialog from "./add-quotation-payment-dialog";
 
 type PaymentsTableProps = {
     headers: Headers[];
     data?: any[];
+    quotationId: string;
 }
 
 type Headers = {
@@ -14,7 +18,7 @@ type Headers = {
     title?: string;
 }
 
-export default function QuotationPaymentsTable({ headers, data }: PaymentsTableProps) {
+export default function QuotationPaymentsTable({ headers, data, quotationId }: PaymentsTableProps) {
     const { accounts } = useAccountsContext();
 
     return (
@@ -47,12 +51,12 @@ export default function QuotationPaymentsTable({ headers, data }: PaymentsTableP
                         })}
 
                         <TableCell className="flex gap-2">
-                            <EditPaymentDialog id={id} data={row} />
-                            <PaymentDeletionDialog 
-                                vehicleId={id} 
-                                paymentId={row.id} 
-                                accountId={row.accountId}
+                            <EditQuotationPaymentDialog quotationId={quotationId} data={row} />
+                            <QuotationPaymentDeletionDialog
+                                quotationId={quotationId}
+                                paymentId={row.id}
                                 amount={row.amount}
+                                method={row.method}
                             />
                         </TableCell>
                     </TableRow>
@@ -65,7 +69,7 @@ export default function QuotationPaymentsTable({ headers, data }: PaymentsTableP
                 )}
                 <TableRow>
                     <TableCell colSpan={headers.length + 1} className="text-center p-1">
-                        {/* <AddPaymentDialog id={id} /> */}
+                        <AddQuotationPaymentDialog quotationId={quotationId} />
                     </TableCell>
                 </TableRow>
             </TableBody>

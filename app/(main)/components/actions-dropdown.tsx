@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { Vehicle } from "./columns"
 import { SellVehicleDialog } from "./sell-vehicle-dialog"
 import DeletionDialog from "./deletion-dialog"
+import RevertSellVehicleDialog from "./revert-vehicle-sell-dialog"
 
 interface ActionsDropdownProps {
     vehicle: Vehicle
@@ -32,7 +33,11 @@ export default function ActionsDropdownMenu({
                     View vehicle
                 </DropdownMenuItem>
 
-                <SellVehicleDialog vehicle={vehicle} />
+                {vehicle.vehicleStatus === "active" ? (
+                    <SellVehicleDialog vehicle={vehicle} />
+                ) : (
+                    <RevertSellVehicleDialog vehicle={vehicle} />
+                )}
 
                 <DropdownMenuSeparator />
 

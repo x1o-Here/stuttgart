@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Plus } from "lucide-react"
+import { Edit, Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import z from "zod"
@@ -13,8 +13,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, doc, increment, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { toDate } from "@/lib/helpers/to-date"
 
 const formSchema = z.object({
     date: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -24,12 +25,7 @@ const formSchema = z.object({
 
 type FormOutput = z.infer<typeof formSchema>
 
-type Props = {
-    referenceId: string;
-    type: "purchase" | "sale";
-}
-
-export default function AddPaymentDialog({ referenceId, type }: Props) {
+export default function EditQuotationPaymentDialog({ quotationId, data }: { quotationId: string, data: any }) {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
@@ -37,69 +33,77 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
 
     const form = useForm<FormOutput>({
         defaultValues: {
-            date: new Date(),
-            amount: 0,
-            method: "",
+            date: toDate(data?.date),
+            amount: data?.amount,
+            method: data?.method,
         },
         resolver: zodResolver(formSchema),
         mode: "onSubmit",
         reValidateMode: "onSubmit",
     })
 
-    async function onSubmit(data: FormOutput) {
-        try {
-            const isPurchase = type === "purchase"
+    async function onSubmit(formData: FormOutput) {
+        const batch = writeBatch(db)
 
-            /** 1️⃣ Add payment */
-            const paymentRef = isPurchase
-                ? await addDoc(
-                    collection(db, "purchaseDetails", referenceId, "purchasePayments"),
-                    {
-                        date: data.date,
-                        amount: data.amount,
-                        method: data.method,
-                        createdAt: serverTimestamp(),
-                    }
-                )
-                : await addDoc(
-                    collection(db, "salesDetails", referenceId, "salesPayments"),
-                    {
-                        date: data.date,
-                        amount: data.amount,
-                        method: data.method,
-                        createdAt: serverTimestamp(),
-                    }
-                )
+        const paymentRef = doc(
+            db,
+            "quotations",
+            quotationId,
+            "quotationPayments",
+            data.id
+        )
 
-            /** 2️⃣ Add transaction */
-            await addDoc(
-                collection(db, "accounts", data.method, "transactions"),
-                {
-                    date: data.date,
-                    amount: data.amount,
-                    type: isPurchase ? "debit" : "credit",
-                    description: `${type} payment`,
-                    createdAt: serverTimestamp(),
-                    paymentId: paymentRef.id,
-                    referenceId,
-                }
+        /** 1️⃣ Reverse OLD payment */
+        if (data.amount && data.method) {
+            const oldAccountRef = doc(db, "accounts", data.method)
+            const oldTxRef = doc(
+                collection(db, "accounts", data.method, "transactions")
             )
 
-            /** 3️⃣ Update account balance */
-            await updateDoc(
-                doc(db, "accounts", data.method),
-                {
-                    balance: increment(isPurchase ? -data.amount : data.amount),
-                }
-            )
+            batch.update(oldAccountRef, {
+                balance: increment(data.amount),
+            })
 
-            form.reset()
-            setOpen(false)
-        } catch (err) {
-            console.error("Payment failed:", err)
+            batch.set(oldTxRef, {
+                date: new Date(),
+                amount: data.amount,
+                type: "credit",
+                description: "Quotation payment edit – reversal",
+                createdAt: serverTimestamp(),
+            })
         }
-    }
 
+        /** 2️⃣ Update payment */
+        batch.update(paymentRef, {
+            date: formData.date,
+            amount: formData.amount,
+            method: formData.method,
+            updatedAt: serverTimestamp(),
+        })
+
+        /** 3️⃣ Debit NEW payment */
+        const newAccountRef = doc(db, "accounts", formData.method)
+        const newTxRef = doc(
+            collection(db, "accounts", formData.method, "transactions")
+        )
+
+        batch.update(newAccountRef, {
+            balance: increment(-formData.amount),
+        })
+
+        batch.set(newTxRef, {
+            date: formData.date,
+            amount: formData.amount,
+            type: "debit",
+            description: "Quotation payment edited",
+            createdAt: serverTimestamp(),
+        })
+
+        await batch.commit()
+
+        form.reset(formData)
+        setOpen(false)
+    }
 
     function handleCancel() {
         if (form.formState.isDirty) {
@@ -115,15 +119,16 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
             <Form {...form}>
 
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-full">Add Record</Button>
+                    <Button variant="outline" size="icon-sm"><Edit /></Button>
                 </DialogTrigger>
                 <DialogContent className="min-w-xl">
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <DialogHeader className="pb-4">
-                            <DialogTitle>Add {type === "purchase" ? "Purchase" : "Sales"} Payment</DialogTitle>
+                            <DialogTitle>Edit Purchase Payment</DialogTitle>
                         </DialogHeader>
                         <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
                             <div className="flex flex-col gap-4">
+                                <p className="font-medium">Purchase Detials</p>
                                 <div className="grid gap-4">
                                     <FormField
                                         control={form.control}
