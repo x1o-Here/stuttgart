@@ -63,6 +63,7 @@ export function SellVehicleDialog({
                 salesAmount: values.salesAmount,
                 buyerName: values.buyerName,
                 buyerContact: values.buyerContact,
+                pnl: values.salesAmount - (vehicle.totalCost || 0),
                 updatedAt: serverTimestamp(),
             }, { merge: true })
 

@@ -35,7 +35,7 @@ export function SellingPriceFilterPopover({ min, max, onChange }: SellingPriceFi
                     onValueChange={setValue}
                     min={min}
                     max={max}
-                    step={1}
+                    step={100000}
                 />
 
                 <Button className="mt-2" onClick={() => onChange({ min: value[0], max: value[1] })}>

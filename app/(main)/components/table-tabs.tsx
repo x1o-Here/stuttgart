@@ -45,6 +45,7 @@ export default function TableTabs() {
 
             <TabsContent value="active">
                 <DataTable
+                    tab="active"
                     columns={columns}
                     data={vehicles
                         .filter(v => v.vehicle?.vehicleStatus === "active")
@@ -73,6 +74,7 @@ export default function TableTabs() {
 
             <TabsContent value="sold">
                 <DataTable
+                    tab="sold"
                     columns={soldColumns}
                     data={vehicles
                         .filter(v => v.vehicle?.vehicleStatus === "sold")

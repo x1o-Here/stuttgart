@@ -71,11 +71,10 @@ export default function AddAccountDialog() {
                 <DialogContent className="min-w-xl">
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <DialogHeader className="pb-4">
-                            <DialogTitle>Add a Purchase Payment</DialogTitle>
+                            <DialogTitle>Add a New Account</DialogTitle>
                         </DialogHeader>
                         <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
                             <div className="flex flex-col gap-4">
-                                <p className="font-medium">Purchase Detials</p>
                                 <div className="grid gap-4">
                                     <FormField
                                         control={form.control}

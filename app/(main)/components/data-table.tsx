@@ -7,15 +7,35 @@ import { ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel, getPaginat
 import { ChevronLeft, ChevronRight, CircleX } from "lucide-react";
 import AddVehicleDialog from "./add-vehicle-dialog";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SortPopover } from "./sort-popover";
 import { PurchasedDateFilterPopover } from "./purchased-date-filter-popover";
 import { SellingPriceFilterPopover } from "./selling-price-filter-popover";
+import { useAllVehiclesContext } from "@/contexts/useAllVehiclesContext";
 
 interface DataTableProps<TData, TValue> {
+    tab: "active" | "sold";
     columns: ColumnDef<TData, TValue>[];
     data: TData[];
 };
+
+const ACTIVE_SORT_OPTIONS: { label: string; column: string; direction: "asc" | "desc" }[] = [
+    { label: "Purchased Date ↑", column: "purchasedDate", direction: "asc" },
+    { label: "Purchased Date ↓", column: "purchasedDate", direction: "desc" },
+    { label: "Vehicle No ↑", column: "vehicleNo", direction: "asc" },
+    { label: "Vehicle No ↓", column: "vehicleNo", direction: "desc" },
+    { label: "Selling Price ↑", column: "sPrice", direction: "asc" },
+    { label: "Selling Price ↓", column: "sPrice", direction: "desc" },
+];
+
+const SOLD_SORT_OPTIONS: { label: string; column: string; direction: "asc" | "desc" }[] = [
+    { label: "Sales Date ↑", column: "soldDate", direction: "asc" },
+    { label: "Sales Date ↓", column: "soldDate", direction: "desc" },
+    { label: "Vehicle No ↑", column: "vehicleNo", direction: "asc" },
+    { label: "Vehicle No ↓", column: "vehicleNo", direction: "desc" },
+    { label: "Sales Price ↑", column: "sPrice", direction: "asc" },
+    { label: "Sales Price ↓", column: "sPrice", direction: "desc" },
+];
 
 const fuzzyFilter = (row: any, columnId: string, value: string) => {
     const searchValue = value.toLowerCase();
@@ -54,11 +74,21 @@ const sellingPriceRangeFilter = (row: any, columnId: string, value: { min?: numb
 };
 
 export function DataTable<TData, TValue>({
+    tab,
     columns,
     data,
 }: DataTableProps<TData, TValue>) {
+    const { vehicles } = useAllVehiclesContext();
+    const maxSellingPrice = useMemo(() => {
+        if (!vehicles.length) return 500000; // default fallback
+
+        return Math.max(
+            ...vehicles.map(v => Math.max(v.salesDetails?.salesAmount || 0, v.totalCost || 0))
+        );
+    }, [vehicles]);
+
     const [search, setSearch] = useState("");
-    const [sorting, setSorting] = useState([{ id: "date", desc: true }]);
+    const [sorting, setSorting] = useState([{ id: "purchaseDate", desc: true }]);
     const [columnFilters, setColumnFilters] = useState<
         { id: string; value: any }[]
     >([]);
@@ -105,6 +135,7 @@ export function DataTable<TData, TValue>({
                 <div className="w-full flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <SortPopover
+                            options={tab === "active" ? ACTIVE_SORT_OPTIONS : SOLD_SORT_OPTIONS}
                             onSortChange={(column, direction) => {
                                 setSorting([{ id: column, desc: direction === "desc" }]);
                             }}
@@ -112,14 +143,15 @@ export function DataTable<TData, TValue>({
 
                         <div className="flex items-center gap-2">
                             <PurchasedDateFilterPopover
+                                tab={tab}
                                 onDateChange={(from, to) =>
-                                    setColumnFilters([{ id: "purchasedDate", value: { from, to } }])
+                                    setColumnFilters([{ id: tab === "active" ? "purchasedDate" : "soldDate", value: { from, to } }])
                                 }
                             />
 
                             <SellingPriceFilterPopover
                                 min={0}
-                                max={500000}
+                                max={maxSellingPrice}
                                 onChange={(range) =>
                                     setColumnFilters([{ id: "sPrice", value: range }])
                                 }

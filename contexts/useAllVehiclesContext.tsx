@@ -4,7 +4,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import {
     collection,
     doc,
-    getDocs,
     onSnapshot,
     query,
     where
@@ -19,9 +18,9 @@ function calculateRemaining(total: number, payments: any[]) {
     return Math.max(total - paid, 0)
 }
 
-function calculateTotalCost(pCost: number, months: number) {
+function calculateTotalCost(pCost: number, months: number, quotationTotal: number) {
     const COC = (pCost * 0.01) * months
-    return pCost + COC
+    return pCost + COC + quotationTotal
 }
 
 // Types
@@ -106,14 +105,11 @@ export function AllVehiclesProvider({ children }: { children: ReactNode }) {
                     unsubscribers.push(
                         onSnapshot(purchaseDocRef, (snap) => {
                             const purchaseDetails = snap.exists() ? snap.data() : null
-                            const months = purchaseDetails?.purchasedDate
-                                ? calculateMonthsSincePurchase(purchaseDetails.purchasedDate)
-                                : 0
-                            const pCost = purchaseDetails?.purchasedAmount || 0
-                            const totalCost = calculateTotalCost(pCost, months)
-                            updateVehicle({ purchaseDetails, totalCost })
+                            updateVehicle({ purchaseDetails })
+                            recalcTotalCost(vehicleId)
                         })
                     )
+
 
                     // Purchase Payments
                     const purchasePaymentsCol = collection(db, "purchaseDetails", vehicleId, "purchasePayments")
@@ -132,6 +128,7 @@ export function AllVehiclesProvider({ children }: { children: ReactNode }) {
                         onSnapshot(salesDocRef, (snap) => {
                             const salesDetails = snap.exists() ? snap.data() : null
                             updateVehicle({ salesDetails })
+                            recalcTotalCost(vehicleId)
                         })
                     )
 
@@ -166,15 +163,36 @@ export function AllVehiclesProvider({ children }: { children: ReactNode }) {
                                             quote.id === q.id ? { ...quote, payments } : quote
                                         )
                                     })
+                                    recalcTotalCost(vehicleId)
                                 })
                                 unsubscribers.push(unsub)
                             })
+
+                            recalcTotalCost(vehicleId)
                         })
                     )
                 } else if (vehicleDoc.type === "removed") {
                     // Remove vehicle from local map
                     vehicleMap.delete(vehicleId)
                     setVehicles(Array.from(vehicleMap.values()))
+                }
+
+                const recalcTotalCost = (vehicleId: string) => {
+                    const v = vehicleMap.get(vehicleId)!
+                    if (!v.purchaseDetails) return
+
+                    const months = calculateMonthsSincePurchase(
+                        v.purchaseDetails.purchasedDate,
+                        v.salesDetails?.salesDate || undefined
+                    )
+                    const pCost = v.purchaseDetails?.purchasedAmount || 0
+                    const totalQuotationAmount = v.quotations?.reduce(
+                        (acc, q) => acc + (q.data.amount || 0),
+                        0
+                    ) || 0
+
+                    const totalCost = calculateTotalCost(pCost, months, totalQuotationAmount)
+                    updateVehicle({ totalCost })
                 }
             })
 

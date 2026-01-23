@@ -16,7 +16,10 @@ export const soldColumns: ColumnDef<SoldVehicle>[] = [
         accessorKey: "soldDate",
         header: "Sale Date",
         filterFn: "salesDate" as FilterFnOption<SoldVehicle>,
-        cell: ({ row }) => new Date(toDate(row.getValue("soldDate") as string)).toLocaleDateString(),
+        cell: ({ row }) => {
+            const date = toDate(row.getValue("soldDate"));
+            return date ? date.toLocaleDateString() : "-";
+        },
     },
     {
         accessorKey: "vehicleNo",

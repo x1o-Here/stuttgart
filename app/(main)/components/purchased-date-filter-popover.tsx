@@ -7,10 +7,11 @@ import CalendarPopover from "../vehicle/[id]/components/calendar-popover";
 import { Filter } from "lucide-react";
 
 interface PurchasedDateFilterPopoverProps {
+    tab: "active" | "sold";
     onDateChange: (from: Date | undefined, to: Date | undefined) => void;
 }
 
-export function PurchasedDateFilterPopover({ onDateChange }: PurchasedDateFilterPopoverProps) {
+export function PurchasedDateFilterPopover({ tab, onDateChange }: PurchasedDateFilterPopoverProps) {
     const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
     const [toDate, setToDate] = useState<Date | undefined>(undefined);
 
@@ -21,7 +22,7 @@ export function PurchasedDateFilterPopover({ onDateChange }: PurchasedDateFilter
                     variant="outline"
                 >
                     <Filter className="mr-2 h-4 w-4" />
-                    Purchased Date
+                    {tab === "active" ? "Purchased Date" : "Sold Date"}
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-4 flex flex-col gap-4">
