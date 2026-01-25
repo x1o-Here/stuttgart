@@ -2,6 +2,7 @@ export type SidebarRouteKey =
   | "dashboard"
   | "reports"
   | "accounts"
+  | "users"
   | "settings"
   | "profile";
 
@@ -9,6 +10,7 @@ const ROUTE_PREFIX_MAP: Record<SidebarRouteKey, string[]> = {
   dashboard: ["/"],
   reports: ["/report", "/reports"],
   accounts: ["/account", "/accounts"],
+  users: ["/user", "/users"],
   settings: ["/settings"],
   profile: ["/profile"],
 };
