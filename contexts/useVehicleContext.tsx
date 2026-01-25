@@ -14,7 +14,6 @@ function calculateRemaining(total: number, payments: any[]) {
 
 // Utility to calculate total cost
 function calculateTotalCost(pCost: number, months: number) {
-    if (!pCost || !months) return 0
     const COC = (pCost * 0.01) * months
     return pCost + COC
 }
