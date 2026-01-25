@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { auth, db } from "@/lib/firebase/firebase-client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
+import { createUserWithEmailAndPassword, getAuth, signOut } from "firebase/auth";
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -51,9 +52,30 @@ export default function AddUserDialog() {
     async function onSubmit(data: FormOutput) {
         let userCredential;
         try {
+            const firebaseConfig = {
+                apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+                authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+                projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+                storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+                messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+                appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+            };
+
+            let secondaryApp: FirebaseApp;
+            try {
+                secondaryApp = getApp("SecondaryClient");
+            } catch (e) {
+                secondaryApp = initializeApp(firebaseConfig, "SecondaryClient");
+            }
+
+            const secondaryAuth = getAuth(secondaryApp);
+
             const password = generateRandomPassword();
-            userCredential = await createUserWithEmailAndPassword(auth, data.email, password);
+            userCredential = await createUserWithEmailAndPassword(secondaryAuth, data.email, password);
             const user = userCredential.user;
+
+            // Immediately sign out from the secondary app to clean up state
+            await signOut(secondaryAuth);
 
             await setDoc(doc(db, "users", user.uid), {
                 username: data.username,

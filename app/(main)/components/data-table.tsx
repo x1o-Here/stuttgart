@@ -88,7 +88,7 @@ export function DataTable<TData, TValue>({
     }, [vehicles]);
 
     const [search, setSearch] = useState("");
-    const [sorting, setSorting] = useState([{ id: "purchaseDate", desc: true }]);
+    const [sorting, setSorting] = useState([{ id: tab === "active" ? "purchasedDate" : "soldDate", desc: true }]);
     const [columnFilters, setColumnFilters] = useState<
         { id: string; value: any }[]
     >([]);

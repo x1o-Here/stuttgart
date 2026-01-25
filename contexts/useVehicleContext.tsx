@@ -13,9 +13,9 @@ function calculateRemaining(total: number, payments: any[]) {
 }
 
 // Utility to calculate total cost
-function calculateTotalCost(pCost: number, months: number) {
+function calculateTotalCost(pCost: number, months: number, quotationTotal: number) {
     const COC = (pCost * 0.01) * months
-    return pCost + COC
+    return pCost + COC + quotationTotal
 }
 
 interface Quotation {
@@ -189,7 +189,11 @@ export function VehicleProvider({ children, vehicleId }: { children: ReactNode; 
 
         // Calculate total cost
         const months = vehicle?.months || 0
-        setTotalCost(calculateTotalCost(pTotal, months))
+        const totalQuotationAmount = quotations?.reduce(
+            (acc, q) => acc + (q.data.amount || 0),
+            0
+        ) || 0
+        setTotalCost(calculateTotalCost(pTotal, months, totalQuotationAmount))
     }, [purchaseDetails, purchasePayments, salesDetails, salesPayments, vehicle?.months])
 
     return (

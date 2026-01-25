@@ -21,10 +21,6 @@ export default function TableTabs() {
         return <div>Loading...</div>;
     }
 
-    useEffect(() => {
-        console.log("Vehicles in TableTabs:", vehicles);
-    }, [vehicles]);
-
     return (
         <Tabs defaultValue="active">
             <TabsList className="bg-white p-1 rounded-md gap-x-2">
