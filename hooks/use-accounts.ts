@@ -89,6 +89,7 @@ export function useAccounts() {
                                         const t = tx.data() as any
                                         return {
                                             id: tx.id,
+                                            vehicleId: t.vehicleId,
                                             description: t.description || "",
                                             amount: t.amount || 0,
                                             type: t.type,

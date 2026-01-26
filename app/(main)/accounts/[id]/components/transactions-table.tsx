@@ -118,83 +118,59 @@ export function TransactionsDataTable<TData, TValue>({
                 </Button>
             </div>
 
-            <div className="flex-1 min-h-0 rounded-md border overflow-hidden">
-                <Table>
-                    <TableHeader>
+            <div className="flex-1 min-h-0 rounded-md border overflow-auto relative">
+                <Table className="table-fixed w-full border-separate border-spacing-0">
+                    <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    )
-                                })}
+                            <TableRow key={headerGroup.id} className="bg-white hover:bg-white">
+                                {headerGroup.headers.map((header) => (
+                                    <TableHead
+                                        key={header.id}
+                                        className="border-l border-gray-100 first:border-l-0"
+                                        style={{ width: `${header.getSize()}px` }}
+                                    >
+                                        {header.isPlaceholder
+                                            ? null
+                                            : flexRender(
+                                                header.column.columnDef.header,
+                                                header.getContext()
+                                            )}
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         ))}
                     </TableHeader>
+                    <TableBody>
+                        {table.getRowModel().rows?.length ? (
+                            table.getRowModel().rows.map((row) => (
+                                <TableRow
+                                    key={row.id}
+                                    data-state={row.getIsSelected() && "selected"}
+                                    className="text-gray-600"
+                                >
+                                    {row.getVisibleCells().map((cell) => (
+                                        <TableCell
+                                            key={cell.id}
+                                            className="border-l border-b border-gray-100 first:border-l-0"
+                                            style={{ width: `${cell.column.getSize()}px` }}
+                                        >
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center text-gray-600"
+                                >
+                                    No results.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
                 </Table>
-
-                <div className="flex-1 overflow-y-auto">
-                    <Table>
-                        <TableBody>
-                            {table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                        className="text-gray-600"
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center text-gray-600"
-                                    >
-                                        No results.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-
-                            {table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                        className="text-gray-600"
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center text-gray-600"
-                                    >
-                                        No results.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
             </div>
         </div>
     )
