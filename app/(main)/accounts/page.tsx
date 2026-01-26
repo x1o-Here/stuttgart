@@ -5,7 +5,7 @@ import { useAccountsContext } from "@/contexts/useAccountsContext";
 import AddAccountDialog from "./components/add-account-dialog";
 
 export default function AccountsPage() {
-  const { accounts, loading, error } = useAccountsContext();
+  const { accounts } = useAccountsContext();
   const router = useRouter();
 
   return (

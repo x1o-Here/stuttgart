@@ -35,7 +35,6 @@ function isValidDate(date: Date) {
 export default function CalendarPopover({
   value,
   onChange,
-  label,
   disabled = false,
 }: CalendarPopoverProps) {
   const [open, setOpen] = useState(false);

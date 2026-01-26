@@ -1,5 +1,3 @@
-import { Delete, Edit } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,

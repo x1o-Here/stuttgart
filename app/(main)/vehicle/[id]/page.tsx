@@ -1,13 +1,8 @@
 "use client";
 
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useVehicleContext } from "@/contexts/useVehicleContext";
-import { db } from "@/lib/firebase/firebase-client";
-import { calculateMonthsSincePurchase } from "@/lib/helpers/calculate-months";
 import InformationContent from "./components/information-content";
 import MaintenanceContent from "./components/maintenance-content";
 import PurchasingContent from "./components/purchasing-content";
@@ -23,10 +18,6 @@ const TABS = [
 export default function VehiclePage() {
   const {
     vehicle,
-    purchaseDetails,
-    purchasePayments,
-    salesDetails,
-    salesPayments,
     loading,
   } = useVehicleContext();
 

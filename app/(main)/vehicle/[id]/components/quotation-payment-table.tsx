@@ -7,11 +7,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import AddPaymentDialog from "./add-payment-dialog";
 import AddQuotationPaymentDialog from "./add-quotation-payment-dialog";
-import EditPaymentDialog from "./edit-payment";
 import EditQuotationPaymentDialog from "./edit-quotation-payment";
-import PaymentDeletionDialog from "./payment-deletion-dialog";
 import QuotationPaymentDeletionDialog from "./quotation-payment-deletion-dialog";
 
 type PaymentsTableProps = {

@@ -2,15 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  addDoc,
   collection,
   doc,
   increment,
   serverTimestamp,
-  updateDoc,
   writeBatch,
 } from "firebase/firestore";
-import { Edit, Plus } from "lucide-react";
+import { Edit } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";

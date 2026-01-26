@@ -37,7 +37,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import { useVehicleContext } from "@/contexts/useVehicleContext";
 import { db } from "@/lib/firebase/firebase-client";
 import CalendarPopover from "./calendar-popover";
 
@@ -67,7 +66,6 @@ export default function AddQuotationDialog({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
 
-  const { vehicle } = useVehicleContext();
   const { user } = useAuth();
 
   const form = useForm<FormOutput>({

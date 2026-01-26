@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, SortAsc } from "lucide-react";
+import { SortAsc } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandItem } from "@/components/ui/command";
 import {

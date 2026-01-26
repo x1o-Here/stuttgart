@@ -46,7 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import { auth, db } from "@/lib/firebase/firebase-client";
+import { db } from "@/lib/firebase/firebase-client";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),

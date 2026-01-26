@@ -7,7 +7,7 @@ import {
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
-import { Edit, Plus } from "lucide-react";
+import { Edit } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
@@ -30,18 +30,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { db } from "@/lib/firebase/firebase-client";
-import { toDate } from "@/lib/helpers/to-date";
-import CalendarPopover from "./calendar-popover";
 
 const formSchema = z.object({
   amount: z.number().min(0, "Amount cannot be negative"),
@@ -60,7 +50,6 @@ export default function EditActiveSalesDialog({
   const [confirmClose, setConfirmClose] = useState(false);
 
   const { user } = useAuth();
-  const { accounts } = useAccountsContext();
 
   const form = useForm<FormOutput>({
     defaultValues: {

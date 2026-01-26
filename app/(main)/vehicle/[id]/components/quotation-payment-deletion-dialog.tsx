@@ -8,7 +8,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { Delete } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
