@@ -1,4 +1,10 @@
-import { KeyRound, Settings2, SquareKanban, Users, Warehouse } from "lucide-react";
+import {
+  KeyRound,
+  Settings2,
+  SquareKanban,
+  Users,
+  Warehouse,
+} from "lucide-react";
 import type { SidebarRouteKey } from "@/lib/active-route";
 
 const MainSidebarContent = [
@@ -6,26 +12,26 @@ const MainSidebarContent = [
     key: "dashboard" as SidebarRouteKey,
     title: "Dashboard",
     href: "/",
-    icon: Warehouse
+    icon: Warehouse,
   },
   {
     key: "reports" as SidebarRouteKey,
     title: "Reports",
     href: "/reports",
-    icon: SquareKanban
+    icon: SquareKanban,
   },
   {
     key: "accounts" as SidebarRouteKey,
     title: "Accounts",
     href: "/accounts",
-    icon: KeyRound
+    icon: KeyRound,
   },
   {
     key: "users" as SidebarRouteKey,
     title: "Users",
     href: "/users",
-    icon: Users
-  }
+    icon: Users,
+  },
 ];
 
 const MainSidebarFooter = [
@@ -33,8 +39,8 @@ const MainSidebarFooter = [
     key: "settings" as SidebarRouteKey,
     title: "Settings",
     href: "/settings",
-    icon: Settings2
+    icon: Settings2,
   },
-]
+];
 
 export { MainSidebarContent, MainSidebarFooter };

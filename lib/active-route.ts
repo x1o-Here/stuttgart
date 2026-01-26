@@ -18,12 +18,9 @@ const ROUTE_PREFIX_MAP: Record<SidebarRouteKey, string[]> = {
 /**
  * Returns the active sidebar route key based on pathname
  */
-export function getActiveSidebarRoute(
-  pathname: string
-): SidebarRouteKey {
+export function getActiveSidebarRoute(pathname: string): SidebarRouteKey {
   // Normalize: remove trailing slash (except root)
-  const normalized =
-    pathname !== "/" ? pathname.replace(/\/$/, "") : pathname;
+  const normalized = pathname !== "/" ? pathname.replace(/\/$/, "") : pathname;
 
   for (const [key, prefixes] of Object.entries(ROUTE_PREFIX_MAP)) {
     for (const prefix of prefixes) {

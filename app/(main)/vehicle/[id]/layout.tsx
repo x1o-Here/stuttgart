@@ -1,25 +1,22 @@
-'use client'
+"use client";
 
-import { ReactNode } from "react"
-import { useParams } from "next/navigation"
-import { VehicleProvider } from "@/contexts/useVehicleContext"
+import { useParams } from "next/navigation";
+import type { ReactNode } from "react";
+import { VehicleProvider } from "@/contexts/useVehicleContext";
 
 interface VehicleLayoutProps {
-    children: ReactNode
+  children: ReactNode;
 }
 
 export default function VehicleLayout({ children }: VehicleLayoutProps) {
-    const params = useParams()
-    const vehicleId = params?.id as string
+  const params = useParams();
+  const vehicleId = params?.id as string;
 
-    if (!vehicleId) return <>{children}</> // fallback if no id
+  if (!vehicleId) return <>{children}</>; // fallback if no id
 
-    return (
-        <div className="min-h-screen">
-            <VehicleProvider vehicleId={vehicleId}>
-                {children}
-            </VehicleProvider>
-        </div>
-
-    )
+  return (
+    <div className="min-h-screen">
+      <VehicleProvider vehicleId={vehicleId}>{children}</VehicleProvider>
+    </div>
+  );
 }
