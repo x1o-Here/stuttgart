@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { db } from "@/lib/firebase/firebase-client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Edit } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { toDate } from "@/lib/helpers/to-date";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/auth-context";
 
 const formSchema = z.object({
     purchasedDate: z.date().min(new Date("1900-01-01"), "Purchased Date must be after Jan 1, 1900"),
@@ -28,6 +29,8 @@ type FormOutput = z.infer<typeof formSchema>
 export default function EditPurchaseDialog({ id, data }: { id: string, data: any }) {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
+
+    const { user } = useAuth()
 
     const form = useForm<FormOutput>({
         defaultValues: {
@@ -45,9 +48,10 @@ export default function EditPurchaseDialog({ id, data }: { id: string, data: any
 
     async function onSubmit(formData: FormOutput) {
         try {
+            const batch = writeBatch(db)
             const purchaseRef = doc(db, "purchaseDetails", id)
 
-            await updateDoc(purchaseRef, {
+            batch.update(purchaseRef, {
                 purchasedDate: formData.purchasedDate,
                 purchasedAmount: formData.purchasedAmount,
                 sellerName: formData.sellerName,
@@ -56,6 +60,18 @@ export default function EditPurchaseDialog({ id, data }: { id: string, data: any
                 isCR: formData.isCR,
                 updatedAt: serverTimestamp(),
             })
+
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: id,
+                action: "update",
+                description: "Purchase details updated",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset(formData)
             setOpen(false)

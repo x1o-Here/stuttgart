@@ -11,12 +11,12 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import axios from "axios"
 import { Vehicle } from "./columns"
 import { useRouter } from "next/navigation"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, getDocs, updateDoc } from "firebase/firestore"
+import { collection, doc, getDocs, increment, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { useAuth } from "@/contexts/auth-context"
 
 interface ConfirmationDialogProps {
     vehicle: Vehicle
@@ -30,76 +30,96 @@ export default function DeletionDialog({
     description = "This action cannot be undone.",
 }: ConfirmationDialogProps) {
     const [open, setOpen] = useState(false)
-    const { accounts } = useAccountsContext();
+    const { user } = useAuth()
+    const { accounts } = useAccountsContext()
 
     const handleConfirm = async () => {
         try {
-            // 1️⃣ Set entityStatus to false
-            const vehicleRef = doc(db, "vehicles", vehicle.id)
-            await updateDoc(vehicleRef, { entityStatus: false })
+            const batch = writeBatch(db)
 
-            // Helper to update account balance and log transaction
-            const reversePayment = async (
-                payment: { date: any; amount: number; method: string },
-                type: "purchase" | "sales" | "quotation"
+            // 1️⃣ Fetch all associated payments BEFORE constructing the batch
+            const [purchaseSnap, salesSnap, quotationsSnap] = await Promise.all([
+                getDocs(collection(db, "purchaseDetails", vehicle.id, "purchasePayments")),
+                getDocs(collection(db, "salesDetails", vehicle.id, "salesPayments")),
+                getDocs(query(collection(db, "quotations"), where("vehicleId", "==", vehicle.id)))
+            ])
+
+            // Helper to add reversal to batch
+            const addReversalToBatch = (
+                payment: { amount: number; method: string },
+                isDebit: boolean, // original was debit?
+                typeLabel: string
             ) => {
                 const account = accounts.find(a => a.id === payment.method)
                 if (!account) return
 
-                const isDebit = type === "sales"
-                const newBalance = isDebit
-                    ? account.balance - payment.amount
-                    : account.balance + payment.amount
+                // Reversal: if original was debit, we credit (add). If original was credit, we debit (subtract).
+                // Wait, logic in previous code:
+                // isDebit = type === "sales" -> sales payments are "cash in" usually?
+                // Actually, purchase = money out (debit), sale = money in (credit).
+                // Reversal: purchase reversal = credit, sale reversal = debit.
+                const reversalType = isDebit ? "credit" : "debit"
+                const balanceChange = isDebit ? payment.amount : -payment.amount
 
-                // Update account balance
-                const accountRef = doc(db, "accounts", account.id)
-                await updateDoc(accountRef, { balance: newBalance })
-
-                // Add reversal transaction
-                const transactionsCol = collection(accountRef, "transactions")
-                await addDoc(transactionsCol, {
+                const txRef = doc(collection(db, "accounts", payment.method, "transactions"))
+                batch.set(txRef, {
                     date: new Date(),
-                    description: `Reversal of ${type} payment for vehicle ${vehicle.vehicleNo}`,
+                    vehicleId: vehicle.id,
                     amount: payment.amount,
-                    type: isDebit ? "debit" : "credit",
+                    type: reversalType,
+                    description: `${typeLabel} payment reversal (Vehicle Deletion)`,
+                    createdAt: serverTimestamp(),
+                })
+
+                const accountRef = doc(db, "accounts", payment.method)
+                batch.update(accountRef, {
+                    balance: increment(balanceChange)
                 })
             }
 
-            // 2️⃣ Reverse purchasePayments
-            const purchasePaymentsSnap = await getDocs(
-                collection(db, "purchaseDetails", vehicle.id, "purchasePayments")
-            )
-            for (const docSnap of purchasePaymentsSnap.docs) {
-                const payment = docSnap.data() as { date: any; amount: number; method: string }
-                await reversePayment(payment, "purchase")
+            // 2️⃣ Process Purchase Payments (Original: Debit -> Reversal: Credit)
+            purchaseSnap.forEach(snap => {
+                addReversalToBatch(snap.data() as any, false, "Purchase")
+                batch.update(snap.ref, { entityStatus: false, updatedAt: serverTimestamp() })
+            })
+
+            // 3️⃣ Process Sales Payments (Original: Credit -> Reversal: Debit)
+            salesSnap.forEach(snap => {
+                addReversalToBatch(snap.data() as any, true, "Sales")
+                batch.update(snap.ref, { entityStatus: false, updatedAt: serverTimestamp() })
+            })
+
+            // 4️⃣ Process Quotation Payments (Original: Debit -> Reversal: Credit)
+            for (const qDoc of quotationsSnap.docs) {
+                const pSnap = await getDocs(collection(db, "quotations", qDoc.id, "quotationPayments"))
+                pSnap.forEach(snap => {
+                    addReversalToBatch(snap.data() as any, false, "Quotation")
+                    batch.update(snap.ref, { entityStatus: false, updatedAt: serverTimestamp() })
+                })
+                batch.update(qDoc.ref, { entityStatus: false, updatedAt: serverTimestamp() })
             }
 
-            // 3️⃣ Reverse salesPayments
-            const salesPaymentsSnap = await getDocs(
-                collection(db, "salesDetails", vehicle.id, "salesPayments")
-            )
-            for (const docSnap of salesPaymentsSnap.docs) {
-                const payment = docSnap.data() as { date: any; amount: number; method: string }
-                await reversePayment(payment, "sales")
-            }
+            // 5️⃣ Soft delete vehicle
+            const vehicleRef = doc(db, "vehicles", vehicle.id)
+            batch.update(vehicleRef, {
+                entityStatus: false,
+                updatedAt: serverTimestamp(),
+            })
 
-            // 4️⃣ Reverse quotationPayments
-            const quotationsSnap = await getDocs(collection(db, "quotations"))
-            const vehicleQuotations = quotationsSnap.docs.filter(
-                q => q.data().vehicleId === vehicle.id
-            )
+            // 6️⃣ Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: vehicle.id,
+                action: "delete",
+                description: `Vehicle ${vehicle.vehicleNo} deleted and all payments reversed`,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
 
-            for (const qDoc of vehicleQuotations) {
-                const paymentsSnap = await getDocs(
-                    collection(db, "quotations", qDoc.id, "quotationPayments")
-                )
-                for (const pDoc of paymentsSnap.docs) {
-                    const payment = pDoc.data() as { date: any; amount: number; method: string }
-                    await reversePayment(payment, "quotation")
-                }
-            }
-
+            await batch.commit()
             console.log("Vehicle deletion processed successfully")
+            setOpen(false)
         } catch (err) {
             console.error("Failed to delete vehicle", err)
         }

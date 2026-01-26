@@ -89,7 +89,7 @@ export default function MaintenanceTable({ data }: PaymentsTableProps) {
 
                                 <TableCell onClick={(e) => e.stopPropagation()} className="flex gap-2">
                                     <EditMaintenanceDialog id={quotation.id} data={quotation.data} />
-                                    <QuotationDeletionDialog quotationId={quotation.id} />
+                                    <QuotationDeletionDialog quotationId={quotation.id} vehicleId={vehicle?.id || ""} />
                                 </TableCell>
                             </TableRow>
 

@@ -3,22 +3,26 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { db } from "@/lib/firebase/firebase-client";
-import { collection, doc, getDocs, increment, Timestamp, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, increment, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Delete } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
 
 interface QuotationDeletionDialogProps {
     quotationId: string;
+    vehicleId: string;
     title?: string
     description?: string
 }
 
 export default function QuotationDeletionDialog({
     quotationId,
+    vehicleId,
     title = "Are you sure?",
     description = "This action cannot be undone.",
 }: QuotationDeletionDialogProps) {
     const [open, setOpen] = useState(false);
+    const { user } = useAuth();
 
     async function handleConfirm() {
         if (!quotationId) return
@@ -39,14 +43,18 @@ export default function QuotationDeletionDialog({
             const totalsByAccount: Record<string, number> = {}
 
             snapshot.forEach((docSnap) => {
-                const { amount, method } = docSnap.data()
+                const { amount, method, entityStatus } = docSnap.data()
+                if (entityStatus === false) return // Skip already deleted
                 if (!method || !amount) return
 
                 totalsByAccount[method] =
                     (totalsByAccount[method] || 0) + Number(amount)
 
-                /** delete payment */
-                batch.delete(docSnap.ref)
+                /** Soft delete payment */
+                batch.update(docSnap.ref, {
+                    entityStatus: false,
+                    updatedAt: serverTimestamp(),
+                })
             })
 
             /** 3️⃣ Credit accounts + add transactions */
@@ -63,18 +71,33 @@ export default function QuotationDeletionDialog({
 
                 // Add transaction
                 batch.set(transactionRef, {
-                    date: Timestamp.now(),
+                    date: new Date(),
+                    vehicleId,
                     description: "Quotation deleted – payment reversal",
                     amount: total,
                     type: "credit",
-                    createdAt: Timestamp.now(),
+                    createdAt: serverTimestamp(),
                 })
             }
 
-            /** 4️⃣ Delete quotation */
-            batch.delete(doc(db, "quotations", quotationId))
+            /** 4️⃣ Soft delete quotation */
+            batch.update(doc(db, "quotations", quotationId), {
+                entityStatus: false,
+                updatedAt: serverTimestamp(),
+            })
 
-            /** 5️⃣ Commit everything */
+            /** 5️⃣ Add Audit Log */
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId,
+                action: "delete",
+                description: "Quotation deleted",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            /** 6️⃣ Commit everything */
             await batch.commit()
 
             setOpen(false)

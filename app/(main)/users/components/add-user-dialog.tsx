@@ -8,13 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { auth, db } from "@/lib/firebase/firebase-client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
+import { FirebaseApp, getApp, initializeApp } from "firebase/app";
 import { createUserWithEmailAndPassword, getAuth, signOut } from "firebase/auth";
-import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
+import { useAuth } from "@/contexts/auth-context"
+import axios from "axios";
 
 const formSchema = z.object({
     username: z.string().min(1, "Username is required"),
@@ -37,6 +39,7 @@ function generateRandomPassword() {
 export default function AddUserDialog() {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
+    const { user: currentUser } = useAuth()
 
     const form = useForm<FormOutput>({
         defaultValues: {
@@ -72,44 +75,51 @@ export default function AddUserDialog() {
 
             const password = generateRandomPassword();
             userCredential = await createUserWithEmailAndPassword(secondaryAuth, data.email, password);
-            const user = userCredential.user;
+            const authUser = userCredential.user;
 
             // Immediately sign out from the secondary app to clean up state
             await signOut(secondaryAuth);
 
-            await setDoc(doc(db, "users", user.uid), {
+            const batch = writeBatch(db)
+
+            // 1️⃣ Add user to Firestore
+            const userRef = doc(db, "users", authUser.uid)
+            batch.set(userRef, {
                 username: data.username,
                 email: data.email,
                 role: data.role,
                 firstSignIn: true,
+                entityStatus: true,
                 createdAt: serverTimestamp(),
             });
 
+            // 2️⃣ Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: currentUser?.uid,
+                action: "create",
+                description: `User created: ${data.username} (${data.email})`,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
+
             console.log(`User created with password: ${password}`); // Log password for development/testing
 
-            // Send email notification
-            const emailResponse = await fetch("/api/send-email", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    email: data.email,
-                    subject: "Welcome to Stuttgart App",
-                    html: `
-                        <h1>Welcome to Stuttgart App</h1>
-                        <p>Your account has been created successfully.</p>
-                        <p><strong>Username:</strong> ${data.username}</p>
-                        <p><strong>Email:</strong> ${data.email}</p>
-                        <p><strong>Password:</strong> ${password}</p>
-                        <p>Please log in and change your password immediately.</p>
-                    `,
-                }),
+            // Send email notification using axios
+            await axios.post("/api/send-email", {
+                email: data.email,
+                subject: "Welcome to Stuttgart App",
+                html: `
+                    <h1>Welcome to Stuttgart App</h1>
+                    <p>Your account has been created successfully.</p>
+                    <p><strong>Username:</strong> ${data.username}</p>
+                    <p><strong>Email:</strong> ${data.email}</p>
+                    <p><strong>Password:</strong> ${password}</p>
+                    <p>Please log in and change your password immediately.</p>
+                `,
             });
-
-            if (!emailResponse.ok) {
-                throw new Error("Failed to send welcome email");
-            }
 
             form.reset()
             setOpen(false)

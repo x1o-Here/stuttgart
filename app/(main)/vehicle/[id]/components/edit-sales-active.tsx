@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { toDate } from "@/lib/helpers/to-date"
+import { useAuth } from "@/contexts/auth-context"
 
 const formSchema = z.object({
     amount: z.number().min(0, "Amount cannot be negative"),
@@ -27,6 +28,7 @@ export default function EditActiveSalesDialog({ id, data }: { id: string, data: 
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
     const { accounts } = useAccountsContext()
 
     const form = useForm<FormOutput>({
@@ -40,12 +42,25 @@ export default function EditActiveSalesDialog({ id, data }: { id: string, data: 
 
     async function onSubmit(formData: FormOutput) {
         try {
+            const batch = writeBatch(db)
             const salesRef = doc(db, "salesDetails", id)
 
-            await updateDoc(salesRef, {
+            batch.update(salesRef, {
                 salesAmount: formData.amount,
                 updatedAt: serverTimestamp(),
             })
+
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: id,
+                action: "update",
+                description: "Sales details updated",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset(formData)
             setOpen(false)

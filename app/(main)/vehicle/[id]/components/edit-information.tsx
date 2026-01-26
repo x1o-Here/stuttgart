@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { useAuth } from "@/contexts/auth-context"
 import { db } from "@/lib/firebase/firebase-client"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, doc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore"
 import { Edit } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -25,6 +26,8 @@ export default function EditInformationDialog({ id, data }: { id: string, data: 
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
+
     const form = useForm<FormOutput>({
         defaultValues: {
             vehicleNo: data?.vehicleNo,
@@ -38,14 +41,27 @@ export default function EditInformationDialog({ id, data }: { id: string, data: 
 
     async function onSubmit(formData: FormOutput) {
         try {
+            const batch = writeBatch(db)
             const vehicleRef = doc(db, "vehicles", id)
 
-            await updateDoc(vehicleRef, {
+            batch.update(vehicleRef, {
                 vehicleNo: formData.vehicleNo,
                 make: formData.make,
                 yom: formData.yom,
                 updatedAt: serverTimestamp(),
             })
+
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: id,
+                action: "update",
+                description: "Vehicle information updated",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset(formData)
             setOpen(false)

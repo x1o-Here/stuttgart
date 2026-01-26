@@ -13,8 +13,9 @@ import CalendarPopover from "./calendar-popover";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase-client";
+import { useAuth } from "@/contexts/auth-context";
 
 const formSchema = z.object({
     startDate: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -38,6 +39,8 @@ export default function EditMaintenanceDialog({ id, data }: { id: string, data?:
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
+
     const form = useForm<FormOutput>({
         defaultValues: {
             startDate: toDate(data?.startDate),
@@ -56,9 +59,10 @@ export default function EditMaintenanceDialog({ id, data }: { id: string, data?:
         if (!id) return
 
         try {
+            const batch = writeBatch(db)
             const quotationRef = doc(db, "quotations", id)
 
-            await updateDoc(quotationRef, {
+            batch.update(quotationRef, {
                 startDate: formData.startDate,
                 endDate: formData.endDate,
                 description: formData.description,
@@ -67,6 +71,18 @@ export default function EditMaintenanceDialog({ id, data }: { id: string, data?:
                 status: formData.status,
                 updatedAt: serverTimestamp(),
             })
+
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: data?.vehicleId || "",
+                action: "update",
+                description: "Quotation updated",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset(formData)
             setOpen(false)

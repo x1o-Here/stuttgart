@@ -16,6 +16,8 @@ import { useAccountsContext } from "@/contexts/useAccountsContext"
 import { addDoc, collection, doc, increment, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { toDate } from "@/lib/helpers/to-date"
+import { useAuth } from "@/contexts/auth-context"
+import { useVehicleContext } from "@/contexts/useVehicleContext"
 
 const formSchema = z.object({
     date: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -29,7 +31,9 @@ export default function EditQuotationPaymentDialog({ quotationId, data }: { quot
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
     const { accounts } = useAccountsContext()
+    const { vehicle } = useVehicleContext()
 
     const form = useForm<FormOutput>({
         defaultValues: {
@@ -43,66 +47,83 @@ export default function EditQuotationPaymentDialog({ quotationId, data }: { quot
     })
 
     async function onSubmit(formData: FormOutput) {
-        const batch = writeBatch(db)
+        try {
+            const batch = writeBatch(db)
 
-        const paymentRef = doc(
-            db,
-            "quotations",
-            quotationId,
-            "quotationPayments",
-            data.id
-        )
-
-        /** 1️⃣ Reverse OLD payment */
-        if (data.amount && data.method) {
-            const oldAccountRef = doc(db, "accounts", data.method)
-            const oldTxRef = doc(
-                collection(db, "accounts", data.method, "transactions")
+            const paymentRef = doc(
+                db,
+                "quotations",
+                quotationId,
+                "quotationPayments",
+                data.id
             )
 
-            batch.update(oldAccountRef, {
-                balance: increment(data.amount),
+            /** 1️⃣ Reverse OLD payment */
+            if (data.amount && data.method) {
+                const oldAccountRef = doc(db, "accounts", data.method)
+                const oldTxRef = doc(
+                    collection(db, "accounts", data.method, "transactions")
+                )
+
+                batch.update(oldAccountRef, {
+                    balance: increment(data.amount),
+                })
+
+                batch.set(oldTxRef, {
+                    date: new Date(),
+                    amount: data.amount,
+                    vehicleId: vehicle?.id || "",
+                    type: "credit",
+                    description: "Quotation payment edit – reversal",
+                    createdAt: serverTimestamp(),
+                })
+            }
+
+            /** 2️⃣ Update payment */
+            batch.update(paymentRef, {
+                date: formData.date,
+                amount: formData.amount,
+                method: formData.method,
+                updatedAt: serverTimestamp(),
             })
 
-            batch.set(oldTxRef, {
-                date: new Date(),
-                amount: data.amount,
-                type: "credit",
-                description: "Quotation payment edit – reversal",
+            /** 3️⃣ Debit NEW payment */
+            const newAccountRef = doc(db, "accounts", formData.method)
+            const newTxRef = doc(
+                collection(db, "accounts", formData.method, "transactions")
+            )
+
+            batch.update(newAccountRef, {
+                balance: increment(-formData.amount),
+            })
+
+            batch.set(newTxRef, {
+                date: formData.date,
+                amount: formData.amount,
+                vehicleId: vehicle?.id || "",
+                type: "debit",
+                description: "Quotation payment edited",
                 createdAt: serverTimestamp(),
             })
+
+            /** 4️⃣ Add Audit Log */
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: vehicle?.id || "",
+                action: "update",
+                description: "Quotation payment updated",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
+
+            form.reset(formData)
+            setOpen(false)
+        } catch (error) {
+            console.error("Failed to edit quotation payment", error)
         }
-
-        /** 2️⃣ Update payment */
-        batch.update(paymentRef, {
-            date: formData.date,
-            amount: formData.amount,
-            method: formData.method,
-            updatedAt: serverTimestamp(),
-        })
-
-        /** 3️⃣ Debit NEW payment */
-        const newAccountRef = doc(db, "accounts", formData.method)
-        const newTxRef = doc(
-            collection(db, "accounts", formData.method, "transactions")
-        )
-
-        batch.update(newAccountRef, {
-            balance: increment(-formData.amount),
-        })
-
-        batch.set(newTxRef, {
-            date: formData.date,
-            amount: formData.amount,
-            type: "debit",
-            description: "Quotation payment edited",
-            createdAt: serverTimestamp(),
-        })
-
-        await batch.commit()
-
-        form.reset(formData)
-        setOpen(false)
     }
 
     function handleCancel() {

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import z from "zod"
@@ -13,8 +12,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { collection, doc, increment, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { useAuth } from "@/contexts/auth-context"
+import { useVehicleContext } from "@/contexts/useVehicleContext"
 
 const formSchema = z.object({
     date: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -28,7 +29,9 @@ export default function AddQuotationPaymentDialog({ quotationId }: { quotationId
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
     const { accounts } = useAccountsContext()
+    const { vehicle } = useVehicleContext()
 
     const form = useForm<FormOutput>({
         defaultValues: {
@@ -43,30 +46,47 @@ export default function AddQuotationPaymentDialog({ quotationId }: { quotationId
 
     async function onSubmit(data: FormOutput) {
         try {
-            /** 1️⃣ Add quotation payment */
-            const paymentRef = await addDoc(
-                collection(db, "quotations", quotationId, "quotationPayments"),
-                {
-                    date: data.date,
-                    amount: data.amount,
-                    method: data.method, // accountId
-                    createdAt: serverTimestamp(),
-                }
-            )
+            const batch = writeBatch(db)
 
-            /** 2️⃣ Add debit transaction */
-            await addDoc(
-                collection(db, "accounts", data.method, "transactions"),
-                {
-                    date: data.date,
-                    amount: data.amount,
-                    type: "debit",
-                    description: `Quotation payment`,
-                    quotationId,
-                    paymentId: paymentRef.id,
-                    createdAt: serverTimestamp(),
-                }
-            )
+            // Add quotation payment
+            const paymentRef = doc(collection(db, "quotations", quotationId, "quotationPayments"))
+            batch.set(paymentRef, {
+                date: data.date,
+                amount: data.amount,
+                method: data.method, // accountId
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            // Add transaction
+            const transactionRef = doc(collection(db, "accounts", data.method, "transactions"))
+            batch.set(transactionRef, {
+                date: data.date,
+                vehicleId: vehicle?.id || "",
+                amount: data.amount,
+                type: "debit",
+                description: `Quotation payment`,
+                createdAt: serverTimestamp(),
+            })
+
+            // Update account balance
+            const accountRef = doc(db, "accounts", data.method)
+            batch.update(accountRef, {
+                balance: increment(-data.amount),
+            })
+
+            // Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: vehicle?.id || "",
+                action: "create",
+                description: "Quotation payment added",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset()
             setOpen(false)
@@ -94,11 +114,11 @@ export default function AddQuotationPaymentDialog({ quotationId }: { quotationId
                 <DialogContent className="min-w-xl">
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <DialogHeader className="pb-4">
-                            <DialogTitle>Add a Purchase Payment</DialogTitle>
+                            <DialogTitle>Add a Quotation Payment</DialogTitle>
                         </DialogHeader>
                         <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
                             <div className="flex flex-col gap-4">
-                                <p className="font-medium">Purchase Detials</p>
+                                <p className="font-medium">Quotation Details</p>
                                 <div className="grid gap-4">
                                     <FormField
                                         control={form.control}

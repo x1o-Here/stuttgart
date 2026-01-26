@@ -13,8 +13,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, doc, increment, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { useAuth } from "@/contexts/auth-context"
 
 const formSchema = z.object({
     date: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -33,6 +34,7 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
     const { accounts } = useAccountsContext()
 
     const form = useForm<FormOutput>({
@@ -49,49 +51,53 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
     async function onSubmit(data: FormOutput) {
         try {
             const isPurchase = type === "purchase"
+            const batch = writeBatch(db)
 
-            /** 1️⃣ Add payment */
-            const paymentRef = isPurchase
-                ? await addDoc(
-                    collection(db, "purchaseDetails", referenceId, "purchasePayments"),
-                    {
-                        date: data.date,
-                        amount: data.amount,
-                        method: data.method,
-                        createdAt: serverTimestamp(),
-                    }
-                )
-                : await addDoc(
-                    collection(db, "salesDetails", referenceId, "salesPayments"),
-                    {
-                        date: data.date,
-                        amount: data.amount,
-                        method: data.method,
-                        createdAt: serverTimestamp(),
-                    }
-                )
+            // Add payment
+            const paymentCollectionPath = isPurchase
+                ? `purchaseDetails/${referenceId}/purchasePayments`
+                : `salesDetails/${referenceId}/salesPayments`
 
-            /** 2️⃣ Add transaction */
-            await addDoc(
-                collection(db, "accounts", data.method, "transactions"),
-                {
-                    date: data.date,
-                    amount: data.amount,
-                    type: isPurchase ? "debit" : "credit",
-                    description: `${type} payment`,
-                    createdAt: serverTimestamp(),
-                    paymentId: paymentRef.id,
-                    referenceId,
-                }
-            )
+            const paymentRef = doc(collection(db, paymentCollectionPath))
 
-            /** 3️⃣ Update account balance */
-            await updateDoc(
-                doc(db, "accounts", data.method),
-                {
-                    balance: increment(isPurchase ? -data.amount : data.amount),
-                }
-            )
+            batch.set(paymentRef, {
+                date: data.date,
+                amount: data.amount,
+                method: data.method,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            // Add transaction
+            const transactionRef = doc(collection(db, "accounts", data.method, "transactions"))
+
+            batch.set(transactionRef, {
+                date: data.date,
+                vehicleId: referenceId,
+                amount: data.amount,
+                type: isPurchase ? "debit" : "credit",
+                description: `${type.charAt(0).toUpperCase() + type.slice(1)} payment`,
+                createdAt: serverTimestamp(),
+            })
+
+            // Update account balance
+            const accountRef = doc(db, "accounts", data.method)
+            batch.update(accountRef, {
+                balance: increment(isPurchase ? -data.amount : data.amount),
+            })
+
+            // Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: referenceId,
+                action: "create",
+                description: `${isPurchase ? "Purchase" : "Sales"} payment added`,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset()
             setOpen(false)
@@ -99,7 +105,6 @@ export default function AddPaymentDialog({ referenceId, type }: Props) {
             console.error("Payment failed:", err)
         }
     }
-
 
     function handleCancel() {
         if (form.formState.isDirty) {

@@ -13,8 +13,9 @@ import {
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Vehicle } from "./columns"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, getDocs, updateDoc } from "firebase/firestore"
+import { collection, doc, getDocs, increment, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { useAuth } from "@/contexts/auth-context"
 
 interface ConfirmationDialogProps {
     vehicle: Vehicle
@@ -28,10 +29,13 @@ export default function RevertSellVehicleDialog({
     description = "This action cannot be undone.",
 }: ConfirmationDialogProps) {
     const [open, setOpen] = useState(false)
+    const { user } = useAuth()
     const { accounts } = useAccountsContext();
 
     const handleConfirm = async () => {
         try {
+            const batch = writeBatch(db)
+
             // 1️⃣ Get all sales payments
             const salesPaymentsCol = collection(db, "salesDetails", vehicle.id, "salesPayments")
             const paymentsSnap = await getDocs(salesPaymentsCol)
@@ -41,39 +45,65 @@ export default function RevertSellVehicleDialog({
                 const accountId = payment.method
                 const amount = payment.amount || 0
 
-                // 2️⃣ Find account
-                const accountRef = doc(db, "accounts", accountId)
                 const account = accounts.find(a => a.id === accountId)
-
                 if (!account) continue
 
-                // 3️⃣ Reverse the balance
-                const newBalance = (account.balance || 0) - amount // salesPayment → debit originally → credit to revert
-                await updateDoc(accountRef, { balance: newBalance })
+                // 2️⃣ Reverse the balance (Sales payment was credit -> reversal is debit)
+                const accountRef = doc(db, "accounts", accountId)
+                batch.update(accountRef, {
+                    balance: increment(-amount)
+                })
 
-                // 4️⃣ Add reversal transaction
-                const transactionsCol = collection(db, "accounts", accountId, "transactions")
-                await addDoc(transactionsCol, {
+                // 3️⃣ Add reversal transaction
+                const transactionRef = doc(collection(db, "accounts", accountId, "transactions"))
+                batch.set(transactionRef, {
                     date: new Date(),
-                    description: `Reversal of sales payment for vehicle ${vehicle.vehicleNo}`,
+                    vehicleId: vehicle.id,
                     amount: amount,
-                    type: "credit", // reverse of original debit
+                    type: "debit",
+                    description: `Reversal of sales payment for vehicle ${vehicle.id} (Sale Reverted)`,
+                    createdAt: serverTimestamp(),
+                })
+
+                // 4️⃣ Soft delete the sales payment record too? 
+                // Previous logic didn't delete it, but typically we should if reverting.
+                // For now, following soft delete pattern:
+                batch.update(paymentDoc.ref, {
+                    entityStatus: false,
+                    updatedAt: serverTimestamp()
                 })
             }
 
             // 5️⃣ Update vehicle status back to active
             const vehicleRef = doc(db, "vehicles", vehicle.id)
-            await updateDoc(vehicleRef, { vehicleStatus: "active", updatedAt: new Date() })
+            batch.update(vehicleRef, {
+                vehicleStatus: "active",
+                updatedAt: serverTimestamp()
+            })
 
-            // Optional: Reset salesDetails
+            // 6️⃣ Reset salesDetails
             const salesDetailsRef = doc(db, "salesDetails", vehicle.id)
-            await updateDoc(salesDetailsRef, {
+            batch.update(salesDetailsRef, {
                 salesAmount: 0,
                 salesDate: null,
                 buyerName: "",
                 buyerContact: "",
-                updatedAt: new Date(),
+                updatedAt: serverTimestamp(),
             })
+
+            // 7️⃣ Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: vehicle.id,
+                action: "update",
+                description: `Sale of vehicle ${vehicle.vehicleNo} reverted`,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
+            setOpen(false)
 
         } catch (error) {
             console.error("Failed to revert vehicle sale", error)

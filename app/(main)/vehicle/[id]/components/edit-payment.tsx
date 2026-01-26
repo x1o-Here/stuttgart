@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { useAccountsContext } from "@/contexts/useAccountsContext"
-import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, doc, increment, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { toDate } from "@/lib/helpers/to-date"
+import { useAuth } from "@/contexts/auth-context"
 
 const formSchema = z.object({
     date: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -46,6 +47,7 @@ export default function EditPaymentDialog({
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth()
     const { accounts } = useAccountsContext()
 
     const form = useForm<FormOutput>({
@@ -62,41 +64,38 @@ export default function EditPaymentDialog({
     async function onSubmit(formData: FormOutput) {
         try {
             const isPurchase = type === "purchase"
+            const batch = writeBatch(db)
 
             /** 1️⃣ Reverse previous transaction */
-            await addDoc(
-                collection(db, "accounts", data.method, "transactions"),
-                {
-                    date: new Date(),
-                    amount: data.amount,
-                    type: isPurchase ? "credit" : "debit",
-                    description: `${type} payment reversal`,
-                    createdAt: serverTimestamp(),
-                    paymentId,
-                    referenceId,
-                }
-            )
+            const oldTxRef = doc(collection(db, "accounts", data.method, "transactions"))
+            batch.set(oldTxRef, {
+                date: new Date(),
+                amount: data.amount,
+                vehicleId: referenceId,
+                type: isPurchase ? "credit" : "debit",
+                description: `${type.charAt(0).toUpperCase() + type.slice(1)} payment reversal`,
+                createdAt: serverTimestamp(),
+            })
 
             /** 2️⃣ Apply new transaction */
-            await addDoc(
-                collection(db, "accounts", formData.method, "transactions"),
-                {
-                    date: formData.date,
-                    amount: formData.amount,
-                    type: isPurchase ? "debit" : "credit",
-                    description: `${type} payment`,
-                    createdAt: serverTimestamp(),
-                    paymentId,
-                    referenceId,
-                }
-            )
+            const newTxRef = doc(collection(db, "accounts", formData.method, "transactions"))
+            batch.set(newTxRef, {
+                date: formData.date,
+                amount: formData.amount,
+                vehicleId: referenceId,
+                type: isPurchase ? "debit" : "credit",
+                description: `${type.charAt(0).toUpperCase() + type.slice(1)} payment`,
+                createdAt: serverTimestamp(),
+            })
 
             /** 3️⃣ Update account balances */
-            await updateDoc(doc(db, "accounts", data.method), {
+            const oldAccountRef = doc(db, "accounts", data.method)
+            batch.update(oldAccountRef, {
                 balance: increment(isPurchase ? data.amount : -data.amount),
             })
 
-            await updateDoc(doc(db, "accounts", formData.method), {
+            const newAccountRef = doc(db, "accounts", formData.method)
+            batch.update(newAccountRef, {
                 balance: increment(isPurchase ? -formData.amount : formData.amount),
             })
 
@@ -105,12 +104,25 @@ export default function EditPaymentDialog({
                 ? doc(db, "purchaseDetails", referenceId, "purchasePayments", paymentId)
                 : doc(db, "salesDetails", referenceId, "salesPayments", paymentId)
 
-            await updateDoc(paymentRef, {
+            batch.update(paymentRef, {
                 date: formData.date,
                 amount: formData.amount,
                 method: formData.method,
                 updatedAt: serverTimestamp(),
             })
+
+            /** 5️⃣ Add Audit Log */
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: referenceId,
+                action: "update",
+                description: "Payment updated",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset(formData)
             setOpen(false)

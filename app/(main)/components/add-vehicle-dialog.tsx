@@ -9,10 +9,12 @@ import { z } from "zod";
 import CalendarPopover from "../vehicle/[id]/components/calendar-popover";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { zodResolver } from "@hookform/resolvers/zod"
-import axios from "axios"
+import { db } from "@/lib/firebase/firebase-client";
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { useAuth } from "@/contexts/auth-context";
 
 const formSchema = z.object({
     purchasedDate: z.date().min(new Date("1900-01-01"), "Purchased Date must be after Jan 1, 1900"),
@@ -32,6 +34,8 @@ export default function AddVehicleDialog() {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
 
+    const { user } = useAuth();
+
     const form = useForm<FormOutput>({
         defaultValues: {
             purchasedDate: new Date(),
@@ -49,25 +53,56 @@ export default function AddVehicleDialog() {
         reValidateMode: "onSubmit",
     })
 
-    useEffect(() => {
-        const subscription = form.watch((value) => {
-            console.log("Form data changed:", value);
-        });
-        return () => subscription.unsubscribe();
-    }, [form]);
-
     async function onSubmit(data: FormOutput) {
         console.log("data:", data)
         try {
-            const res = await axios.post("/api/vehicle", {
-                ...data,
-                purchasedDate: data.purchasedDate.toISOString(),
-            })
+            const batch = writeBatch(db)
+            const vehicleRef = doc(collection(db, "vehicles"))
 
-            if (res.data?.success) {
-                form.reset()
-                setOpen(false)
+            const vehicleData = {
+                vehicleNo: data.vehicleNo,
+                make: data.make,
+                yom: data.yom,
+                vehicleStatus: "active",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
             }
+            batch.set(vehicleRef, vehicleData)
+
+            const purchaseData = {
+                vehicleId: vehicleRef.id,
+                purchasedDate: data.purchasedDate.toISOString(),
+                sellerName: data.sellerName,
+                sellerContact: data.sellerContact,
+                isCR: data.isCR,
+                legalOwner: data.legalOwner,
+                purchasedAmount: data.purchasedAmount,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            }
+            batch.set(doc(db, "purchaseDetails", vehicleRef.id), purchaseData)
+
+            const salesDetailsData = {
+                vehicleId: vehicleRef.id,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            }
+            batch.set(doc(db, "salesDetails", vehicleRef.id), salesDetailsData)
+
+            const auditLogData = {
+                userId: user?.uid,
+                vehicleId: vehicleRef.id,
+                action: "create",
+                description: "Vehicle added",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            }
+            batch.set(doc(collection(db, "auditLogs")), auditLogData)
+
+            await batch.commit()
+
+            form.reset()
+            setOpen(false)
         } catch (error) {
             console.error("Failed to add vehicle", error)
         }

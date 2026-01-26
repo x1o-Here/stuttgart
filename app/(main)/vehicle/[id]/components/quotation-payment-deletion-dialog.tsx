@@ -10,9 +10,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import { addDoc, collection, deleteDoc, doc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, increment, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { Delete } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { useVehicleContext } from "@/contexts/useVehicleContext"
 
 interface DeletionDialogProps {
     quotationId: string
@@ -32,25 +34,49 @@ export default function QuotationPaymentDeletionDialog({
     description = "This action cannot be undone.",
 }: DeletionDialogProps) {
     const [open, setOpen] = useState(false)
+    const { user } = useAuth()
+    const { vehicle } = useVehicleContext()
 
     const handleConfirm = async () => {
         try {
-            /** 1️⃣ Delete quotation payment */
-            await deleteDoc(
-                doc(db, "quotations", quotationId, "quotationPayments", paymentId)
-            )
+            const batch = writeBatch(db)
+
+            /** 1️⃣ Soft delete quotation payment */
+            const paymentRef = doc(db, "quotations", quotationId, "quotationPayments", paymentId)
+            batch.update(paymentRef, {
+                entityStatus: false,
+                updatedAt: serverTimestamp(),
+            })
 
             /** 2️⃣ Credit reversal transaction */
-            await addDoc(
-                collection(db, "accounts", method, "transactions"),
-                {
-                    date: new Date(),
-                    amount,
-                    type: "credit",
-                    description: "Quotation payment reversal",
-                    createdAt: serverTimestamp(),
-                }
-            )
+            const transactionRef = doc(collection(db, "accounts", method, "transactions"))
+            batch.set(transactionRef, {
+                date: new Date(),
+                amount,
+                vehicleId: vehicle?.id || "",
+                type: "credit",
+                description: "Quotation payment reversal",
+                createdAt: serverTimestamp(),
+            })
+
+            /** 3️⃣ Update account balance */
+            const accountRef = doc(db, "accounts", method)
+            batch.update(accountRef, {
+                balance: increment(amount),
+            })
+
+            /** 4️⃣ Add Audit Log */
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: vehicle?.id || "",
+                action: "delete",
+                description: "Quotation payment deleted",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             setOpen(false)
         } catch (error) {

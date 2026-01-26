@@ -10,8 +10,9 @@ import { useForm } from "react-hook-form"
 import z from "zod"
 import { Input } from "@/components/ui/input"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
+import { useAuth } from "@/contexts/auth-context"
 
 const formSchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -23,6 +24,7 @@ type FormOutput = z.infer<typeof formSchema>
 export default function AddAccountDialog() {
     const [open, setOpen] = useState(false)
     const [confirmClose, setConfirmClose] = useState(false)
+    const { user } = useAuth()
 
     const form = useForm<FormOutput>({
         defaultValues: {
@@ -36,12 +38,28 @@ export default function AddAccountDialog() {
 
     async function onSubmit(data: FormOutput) {
         try {
-            // Save to Firestore
-            await addDoc(collection(db, "accounts"), {
+            const batch = writeBatch(db)
+
+            // 1️⃣ Add account
+            const accountRef = doc(collection(db, "accounts"))
+            batch.set(accountRef, {
                 name: data.name,
                 balance: data.balance,
+                entityStatus: true,
                 createdAt: serverTimestamp(),
             })
+
+            // 2️⃣ Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                action: "create",
+                description: `Account created: ${data.name}`,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset()
             setOpen(false)

@@ -11,9 +11,10 @@ import CalendarPopover from "./calendar-popover"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
-import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase-client"
 import { useVehicleContext } from "@/contexts/useVehicleContext"
+import { useAuth } from "@/contexts/auth-context"
 
 const formSchema = z.object({
     startDate: z.date().min(new Date("1900-01-01"), "Date must be after Jan 1, 1900"),
@@ -38,6 +39,7 @@ export default function AddQuotationDialog({ id }: { id: string }) {
     const [confirmClose, setConfirmClose] = useState(false)
 
     const { vehicle } = useVehicleContext()
+    const { user } = useAuth()
 
     const form = useForm<FormOutput>({
         defaultValues: {
@@ -55,7 +57,11 @@ export default function AddQuotationDialog({ id }: { id: string }) {
 
     async function onSubmit(data: FormOutput) {
         try {
-            const quotationData = {
+            const batch = writeBatch(db)
+
+            // Add Quotation
+            const quotationRef = doc(collection(db, "quotations"))
+            batch.set(quotationRef, {
                 vehicleId: id,
                 startDate: data.startDate,
                 endDate: data.endDate,
@@ -63,10 +69,22 @@ export default function AddQuotationDialog({ id }: { id: string }) {
                 amount: data.amount,
                 vendor: data.vendor,
                 status: data.status,
+                entityStatus: true,
                 createdAt: serverTimestamp(),
-            }
+            })
 
-            await addDoc(collection(db, "quotations"), quotationData)
+            // Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: id,
+                action: "create",
+                description: "Quotation added",
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset()
             setOpen(false)

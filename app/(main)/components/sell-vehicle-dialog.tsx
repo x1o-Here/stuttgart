@@ -18,10 +18,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import CalendarPopover from "../vehicle/[id]/components/calendar-popover"
 import ConfirmationDialog from "@/components/custom/confirmation-dialog"
 import { Vehicle } from "./columns"
-import axios from "axios"
 import { db } from "@/lib/firebase/firebase-client"
-import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
+import { collection, doc, serverTimestamp, writeBatch } from "firebase/firestore"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
 const sellVehicleSchema = z.object({
     salesDate: z.date().min(new Date("1900-01-01"), "Sales Date must be after Jan 1, 1900"),
@@ -42,6 +42,7 @@ export function SellVehicleDialog({
     const [open, setOpen] = useState(false);
     const [confirmClose, setConfirmClose] = useState(false);
 
+    const { user } = useAuth()
     const form = useForm<SellVehicleFormValues>({
         resolver: zodResolver(sellVehicleSchema),
         defaultValues: {
@@ -54,11 +55,12 @@ export function SellVehicleDialog({
 
     const onSubmit = async (values: SellVehicleFormValues) => {
         try {
+            const batch = writeBatch(db)
             const salesRef = doc(db, "salesDetails", vehicle.id)
             const vehicleRef = doc(db, "vehicles", vehicle.id)
 
-            // Update salesDetails document
-            await setDoc(salesRef, {
+            // 1️⃣ Update salesDetails document
+            batch.set(salesRef, {
                 salesDate: values.salesDate,
                 salesAmount: values.salesAmount,
                 buyerName: values.buyerName,
@@ -67,17 +69,29 @@ export function SellVehicleDialog({
                 updatedAt: serverTimestamp(),
             }, { merge: true })
 
-            // Update vehicle status
-            await updateDoc(vehicleRef, {
+            // 2️⃣ Update vehicle status
+            batch.update(vehicleRef, {
                 vehicleStatus: "sold",
                 updatedAt: serverTimestamp(),
             })
+
+            // 3️⃣ Add Audit Log
+            const auditLogRef = doc(collection(db, "auditLogs"))
+            batch.set(auditLogRef, {
+                userId: user?.uid,
+                vehicleId: vehicle.id,
+                action: "update",
+                description: `Vehicle ${vehicle.vehicleNo} marked as sold to ${values.buyerName}`,
+                entityStatus: true,
+                createdAt: serverTimestamp(),
+            })
+
+            await batch.commit()
 
             form.reset()
             setOpen(false)
         } catch (error) {
             console.error("Failed to sell vehicle", error)
-            // optional: toast error
         }
     }
 
