@@ -4,22 +4,18 @@ import { signOut } from "firebase/auth";
 import { LogOut, Regex } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { MainSidebarContent } from "@/data/sidebar-items";
 import { getActiveSidebarRoute } from "@/lib/active-route";
 import { auth } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarContent, SidebarHeader } from "../custom/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Separator } from "../ui/separator";
 import {
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -32,7 +28,6 @@ const bodoniModa = Bodoni_Moda({
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const activeRoute = getActiveSidebarRoute(pathname);
   const { username, role } = useAuth();
 
