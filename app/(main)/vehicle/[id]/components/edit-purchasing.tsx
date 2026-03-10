@@ -84,7 +84,7 @@ export default function EditPurchaseDialog({
       const purchaseRef = doc(db, "purchaseDetails", id);
 
       batch.update(purchaseRef, {
-        purchasedDate: formData.purchasedDate,
+        purchasedDate: formData.purchasedDate.toISOString(),
         purchasedAmount: formData.purchasedAmount,
         sellerName: formData.sellerName,
         sellerContact: formData.sellerContact,
