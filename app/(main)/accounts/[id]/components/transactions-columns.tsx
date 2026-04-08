@@ -2,8 +2,6 @@
 
 import type { ColumnDef, FilterFnOption } from "@tanstack/react-table";
 import { MoveDownRight, MoveUpRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { useAllVehiclesContext } from "@/contexts/useAllVehiclesContext";
 import { toDate } from "@/lib/helpers/to-date";
 
 export type Transaction = {
@@ -12,21 +10,9 @@ export type Transaction = {
   description: string;
   amount: number;
   type: "debit" | "credit";
-  vehicleId?: string;
-};
-
-const VehicleCell = ({ vehicleId }: { vehicleId?: string }) => {
-  const { vehicles } = useAllVehiclesContext();
-  if (!vehicleId) return <span className="text-muted-foreground">-</span>;
-
-  const vehicle = vehicles.find((v) => v.id === vehicleId);
-  const vehicleNo = vehicle?.vehicle?.vehicleNo;
-
-  return (
-    <Badge variant="outline" className="font-mono">
-      {vehicleNo || vehicleId}
-    </Badge>
-  );
+  createdAt?: Date;
+  tags?: string[];
+  runningBalance?: number;
 };
 
 export const transactionsColumns: ColumnDef<Transaction>[] = [
@@ -50,16 +36,41 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     accessorKey: "date",
     header: "Date",
     size: 100,
+    sortingFn: (rowA, rowB, columnId) => {
+      const dateA = toDate(rowA.getValue(columnId))?.getTime() || 0;
+      const dateB = toDate(rowB.getValue(columnId))?.getTime() || 0;
+      return dateA - dateB;
+    },
     cell: ({ row }) => {
       const date = toDate(row.getValue("date"));
       return date ? date.toLocaleDateString() : "-";
     },
   },
   {
-    accessorKey: "vehicleId",
-    header: "Vehicle",
-    size: 150,
-    cell: ({ row }) => <VehicleCell vehicleId={row.getValue("vehicleId")} />,
+    accessorKey: "createdAt",
+    header: "Created",
+    sortingFn: (rowA, rowB, columnId) => {
+      const dateA = toDate(rowA.getValue(columnId))?.getTime() || 0;
+      const dateB = toDate(rowB.getValue(columnId))?.getTime() || 0;
+      return dateA - dateB;
+    },
+  },
+  {
+    accessorKey: "tags",
+    header: "Tags",
+    filterFn: (row, id, filterValues: string[]) => {
+      if (!filterValues || filterValues.length === 0) return true;
+
+      const tags = (row.getValue(id) as string[]) || [];
+      const hasRestricted = tags.includes("deleted") || tags.includes("corrected") || tags.includes("reversal");
+      const isActive = !hasRestricted;
+
+      for (const filter of filterValues) {
+        if (filter === "active" && isActive) return true;
+        if (filter !== "active" && tags.includes(filter)) return true;
+      }
+      return false;
+    }
   },
   {
     accessorKey: "description",
@@ -81,5 +92,20 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
       return <span>{formatted}</span>;
     },
     meta: { globalFilter: true },
+  },
+  {
+    accessorKey: "runningBalance",
+    header: "Running Balance",
+    size: 150,
+    enableSorting: false,
+    cell: ({ row }) => {
+      const balance = row.getValue("runningBalance") as number;
+      const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "LKR",
+      }).format(balance || 0);
+
+      return <span className="font-medium">{formatted}</span>;
+    },
   },
 ];
