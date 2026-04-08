@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { TransactionTypeFilterSelect } from "./transaction-type-filter-select";
 import { TransactionsSortPopover } from "./transactions-sort-popover";
+import { TransactionsTagFilter } from "../../../components/logistics/transactions-tag-filter";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -63,7 +64,7 @@ export function TransactionsDataTable<TData, TValue>({
   data,
 }: DataTableProps<TData, TValue>) {
   const [search, setSearch] = useState("");
-  const [sorting, setSorting] = useState([{ id: "date", desc: true }]);
+  const [sorting, setSorting] = useState([{ id: "date", desc: true }, { id: "createdAt", desc: true }]);
   const [columnFilters, setColumnFilters] = useState<
     { id: string; value: any }[]
   >([]);
@@ -75,6 +76,10 @@ export function TransactionsDataTable<TData, TValue>({
       globalFilter: search,
       sorting: sorting,
       columnFilters: columnFilters,
+      columnVisibility: {
+        createdAt: false,
+        tags: false,
+      },
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -93,7 +98,10 @@ export function TransactionsDataTable<TData, TValue>({
       <div className="w-full flex items-center justify-between gap-2 shrink-0">
         <TransactionsSortPopover
           onSortChange={(column, direction) => {
-            setSorting([{ id: column, desc: direction === "desc" }]);
+            setSorting([
+              { id: column, desc: direction === "desc" },
+              { id: "createdAt", desc: true },
+            ]);
           }}
         />
 
@@ -117,6 +125,8 @@ export function TransactionsDataTable<TData, TValue>({
             }
           }}
         />
+
+        <TransactionsTagFilter table={table as unknown as any} />
 
         <Button
           variant="outline"

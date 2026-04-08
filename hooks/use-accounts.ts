@@ -16,6 +16,9 @@ export type Transaction = {
   description: string;
   amount: number;
   type: "debit" | "credit";
+  createdAt?: Date;
+  tags?: string[];
+  runningBalance?: number;
 };
 
 export type Account = {
@@ -24,6 +27,7 @@ export type Account = {
   balance: number;
   transactions: Transaction[];
   createdAt?: Date;
+  initialBalance: number;
 };
 
 export function useAccounts() {
@@ -67,6 +71,7 @@ export function useAccounts() {
               name: data.name || "Unnamed Account",
               balance: data.balance || 0,
               transactions: accountMap.get(id)?.transactions || [],
+              initialBalance: data.initialBalance || 0,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()
@@ -91,8 +96,11 @@ export function useAccounts() {
                     description: t.description || "",
                     amount: t.amount || 0,
                     type: t.type,
+                    tags: t.tags || [],
                     date:
                       t.date instanceof Timestamp ? t.date.toDate() : t.date,
+                    createdAt:
+                      t.createdAt instanceof Timestamp ? t.createdAt.toDate() : t.createdAt,
                   };
                 });
 

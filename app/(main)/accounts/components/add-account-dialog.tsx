@@ -63,6 +63,7 @@ export default function AddAccountDialog() {
       const accountRef = doc(collection(db, "accounts"));
       batch.set(accountRef, {
         name: data.name,
+        initialBalance: data.balance,
         balance: data.balance,
         entityStatus: true,
         createdAt: serverTimestamp(),
