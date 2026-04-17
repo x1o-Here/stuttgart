@@ -27,12 +27,12 @@ export default function Home() {
             debitingAccount: "-",
           });
         }
-        
+
         const existingTx = txMap.get(tx.id)!;
         if (tx.tags && tx.tags.length > 0) {
-            existingTx.tags = Array.from(new Set([...(existingTx.tags || []), ...tx.tags]));
+          existingTx.tags = Array.from(new Set([...(existingTx.tags || []), ...tx.tags]));
         }
-        
+
         if (tx.type === "credit") {
           existingTx.creditingAccount = account.name;
           existingTx.creditingAccountId = account.id;
