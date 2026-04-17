@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { useMemo, useState } from "react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
   ChartLegend,
@@ -16,197 +16,191 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSelectedMonth } from "@/hooks/use-selected-month";
+import { useReportFilter } from "@/contexts/report-filter-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
 
-type DailyData = {
-  date: number;
-  revenue: number;
-  profit: number;
-};
+// indigo-500, emerald-500, rose-500, amber-500, sky-500, violet-500, pink-500, cyan-500
+export const LINE_COLORS = [
+  "#6366f1",
+  "#10b981",
+  "#f43f5e",
+  "#f59e0b",
+  "#0ea5e9",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+];
 
-type MonthlyData = {
-  month: string;
-  year: number;
-  daily: DailyData[];
-};
+export default function ChartComponent() {
+  const { accounts } = useAccountsContext();
+  const {
+    selectedMonthYear,
+    setSelectedMonthYear,
+    selectedAccountId,
+    setSelectedAccountId,
+  } = useReportFilter();
 
-type ChartMetric = "revenue" | "profit";
-
-type ChartComponentProps = {
-  existingData: MonthlyData[];
-};
-
-type MonthlyChartData = {
-  month: string;
-  year: number;
-  revenue: number;
-  profit: number;
-};
-
-export default function ChartComponent({ existingData }: ChartComponentProps) {
-  const { setSelectedMonth } = useSelectedMonth();
-
-  const [selectedYear, setSelectedYear] = useState<number>(
-    new Date().getFullYear(),
-  );
-  const [selectedMetric, setSelectedMetric] = useState<ChartMetric>("revenue");
-  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
-
-  const allMonths = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
-  const years = (() => {
-    if (!existingData || existingData.length === 0)
-      return [new Date().getFullYear()];
-    const minYear = Math.min(...existingData.map((d) => d.year));
-    const maxYear = new Date().getFullYear();
-    return Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
-  })();
-
-  const filteredData = existingData.filter(
-    (data) => data.year === selectedYear,
-  );
-
-  const calculateMonthlyData = (month: string): MonthlyChartData => {
-    const monthData = filteredData.find((data) => data.month === month);
-
-    const monthlyRevenue =
-      monthData?.daily.reduce((acc, day) => acc + day.revenue, 0) ?? 0;
-
-    const monthlyProfit =
-      monthData?.daily.reduce((acc, day) => acc + day.profit, 0) ?? 0;
-
-    return {
-      month,
-      year: selectedYear,
-      revenue: monthlyRevenue,
-      profit: monthlyProfit,
-    };
-  };
-
-  const chartData: MonthlyChartData[] = allMonths.map((month) =>
-    calculateMonthlyData(month),
-  );
-
-  const getDaysInMonth = (month: string, year: number): number => {
-    const monthIndex = allMonths.indexOf(month);
-    return new Date(year, monthIndex + 1, 0).getDate();
-  };
-
-  const getDailyData = (month: string): DailyData[] => {
-    const monthData = filteredData.find((data) => data.month === month);
-    const daysInMonth = getDaysInMonth(month, selectedYear);
-
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const existingDay = monthData?.daily.find((day) => day.date === i + 1);
-
-      return (
-        existingDay ?? {
-          date: i + 1,
-          revenue: 0,
-          profit: 0,
-        }
-      );
+  // Derive unique months from all transactions across all accounts
+  const monthOptions = useMemo(() => {
+    const months = new Set<string>();
+    accounts.forEach((acc) => {
+      acc.transactions.forEach((tx) => {
+        const date = new Date(tx.date);
+        months.add(
+          date.toLocaleString("default", { month: "short", year: "numeric" }),
+        );
+      });
     });
-  };
 
-  const chartConfig: Record<ChartMetric, { label: string; color: string }> = {
-    revenue: {
-      label: "Revenue",
-      color: "#60a5fa",
-    },
-    profit: {
-      label: "Profit",
-      color: "#8884d8",
-    },
-  };
+    // Ensure current month is always an option
+    const now = new Date();
+    months.add(
+      now.toLocaleString("default", { month: "short", year: "numeric" }),
+    );
 
-  const handleBarClick = (payload?: MonthlyChartData) => {
-    if (!payload) return;
+    return Array.from(months).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [accounts]);
 
-    setSelectedMonth(payload.month, payload.year);
+  // Determine which accounts to display
+  const activeAccounts = useMemo(() => {
+    if (selectedAccountId === "all") return accounts;
+    return accounts.filter((acc) => acc.id === selectedAccountId);
+  }, [accounts, selectedAccountId]);
 
-    setExpandedMonth((prev) => (prev === payload.month ? null : payload.month));
-  };
+  // Generate chart configuration dynamically for labels and colors
+  const chartConfig = useMemo(() => {
+    const config: any = {};
+    activeAccounts.forEach((acc, index) => {
+      config[acc.id] = {
+        label: acc.name,
+        color: LINE_COLORS[index % LINE_COLORS.length],
+      };
+    });
+    return config;
+  }, [activeAccounts]);
+
+  // Calculate daily data with multiple account entries
+  const chartData = useMemo(() => {
+    const [monthStr, yearStr] = selectedMonthYear.split(" ");
+    const monthIndex = new Date(`${monthStr} 1, ${yearStr}`).getMonth();
+    const year = parseInt(yearStr);
+
+    const firstDayOfMonth = new Date(year, monthIndex, 1);
+    const lastDayOfMonth = new Date(year, monthIndex + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+
+    // 1️⃣ Initialize data structure for each day
+    const dailyData: any[] = Array.from({ length: daysInMonth }, (_, i) => ({
+      date: i + 1,
+    }));
+
+    // 2️⃣ Calculate for each active account
+    activeAccounts.forEach((acc) => {
+      let currentBalance = acc.initialBalance;
+
+      // Calculate starting balance for the month
+      acc.transactions.forEach((tx) => {
+        const txDate = new Date(tx.date);
+        if (txDate < firstDayOfMonth) {
+          currentBalance += tx.type === "credit" ? tx.amount : -tx.amount;
+        }
+      });
+
+      // Fill in daily balances
+      for (let day = 1; day <= daysInMonth; day++) {
+        acc.transactions.forEach((tx) => {
+          const txDate = new Date(tx.date);
+          if (
+            txDate.getDate() === day &&
+            txDate.getMonth() === monthIndex &&
+            txDate.getFullYear() === year
+          ) {
+            currentBalance += tx.type === "credit" ? tx.amount : -tx.amount;
+          }
+        });
+        dailyData[day - 1][acc.id] = currentBalance;
+      }
+    });
+
+    return dailyData;
+  }, [activeAccounts, selectedMonthYear]);
 
   return (
-    <div className="h-full w-full flex flex-col items-center gap-4">
-      {/* Controls */}
-      <div className="flex flex-row-reverse gap-2">
-        <Select
-          value={selectedMetric}
-          onValueChange={(value) => setSelectedMetric(value as ChartMetric)}
-        >
-          <SelectTrigger className="w-full border border-gray-300 rounded-md">
-            <SelectValue placeholder="Metric" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.keys(chartConfig).map((metric) => (
-              <SelectItem key={metric} value={metric}>
-                {chartConfig[metric as ChartMetric].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="h-full w-full flex flex-col p-6">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-xl font-bold text-zinc-800">Account Balance Trends</h2>
+        <div className="flex gap-3">
+          <Select value={selectedMonthYear} onValueChange={setSelectedMonthYear}>
+            <SelectTrigger className="w-[140px] bg-white border-zinc-200">
+              <SelectValue placeholder="Select month" />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select
-          value={selectedYear.toString()}
-          onValueChange={(value) => setSelectedYear(Number(value))}
-        >
-          <SelectTrigger className="w-full border border-gray-300 rounded-md">
-            <SelectValue placeholder="Year" />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((year) => (
-              <SelectItem key={year} value={year.toString()}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+            <SelectTrigger className="w-[180px] bg-white border-zinc-200">
+              <SelectValue placeholder="Select account" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accounts.map((acc) => (
+                <SelectItem key={acc.id} value={acc.id}>
+                  {acc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Chart */}
-      <ChartContainer config={chartConfig} className="w-full mt-8">
-        <BarChart
-          accessibilityLayer
-          data={expandedMonth ? getDailyData(expandedMonth) : chartData}
-          onClick={(e) =>
-            handleBarClick(e?.activePayload?.[0]?.payload as MonthlyChartData)
-          }
-          className="overflow-visible"
-        >
-          <XAxis
-            dataKey={expandedMonth ? "date" : "month"}
-            tickLine={true}
-            tickMargin={10}
-            axisLine={false}
-            tickFormatter={(value: string | number) =>
-              expandedMonth ? value.toString() : value.toString().slice(0, 3)
-            }
-          />
-          <YAxis tickLine={true} axisLine={false} tickMargin={10} width={120} />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <ChartLegend content={<ChartLegendContent />} />
-          <Bar
-            dataKey={selectedMetric}
-            fill={chartConfig[selectedMetric].color}
-            radius={4}
-          />
-        </BarChart>
-      </ChartContainer>
+      <div className="flex-1 min-h-[400px]">
+        <ChartContainer config={chartConfig} className="h-full w-full">
+          <LineChart
+            data={chartData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+          >
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={10}
+              tick={{ fill: "#6b7280", fontSize: 12 }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={10}
+              tick={{ fill: "#6b7280", fontSize: 12 }}
+              tickFormatter={(value) => `Rs ${value.toLocaleString()}`}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            {activeAccounts.map((acc, index) => (
+              <Line
+                key={acc.id}
+                type="monotone"
+                dataKey={acc.id}
+                stroke={LINE_COLORS[index % LINE_COLORS.length]}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                name={acc.name}
+              />
+            ))}
+          </LineChart>
+        </ChartContainer>
+      </div>
     </div>
   );
 }
