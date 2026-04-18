@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
+  deleteUser,
   GoogleAuthProvider,
   setPersistence,
   signInWithEmailAndPassword,
@@ -34,7 +35,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { auth } from "@/lib/firebase/firebase-client";
+import { auth, db } from "@/lib/firebase/firebase-client";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 const bodoniModa = Bodoni_Moda({
   subsets: ["latin"],
@@ -82,14 +84,34 @@ export default function SignInPage() {
 
   async function handleGoogleSignIn() {
     setIsLoading(true);
+
     try {
-      // Note: Google Sign In usually implies persistent unless explicitly managed otherwise, but we'll stick to default behavior or enforce local persistence for convenience if they choose Google.
-      // Often "Remember Me" is less relevant for OAuth as the provider handles session, but we can try to respect the checkbox if it was checked *before* clicking Google.
-      // However, usually OAuth flows default to local persistence. Let's force local for Google for better UX.
       await setPersistence(auth, browserLocalPersistence);
+
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+
+      const user = result.user;
+
+      // Check if this email exists in your admin-created users collection
+      const q = query(
+        collection(db, "users"),
+        where("email", "==", user.email)
+      );
+
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        // User not created by admin → block access
+        await deleteUser(user);
+        await auth.signOut();
+
+        alert("No account found. Contact admin.");
+        return;
+      }
+
       router.push("/");
+
     } catch (error) {
       console.error("Failed to sign in with Google", error);
     } finally {
