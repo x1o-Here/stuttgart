@@ -113,9 +113,6 @@ export default function AddUserDialog() {
       );
       const authUser = userCredential.user;
 
-      // Immediately sign out from the secondary app to clean up state
-      await signOut(secondaryAuth);
-
       const batch = writeBatch(db);
 
       // 1️⃣ Add user to Firestore
@@ -141,21 +138,28 @@ export default function AddUserDialog() {
 
       await batch.commit();
 
-      console.log(`User created with password: ${password}`); // Log password for development/testing
+      const welcomeTemplate = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
+          <h2 style="color: #333;">Welcome to Stuttgart</h2>
+          <p>Your account has been successfully created. To get started, please set your password using the secure link below:</p>
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="{{resetLink}}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Set My Password</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">This link will expire for your security. If you didn't expect this invitation, you can safely ignore this email.</p>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="color: #999; font-size: 12px;">Stuttgart App Team</p>
+        </div>
+      `;
 
-      // Send email notification using axios
-      await axios.post("/api/send-email", {
+      // 3️⃣ Generate and send a personalized password reset link via custom email
+      await axios.post("/api/users/send-reset-link", {
         email: data.email,
-        subject: "Welcome to Stuttgart App",
-        html: `
-                    <h1>Welcome to Stuttgart App</h1>
-                    <p>Your account has been created successfully.</p>
-                    <p><strong>Username:</strong> ${data.username}</p>
-                    <p><strong>Email:</strong> ${data.email}</p>
-                    <p><strong>Password:</strong> ${password}</p>
-                    <p>Please log in and change your password immediately.</p>
-                `,
+        subject: "Welcome to Stuttgart",
+        htmlTemplate: welcomeTemplate
       });
+
+      // 4️⃣ Clean up secondary auth session
+      await signOut(secondaryAuth);
 
       form.reset();
       setOpen(false);
