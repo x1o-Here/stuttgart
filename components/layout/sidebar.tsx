@@ -12,6 +12,13 @@ import { auth } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarContent, SidebarHeader } from "../custom/ui/sidebar";
 import { Avatar, AvatarFallback } from "../ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Separator } from "../ui/separator";
 import {
   SidebarGroup,
@@ -29,7 +36,7 @@ const bodoniModa = Bodoni_Moda({
 export default function AppSidebar() {
   const pathname = usePathname();
   const activeRoute = getActiveSidebarRoute(pathname);
-  const { username, role } = useAuth();
+  const { username, role, activeCompany, setActiveCompany } = useAuth();
 
   async function handleLogout() {
     try {
@@ -47,16 +54,27 @@ export default function AppSidebar() {
       className="h-full flex flex-col justify-between p-1"
     >
       <div>
-        <SidebarHeader className="flex items-center gap-2">
-          <Regex className="size-7 text-red-500" strokeWidth={1.5} />
-          <span
-            className={cn(
-              bodoniModa.className,
-              "text-3xl text-gray-700 font-light",
-            )}
-          >
-            Stuttgart
-          </span>
+        <SidebarHeader className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 cursor-default">
+            <Regex className="size-7 text-red-500" strokeWidth={1.5} />
+            <span
+              className={cn(
+                bodoniModa.className,
+                "text-3xl text-gray-700 font-light",
+              )}
+            >
+              Stuttgart
+            </span>
+          </div>
+          <Select value={activeCompany} onValueChange={setActiveCompany}>
+            <SelectTrigger className="w-full bg-muted border-none">
+              <SelectValue className="text-sm text-light" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dmk-logistics">DMK Logistics</SelectItem>
+              <SelectItem value="dmk-sales">DMK Sales</SelectItem>
+            </SelectContent>
+          </Select>
         </SidebarHeader>
 
         <SidebarContent className="mt-4">

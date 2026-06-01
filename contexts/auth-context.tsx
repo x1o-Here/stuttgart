@@ -12,6 +12,8 @@ type AuthContextType = {
   username: string | null;
   role: string | null;
   loading: boolean;
+  activeCompany: string;
+  setActiveCompany: (company: string) => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +21,8 @@ const AuthContext = createContext<AuthContextType>({
   username: null,
   role: null,
   loading: true,
+  activeCompany: "dmk-logistics",
+  setActiveCompany: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -26,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeCompany, setActiveCompany] = useState<string>("dmk-logistics");
   const router = useRouter();
 
   useEffect(() => {
@@ -67,7 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, username, role, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        username,
+        role,
+        loading,
+        activeCompany,
+        setActiveCompany,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
