@@ -32,7 +32,7 @@ export function AddTransactionDialog() {
     const [confirmClose, setConfirmClose] = useState(false);
 
     const { accounts } = useAccountsContext();
-    const { user } = useAuth();
+    const { user, activeCompany } = useAuth();
 
     const form = useForm<FormOutput>({
         resolver: zodResolver(formSchema),
@@ -55,7 +55,7 @@ export function AddTransactionDialog() {
             const transactionId = doc(collection(db, "transactions")).id;
 
             const creditTransactionRef = doc(
-                db, "accounts", data.creditingAccount, "transactions", transactionId
+                db, "companies", activeCompany, "accounts", data.creditingAccount, "transactions", transactionId
             );
 
             batch.set(creditTransactionRef, {
@@ -67,7 +67,7 @@ export function AddTransactionDialog() {
             })
 
             const debitTransactionRef = doc(
-                db, "accounts", data.debitingAccount, "transactions", transactionId
+                db, "companies", activeCompany, "accounts", data.debitingAccount, "transactions", transactionId
             );
 
             batch.set(debitTransactionRef, {
@@ -79,12 +79,12 @@ export function AddTransactionDialog() {
             })
 
             // Accounts
-            const creditAccountRef = doc(db, "accounts", data.creditingAccount);
+            const creditAccountRef = doc(db, "companies", activeCompany, "accounts", data.creditingAccount);
             batch.update(creditAccountRef, {
                 balance: increment(data.amount),
             })
 
-            const debitAccountRef = doc(db, "accounts", data.debitingAccount);
+            const debitAccountRef = doc(db, "companies", activeCompany, "accounts", data.debitingAccount);
             batch.update(debitAccountRef, {
                 balance: increment(-data.amount),
             });
@@ -96,6 +96,7 @@ export function AddTransactionDialog() {
                 transactionId: transactionId,
                 action: "create",
                 description: `Transaction added`,
+                companyId: activeCompany,
                 entityStatus: true,
                 createdAt: serverTimestamp(),
             });

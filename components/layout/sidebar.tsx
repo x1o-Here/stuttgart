@@ -36,7 +36,8 @@ const bodoniModa = Bodoni_Moda({
 export default function AppSidebar() {
   const pathname = usePathname();
   const activeRoute = getActiveSidebarRoute(pathname);
-  const { username, role, activeCompany, setActiveCompany } = useAuth();
+  const { username, role, companies, activeCompany, setActiveCompany } =
+    useAuth();
 
   async function handleLogout() {
     try {
@@ -66,15 +67,20 @@ export default function AppSidebar() {
               Stuttgart
             </span>
           </div>
-          <Select value={activeCompany} onValueChange={setActiveCompany}>
-            <SelectTrigger className="w-full bg-muted border-none">
-              <SelectValue className="text-sm text-light" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dmk-logistics">DMK Logistics</SelectItem>
-              <SelectItem value="dmk-sales">DMK Sales</SelectItem>
-            </SelectContent>
-          </Select>
+          {companies.length > 1 && (
+            <Select value={activeCompany} onValueChange={setActiveCompany}>
+              <SelectTrigger className="w-full bg-muted border-none">
+                <SelectValue className="text-sm text-light" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </SidebarHeader>
 
         <SidebarContent className="mt-4">
