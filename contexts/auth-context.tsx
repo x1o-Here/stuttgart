@@ -4,13 +4,50 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { auth, db } from "@/lib/firebase/firebase-client";
 
 export type Company = {
   id: string;
   name: string;
 };
+
+function getActiveCompanyStorageKey(uid: string) {
+  return `stuttgart:activeCompany:${uid}`;
+}
+
+function getStoredActiveCompany(uid: string): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(getActiveCompanyStorageKey(uid));
+}
+
+function storeActiveCompany(uid: string, companyId: string) {
+  localStorage.setItem(getActiveCompanyStorageKey(uid), companyId);
+}
+
+function resolveActiveCompany(
+  uid: string,
+  userCompanies: Company[],
+): string {
+  if (userCompanies.length === 0) return "";
+
+  const storedCompanyId = getStoredActiveCompany(uid);
+  const accessibleCompanyIds = userCompanies.map((company) => company.id);
+
+  if (storedCompanyId && accessibleCompanyIds.includes(storedCompanyId)) {
+    return storedCompanyId;
+  }
+
+  const defaultCompanyId = userCompanies[0].id;
+  storeActiveCompany(uid, defaultCompanyId);
+  return defaultCompanyId;
+}
 
 type AuthContextType = {
   user: User | null;
@@ -38,8 +75,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCompany, setActiveCompany] = useState<string>("");
+  const [activeCompany, setActiveCompanyState] = useState<string>("");
   const router = useRouter();
+
+  const setActiveCompany = useCallback(
+    (companyId: string) => {
+      setActiveCompanyState(companyId);
+      if (user?.uid) {
+        storeActiveCompany(user.uid, companyId);
+      }
+    },
+    [user?.uid],
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -58,18 +105,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             const companyDocs = await getDocs(query(collection(db, "companies"), where("id", "in", companyIds)));
             
-            const userCompanies: Company[] = companyDocs
-              .docs.filter((companyDoc) => companyDoc.exists())
+            const userCompanies: Company[] = companyDocs.docs
+              .filter((companyDoc) => companyDoc.exists())
               .map((companyDoc) => ({
                 id: companyDoc.id,
-                companyId: companyDoc.data().id,
-                name: companyDoc.data().name,
+                name: companyDoc.data().name as string,
               }));
 
             setCompanies(userCompanies);
-            if (userCompanies.length > 0) {
-              setActiveCompany(userCompanies[0].id);
-            }
+            setActiveCompanyState(resolveActiveCompany(user.uid, userCompanies));
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -79,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUsername(null);
         setRole(null);
         setCompanies([]);
-        setActiveCompany("");
+        setActiveCompanyState("");
         router.push("/sign-in");
       }
       setLoading(false);

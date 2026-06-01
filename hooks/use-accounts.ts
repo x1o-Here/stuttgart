@@ -41,6 +41,13 @@ export function useAccounts() {
   const transactionUnsubs = useRef<Record<string, () => void>>({});
 
   useEffect(() => {
+    if (!activeCompany) {
+      setAccounts([]);
+      setLoading(true);
+      return;
+    }
+
+    setAccounts([]);
     setLoading(true);
     setError(null);
 
@@ -131,7 +138,7 @@ export function useAccounts() {
       Object.values(transactionUnsubs.current).forEach((unsub) => unsub());
       transactionUnsubs.current = {};
     };
-  }, []);
+  }, [activeCompany]);
 
   return { accounts, loading, error };
 }

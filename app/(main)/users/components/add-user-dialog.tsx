@@ -12,15 +12,26 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +50,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -47,14 +63,108 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),
   email: z.string().min(1, "Email is required").email("Invalid email address"),
+  companies: z.array(z.string()).min(1, "Companies are required"),
   role: z.string().min(1, "Role is required"),
 });
 
 type FormOutput = z.infer<typeof formSchema>;
+
+type CompanyOption = {
+  id: string;
+  name: string;
+};
+
+function getCompanyName(companyOptions: CompanyOption[], companyId: string) {
+  return (
+    companyOptions.find((company) => company.id === companyId)?.name ?? companyId
+  );
+}
+
+function CompanyMultiSelect({
+  value,
+  onChange,
+  options,
+  loading,
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+  options: CompanyOption[];
+  loading?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  function toggleCompany(companyId: string) {
+    onChange(
+      value.includes(companyId)
+        ? value.filter((id) => id !== companyId)
+        : [...value, companyId],
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={loading}
+          className={cn(
+            "w-full min-w-72 justify-between font-normal",
+            value.length === 0 && "text-muted-foreground",
+          )}
+        >
+          <span className="flex flex-1 flex-wrap gap-1 truncate text-left">
+            {loading ? (
+              "Loading companies..."
+            ) : value.length === 0 ? (
+              "Select companies"
+            ) : (
+              value.map((companyId) => (
+                <Badge key={companyId} variant="secondary">
+                  {getCompanyName(options, companyId)}
+                </Badge>
+              ))
+            )}
+          </span>
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="z-[100] w-[var(--radix-popover-trigger-width)] p-0"
+        align="start"
+      >
+        <Command>
+          <CommandList>
+            <CommandEmpty>No companies found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((company) => {
+                const isSelected = value.includes(company.id);
+
+                return (
+                  <CommandItem
+                    key={company.id}
+                    value={company.name}
+                    onSelect={() => toggleCompany(company.id)}
+                  >
+                    <span className="flex-1">{company.name}</span>
+                    {isSelected ? <Check className="size-4 opacity-60" /> : null}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function generateRandomPassword() {
   const length = 10;
@@ -70,12 +180,39 @@ function generateRandomPassword() {
 export default function AddUserDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const { user: currentUser } = useAuth();
+
+  useEffect(() => {
+    if (!open) return;
+
+    async function fetchCompanies() {
+      setCompaniesLoading(true);
+      try {
+        const companySnapshot = await getDocs(collection(db, "companies"));
+        setCompanyOptions(
+          companySnapshot.docs.map((companyDoc) => ({
+            id: (companyDoc.data().id as string) ?? companyDoc.id,
+            name: (companyDoc.data().name as string) ?? companyDoc.id,
+          })),
+        );
+      } catch (error) {
+        console.error("Failed to fetch companies:", error);
+        setCompanyOptions([]);
+      } finally {
+        setCompaniesLoading(false);
+      }
+    }
+
+    fetchCompanies();
+  }, [open]);
 
   const form = useForm<FormOutput>({
     defaultValues: {
       username: "",
       email: "",
+      companies: [],
       role: "user",
     },
     resolver: zodResolver(formSchema),
@@ -121,6 +258,7 @@ export default function AddUserDialog() {
         username: data.username,
         email: data.email,
         role: data.role,
+        companies: data.companies,
         firstSignIn: true,
         entityStatus: true,
         createdAt: serverTimestamp(),
@@ -240,6 +378,25 @@ export default function AddUserDialog() {
                             placeholder="user@example.com"
                             className="w-full px-3 py-2 border border-gray-300 rounded-md"
                             {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="companies"
+                    render={({ field }) => (
+                      <FormItem className="grid grid-cols-3 gap-x-4">
+                        <FormLabel>Companies</FormLabel>
+                        <FormControl className="col-span-2">
+                          <CompanyMultiSelect
+                            value={field.value}
+                            onChange={field.onChange}
+                            options={companyOptions}
+                            loading={companiesLoading}
                           />
                         </FormControl>
                         <FormMessage />
