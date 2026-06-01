@@ -38,7 +38,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
 
     const { accounts } = useAccountsContext();
-    const { user } = useAuth();
+    const { user, activeCompany } = useAuth();
 
     const form = useForm<FormOutput>({
         resolver: zodResolver(formSchema),
@@ -69,7 +69,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
 
                 // 1. Provide reversal transactions to cancel the old ones
                 if (transaction.creditingAccountId) {
-                    const revDebitTxRef = doc(db, "accounts", transaction.creditingAccountId, "transactions", reversalTxId);
+                    const revDebitTxRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId, "transactions", reversalTxId);
                     batch.set(revDebitTxRef, {
                         date: data.date,
                         amount: transaction.amount,
@@ -80,10 +80,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                         updatedAt: serverTimestamp(),
                     });
 
-                    const oldCreditAccountRef = doc(db, "accounts", transaction.creditingAccountId);
+                    const oldCreditAccountRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId);
                     batch.update(oldCreditAccountRef, { balance: increment(-transaction.amount) });
 
-                    const oldCreditTxRef = doc(db, "accounts", transaction.creditingAccountId, "transactions", transactionId);
+                    const oldCreditTxRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId, "transactions", transactionId);
                     batch.update(oldCreditTxRef, {
                         tags: arrayUnion("corrected"),
                         updatedAt: serverTimestamp()
@@ -91,7 +91,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 }
 
                 if (transaction.debitingAccountId) {
-                    const revCreditTxRef = doc(db, "accounts", transaction.debitingAccountId, "transactions", reversalTxId);
+                    const revCreditTxRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId, "transactions", reversalTxId);
                     batch.set(revCreditTxRef, {
                         date: data.date,
                         amount: transaction.amount,
@@ -102,10 +102,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                         updatedAt: serverTimestamp(),
                     });
 
-                    const oldDebitAccountRef = doc(db, "accounts", transaction.debitingAccountId);
+                    const oldDebitAccountRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId);
                     batch.update(oldDebitAccountRef, { balance: increment(transaction.amount) });
 
-                    const oldDebitTxRef = doc(db, "accounts", transaction.debitingAccountId, "transactions", transactionId);
+                    const oldDebitTxRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId, "transactions", transactionId);
                     batch.update(oldDebitTxRef, {
                         tags: arrayUnion("corrected"),
                         updatedAt: serverTimestamp()
@@ -113,7 +113,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 }
 
                 // 2. Add the actual new transactions
-                const newCreditTxRef = doc(db, "accounts", data.creditingAccount, "transactions", newTxId);
+                const newCreditTxRef = doc(db, "companies", activeCompany, "accounts", data.creditingAccount, "transactions", newTxId);
                 batch.set(newCreditTxRef, {
                     date: data.date,
                     amount: data.amount,
@@ -123,10 +123,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                     updatedAt: serverTimestamp(),
                 });
 
-                const newCreditAccountRef = doc(db, "accounts", data.creditingAccount);
+                const newCreditAccountRef = doc(db, "companies", activeCompany, "accounts", data.creditingAccount);
                 batch.update(newCreditAccountRef, { balance: increment(data.amount) });
 
-                const newDebitTxRef = doc(db, "accounts", data.debitingAccount, "transactions", newTxId);
+                const newDebitTxRef = doc(db, "companies", activeCompany, "accounts", data.debitingAccount, "transactions", newTxId);
                 batch.set(newDebitTxRef, {
                     date: data.date,
                     amount: data.amount,
@@ -136,7 +136,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                     updatedAt: serverTimestamp(),
                 });
 
-                const newDebitAccountRef = doc(db, "accounts", data.debitingAccount);
+                const newDebitAccountRef = doc(db, "companies", activeCompany, "accounts", data.debitingAccount);
                 batch.update(newDebitAccountRef, { balance: increment(-data.amount) });
 
                 // Audit log for the edits
@@ -146,6 +146,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                     transactionId: newTxId,
                     action: "update-with-reversal",
                     description: `Transaction reversed and updated`,
+                    companyId: activeCompany,
                     entityStatus: true,
                     createdAt: serverTimestamp(),
                 });
@@ -153,7 +154,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             } else {
                 // If only dates or description changed, no reversal needed
                 if (transaction.creditingAccountId) {
-                    const creditTxRef = doc(db, "accounts", transaction.creditingAccountId, "transactions", transactionId);
+                    const creditTxRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId, "transactions", transactionId);
                     batch.update(creditTxRef, {
                         date: data.date,
                         description: data.description,
@@ -163,7 +164,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 }
 
                 if (transaction.debitingAccountId) {
-                    const debitTxRef = doc(db, "accounts", transaction.debitingAccountId, "transactions", transactionId);
+                    const debitTxRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId, "transactions", transactionId);
                     batch.update(debitTxRef, {
                         date: data.date,
                         description: data.description,
@@ -179,6 +180,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                     transactionId: transactionId,
                     action: "update-metadata",
                     description: `Transaction description or date updated`,
+                    companyId: activeCompany,
                     entityStatus: true,
                     createdAt: serverTimestamp(),
                 });
@@ -204,7 +206,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             const reversalTxId = doc(collection(db, "transactions")).id;
 
             if (transaction.creditingAccountId) {
-                const revDebitTxRef = doc(db, "accounts", transaction.creditingAccountId, "transactions", reversalTxId);
+                const revDebitTxRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId, "transactions", reversalTxId);
                 batch.set(revDebitTxRef, {
                     date: transaction.date || new Date(),
                     amount: transaction.amount,
@@ -215,10 +217,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                     updatedAt: serverTimestamp(),
                 });
 
-                const oldCreditAccountRef = doc(db, "accounts", transaction.creditingAccountId);
+                const oldCreditAccountRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId);
                 batch.update(oldCreditAccountRef, { balance: increment(-transaction.amount) });
 
-                const oldCreditTxRef = doc(db, "accounts", transaction.creditingAccountId, "transactions", transactionId);
+                const oldCreditTxRef = doc(db, "companies", activeCompany, "accounts", transaction.creditingAccountId, "transactions", transactionId);
                 batch.update(oldCreditTxRef, {
                     tags: arrayUnion("deleted"),
                     updatedAt: serverTimestamp()
@@ -226,7 +228,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             }
 
             if (transaction.debitingAccountId) {
-                const revCreditTxRef = doc(db, "accounts", transaction.debitingAccountId, "transactions", reversalTxId);
+                const revCreditTxRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId, "transactions", reversalTxId);
                 batch.set(revCreditTxRef, {
                     date: transaction.date || new Date(),
                     amount: transaction.amount,
@@ -237,10 +239,10 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                     updatedAt: serverTimestamp(),
                 });
 
-                const oldDebitAccountRef = doc(db, "accounts", transaction.debitingAccountId);
+                const oldDebitAccountRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId);
                 batch.update(oldDebitAccountRef, { balance: increment(transaction.amount) });
 
-                const oldDebitTxRef = doc(db, "accounts", transaction.debitingAccountId, "transactions", transactionId);
+                const oldDebitTxRef = doc(db, "companies", activeCompany, "accounts", transaction.debitingAccountId, "transactions", transactionId);
                 batch.update(oldDebitTxRef, {
                     tags: arrayUnion("deleted"),
                     updatedAt: serverTimestamp()
@@ -254,6 +256,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                 transactionId: reversalTxId,
                 action: "delete",
                 description: `Transaction deleted and reversed`,
+                companyId: activeCompany,
                 entityStatus: false,
                 createdAt: serverTimestamp(),
             });

@@ -10,6 +10,7 @@ export type UserData = {
   username: string;
   email: string;
   role: string;
+  companies: string[];
   createdAt?: any;
 };
 
@@ -45,6 +46,14 @@ export const columns: ColumnDef<UserData>[] = [
           {role}
         </Badge>
       );
+    },
+  },
+  {
+    accessorKey: "companies",
+    header: "Companies",
+    cell: ({ row }) => {
+      const companies = row.getValue("companies") as string[];
+      return <span className="font-light italic text-muted-foreground">{companies.join(", ")}</span>;
     },
   },
   {

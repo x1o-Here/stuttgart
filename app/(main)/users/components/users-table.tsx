@@ -25,6 +25,7 @@ export default function UsersTable() {
             username: data.username || "N/A",
             email: data.email || "N/A",
             role: data.role || "user",
+            companies: data.companies || [],
             createdAt: data.createdAt,
           });
         });
