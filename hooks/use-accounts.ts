@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { db } from "@/lib/firebase/firebase-client";
+import { useAuth } from "@/contexts/auth-context";
 
 export type Transaction = {
   id: string;
@@ -34,16 +35,24 @@ export function useAccounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { activeCompany } = useAuth();
 
   // Keep transaction unsubscribers per account
   const transactionUnsubs = useRef<Record<string, () => void>>({});
 
   useEffect(() => {
+    if (!activeCompany) {
+      setAccounts([]);
+      setLoading(true);
+      return;
+    }
+
+    setAccounts([]);
     setLoading(true);
     setError(null);
 
     const accountsQuery = query(
-      collection(db, "accounts"),
+      collection(db, "companies", activeCompany, "accounts"),
       orderBy("createdAt", "desc"),
     );
 
@@ -83,7 +92,7 @@ export function useAccounts() {
             // 🔁 Attach transaction listener once per account
             if (!transactionUnsubs.current[id]) {
               const txQuery = query(
-                collection(db, "accounts", id, "transactions"),
+                collection(db, "companies", activeCompany, "accounts", id, "transactions"),
                 orderBy("date", "desc"),
               );
 
@@ -129,7 +138,7 @@ export function useAccounts() {
       Object.values(transactionUnsubs.current).forEach((unsub) => unsub());
       transactionUnsubs.current = {};
     };
-  }, []);
+  }, [activeCompany]);
 
   return { accounts, loading, error };
 }

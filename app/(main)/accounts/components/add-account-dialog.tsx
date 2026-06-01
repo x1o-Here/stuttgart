@@ -43,7 +43,7 @@ type FormOutput = z.infer<typeof formSchema>;
 export default function AddAccountDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const { user } = useAuth();
+  const { user, activeCompany } = useAuth();
 
   const form = useForm<FormOutput>({
     defaultValues: {
@@ -60,7 +60,7 @@ export default function AddAccountDialog() {
       const batch = writeBatch(db);
 
       // 1️⃣ Add account
-      const accountRef = doc(collection(db, "accounts"));
+      const accountRef = doc(collection(db, "companies", activeCompany, "accounts"));
       batch.set(accountRef, {
         name: data.name,
         initialBalance: data.balance,
@@ -75,6 +75,7 @@ export default function AddAccountDialog() {
         userId: user?.uid,
         action: "create",
         description: `Account created: ${data.name}`,
+        companyId: activeCompany,
         entityStatus: true,
         createdAt: serverTimestamp(),
       });
