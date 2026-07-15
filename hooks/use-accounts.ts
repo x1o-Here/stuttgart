@@ -25,6 +25,7 @@ export type Transaction = {
 export type Account = {
   id: string;
   name: string;
+  accountType?: string;
   balance: number;
   transactions: Transaction[];
   createdAt?: Date;
@@ -78,6 +79,7 @@ export function useAccounts() {
             const account: Account = {
               id,
               name: data.name || "Unnamed Account",
+              accountType: data.accountType,
               balance: data.balance || 0,
               transactions: accountMap.get(id)?.transactions || [],
               initialBalance: data.initialBalance || 0,

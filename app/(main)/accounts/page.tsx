@@ -17,11 +17,11 @@ export default function AccountsPage() {
           <AddAccountDialog />
         </div>
 
-        <div className="grid grid-cols-3 gap-8">
+        <div className="grid grid-cols-3 gap-x-6 gap-y-2">
           {accounts.map((account) => (
             <div
               key={account.id}
-              className="mb-2 list-none min-h-32 bg-white rounded shadow"
+              className="mb-2 list-none min-h-32 bg-white rounded-md shadow"
               onClick={() => router.push(`/accounts/${account.id}`)}
             >
               <div className="h-full flex flex-col items-center justify-center rounded-md">
