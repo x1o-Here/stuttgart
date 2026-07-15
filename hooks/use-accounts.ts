@@ -17,6 +17,9 @@ export type Transaction = {
   description: string;
   amount: number;
   type: "debit" | "credit";
+  department: string;
+  vehicle: string;
+  voucher: number;
   createdAt?: Date;
   tags?: string[];
   runningBalance?: number;
@@ -105,6 +108,9 @@ export function useAccounts() {
                     id: tx.id,
                     vehicleId: t.vehicleId,
                     description: t.description || "",
+                    department: t.department || "",
+                    vehicle: t.vehicle || "",
+                    voucher: t.voucherNo || 0,
                     amount: t.amount || 0,
                     type: t.type,
                     tags: t.tags || [],
