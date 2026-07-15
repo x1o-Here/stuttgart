@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import z from "zod";
 import CalendarPopover from "../../vehicle/[id]/components/calendar-popover";
@@ -16,10 +16,16 @@ import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { collection, doc, increment, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase-client";
 import { useAuth } from "@/contexts/auth-context";
+import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
+import { useLookupStore } from "@/stores/use-lookup-store";
 
 const formSchema = z.object({
     date: z.date(),
     description: z.string().min(1, "Description is required"),
+    department: z.string().min(1, "Department is required"),
+    vehicle: z.string().optional(),
+    voucherNo: z.number().min(0, "Voucher number must be positive"),
     creditingAccount: z.string().min(1, "Crediting Account is required"),
     debitingAccount: z.string().min(1, "Debitng Account is required"),
     amount: z.number().min(0, "Amount must be positive"),
@@ -33,6 +39,10 @@ export function AddTransactionDialog() {
 
     const { accounts } = useAccountsContext();
     const { user, activeCompany } = useAuth();
+    const router = useRouter();
+
+    const departments = useLookupStore((state) => state.departments);
+    const vehicles = useLookupStore((state) => state.vehicles);
 
     const form = useForm<FormOutput>({
         resolver: zodResolver(formSchema),
@@ -42,6 +52,9 @@ export function AddTransactionDialog() {
             creditingAccount: "",
             debitingAccount: "",
             amount: 0,
+            department: "",
+            voucherNo: 0,
+            vehicle: "",
         },
         mode: "onSubmit",
         reValidateMode: "onSubmit",
@@ -62,6 +75,9 @@ export function AddTransactionDialog() {
                 date: data.date,
                 amount: data.amount,
                 type: "credit",
+                department: data.department,
+                vehicle: data.vehicle,
+                voucherNo: data.voucherNo,
                 description: data.description,
                 createdAt: serverTimestamp(),
             })
@@ -74,6 +90,9 @@ export function AddTransactionDialog() {
                 date: data.date,
                 amount: data.amount,
                 type: "debit",
+                department: data.department,
+                vehicle: data.vehicle,
+                voucherNo: data.voucherNo,
                 description: data.description,
                 createdAt: serverTimestamp(),
             })
@@ -173,10 +192,114 @@ export function AddTransactionDialog() {
                             />
 
                             <Controller
-                                name="debitingAccount"
+                                name="department"
                                 control={form.control}
                                 render={({ field, fieldState }) => (
                                     <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel htmlFor="department">Department</FieldLabel>
+                                        <Select
+                                            onValueChange={(value) => {
+                                                if (value === "__new__") {
+                                                    router.push("/settings/departments");
+                                                    return;
+                                                }
+
+                                                field.onChange(value);
+                                            }}
+                                            defaultValue={field.value}
+                                            value={field.value}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select an department" />
+                                            </SelectTrigger>
+                                            <SelectContent
+                                                position="popper"
+                                                side="bottom"
+                                            >
+                                                {departments.map((department) => (
+                                                    <SelectItem key={department.id} value={department.name}>
+                                                        {department.name}
+                                                    </SelectItem>
+                                                ))}
+                                                <SelectItem value="__new__">
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Create new department
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                                    </Field>
+                                )}
+                            />
+
+                            <Controller
+                                name="vehicle"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
+                                    <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel htmlFor="vehicle">Vehicle</FieldLabel>
+                                        <Select
+                                            onValueChange={(value) => {
+                                                if (value === "__new__") {
+                                                    router.push("/settings/vehicles");
+                                                    return;
+                                                }
+
+                                                field.onChange(value);
+                                            }}
+                                            defaultValue={field.value}
+                                            value={field.value}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select an vehicle" />
+                                            </SelectTrigger>
+                                            <SelectContent
+                                                position="popper"
+                                                side="bottom"
+                                            >
+                                                {vehicles.map((vehicle) => (
+                                                    <SelectItem key={vehicle.id} value={vehicle.name}>
+                                                        {vehicle.name}
+                                                    </SelectItem>
+                                                ))}
+                                                <SelectItem value="__new__">
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Create new vehicle
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                                    </Field>
+                                )}
+                            />
+
+                            <Controller
+                                name="voucherNo"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
+                                    <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel htmlFor="voucherNo">Voucher No</FieldLabel>
+                                        <Input
+                                            id="voucherNo"
+                                            type="number"
+                                            {...field}
+                                            onChange={(e) =>
+                                                field.onChange(Number(e.target.value))
+                                            }
+                                            placeholder="Voucher No"
+                                        />
+                                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                                    </Field>
+                                )}
+                            />
+
+                            <Separator className="col-span-2" />
+
+                            <Controller
+                                name="debitingAccount"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
+                                    <Field className="col-start-1" data-invalid={fieldState.invalid}>
                                         <FieldLabel htmlFor="debitingAccount">Debitng Account</FieldLabel>
                                         <Select
                                             name={field.name}
