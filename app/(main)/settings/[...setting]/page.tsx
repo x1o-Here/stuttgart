@@ -45,16 +45,11 @@ export default function SettingPage({ params }: PageProps) {
     const router = useRouter();
     const resolvedParams = use(params);
     const settingSlug = resolvedParams?.setting?.[0];
+    const { activeCompany, user } = useAuth();
 
-    const { user, activeCompany } = useAuth();
     const store = useLookupStore();
 
     const config = SETTING_MAP[settingSlug];
-
-    useEffect(() => {
-        if (!activeCompany || !user) return;
-        return store.subscribeAll(activeCompany, user.uid);
-    }, [activeCompany, user, store]);
 
     const columns = useMemo(() => {
         if (!config) return [];

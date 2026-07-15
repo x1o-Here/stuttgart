@@ -113,6 +113,8 @@ export const useLookupStore = create<LookupState>((set) => ({
             return onSnapshot(
                 q,
                 (snapshot) => {
+                    console.log('LOOKUP UPDATE', key, snapshot.docs.map((x) => x.data()))
+
                     const items = snapshot.docs.map(mapDoc);
                     set((state) => ({
                         [stateKey[key]]: items,

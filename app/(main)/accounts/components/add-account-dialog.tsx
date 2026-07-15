@@ -49,13 +49,8 @@ export default function AddAccountDialog() {
   const [confirmClose, setConfirmClose] = useState(false);
   const router = useRouter();
   const { user, activeCompany } = useAuth();
-  const store = useLookupStore();
-  const { accountTypes } = store;
 
-  useEffect(() => {
-    if (!activeCompany || !user) return;
-    return store.subscribeAll(activeCompany, user.uid);
-  }, [activeCompany, user, store]);
+  const accountTypes = useLookupStore((state) => state.accountTypes);
 
   const form = useForm<FormOutput>({
     defaultValues: {
