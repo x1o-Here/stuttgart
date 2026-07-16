@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowLeft, CircleX } from "lucide-react";
+import { ArrowLeft, CircleX, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -26,17 +31,35 @@ import { TransactionTypeFilterSelect } from "@/app/(main)/accounts/[id]/componen
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useCustomReport } from "@/hooks/use-custom-reports";
 
+const TAG_OPTIONS = ["active", "deleted", "corrected", "reversal"] as const;
+
+function matchesTagFilter(tags: string[] | undefined, selectedTags: string[]) {
+  if (!selectedTags.length) return true;
+
+  const safeTags = tags || [];
+  const hasRestricted =
+    safeTags.includes("deleted") ||
+    safeTags.includes("corrected") ||
+    safeTags.includes("reversal");
+  const isActive = !hasRestricted;
+
+  return selectedTags.some((filter) => {
+    if (filter === "active") return isActive;
+    return safeTags.includes(filter);
+  });
+}
+
 export default function CustomReportPage() {
   const params = useParams();
   const reportId = typeof params.id === "string" ? params.id : undefined;
   const { report, loading, error } = useCustomReport(reportId);
   const { accounts } = useAccountsContext();
 
-  const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [vehicleFilter, setVehicleFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState<string[]>(["active"]);
 
   const periodBounds = useMemo(() => {
     if (!report) return { fromTime: undefined, toTime: undefined };
@@ -110,6 +133,7 @@ export default function CustomReportPage() {
             department: tx.department,
             vehicle: tx.vehicle,
             voucher: tx.voucher,
+            tags: tx.tags || [],
           })),
       )
       .sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -136,48 +160,44 @@ export default function CustomReportPage() {
   }, [transactionSummaries]);
 
   const filteredTransactions = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
     return transactionSummaries.filter((tx) => {
       if (accountFilter !== "all" && tx.accountId !== accountFilter) return false;
       if (typeFilter !== "all" && tx.type !== typeFilter) return false;
       if (departmentFilter !== "all" && tx.department !== departmentFilter) return false;
       if (vehicleFilter !== "all" && tx.vehicle !== vehicleFilter) return false;
-
-      if (!query) return true;
-
-      return (
-        tx.description?.toLowerCase().includes(query) ||
-        tx.accountName.toLowerCase().includes(query) ||
-        tx.department?.toLowerCase().includes(query) ||
-        tx.vehicle?.toLowerCase().includes(query) ||
-        String(tx.voucher ?? "").includes(query) ||
-        String(tx.amount).includes(query) ||
-        tx.date.toLocaleDateString().toLowerCase().includes(query)
-      );
+      if (!matchesTagFilter(tx.tags, tagFilter)) return false;
+      return true;
     });
   }, [
     transactionSummaries,
-    search,
     accountFilter,
     typeFilter,
     departmentFilter,
     vehicleFilter,
+    tagFilter,
   ]);
 
   const hasActiveFilters =
-    search.trim() !== "" ||
     accountFilter !== "all" ||
     typeFilter !== "all" ||
     departmentFilter !== "all" ||
-    vehicleFilter !== "all";
+    vehicleFilter !== "all" ||
+    tagFilter.length !== 1 ||
+    tagFilter[0] !== "active";
 
   function clearFilters() {
-    setSearch("");
     setAccountFilter("all");
     setTypeFilter("all");
     setDepartmentFilter("all");
     setVehicleFilter("all");
+    setTagFilter(["active"]);
+  }
+
+  let tagButtonLabel = "All";
+  if (tagFilter.length === 1) {
+    tagButtonLabel = tagFilter[0].charAt(0).toUpperCase() + tagFilter[0].slice(1);
+  } else if (tagFilter.length > 1) {
+    tagButtonLabel = "Displaying";
   }
 
   return (
@@ -269,13 +289,6 @@ export default function CustomReportPage() {
 
                 <TabsContent value="transactions" className="mt-4 space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      placeholder="Search description, voucher, amount..."
-                      className="min-w-[220px] flex-1"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-
                     <Select value={accountFilter} onValueChange={setAccountFilter}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Account" />
@@ -322,6 +335,36 @@ export default function CustomReportPage() {
                         ))}
                       </SelectContent>
                     </Select>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="items-center gap-2">
+                          <Filter className="h-4 w-4" />
+                          {tagButtonLabel}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        {TAG_OPTIONS.map((status) => {
+                          const isSelected = tagFilter.includes(status);
+
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={status}
+                              checked={isSelected}
+                              onSelect={(e) => e.preventDefault()}
+                              onCheckedChange={(checked) => {
+                                setTagFilter((current) => {
+                                  if (checked) return [...current, status];
+                                  return current.filter((value) => value !== status);
+                                });
+                              }}
+                            >
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {hasActiveFilters ? (
                       <Button
