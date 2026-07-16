@@ -245,18 +245,21 @@ export function AddTransactionDialog() {
                                                     return;
                                                 }
 
-                                                field.onChange(value);
+                                                field.onChange(value === "__none__" ? "" : value);
                                             }}
                                             defaultValue={field.value}
-                                            value={field.value}
+                                            value={field.value || undefined}
                                         >
                                             <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Select an vehicle" />
+                                                <SelectValue placeholder="Select a vehicle" />
                                             </SelectTrigger>
                                             <SelectContent
                                                 position="popper"
                                                 side="bottom"
                                             >
+                                                <SelectItem value="__none__">
+                                                    No vehicle
+                                                </SelectItem>
                                                 {vehicles.map((vehicle) => (
                                                     <SelectItem key={vehicle.id} value={vehicle.name}>
                                                         {vehicle.name}

@@ -57,7 +57,7 @@ export function DashboardTransactionsTable<TData, TValue>({
     const [sorting, setSorting] = useState([{ id: "date", desc: true }, { id: "createdAt", desc: true }]);
     const [columnFilters, setColumnFilters] = useState<
         { id: string; value: any }[]
-    >([]);
+    >([{ id: "tags", value: ["active"] }]);
     const [pagination, setPagination] = useState({
         pageIndex: 0,
         pageSize: 10,
