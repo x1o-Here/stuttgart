@@ -51,48 +51,54 @@ export default function CashFlowTable() {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-      <div className="border-b border-zinc-100 pb-4 mb-4">
+      <div className="border-b border-zinc-100 pb-4 mb-4 shrink-0">
         <h3 className="font-semibold text-zinc-800">Monthly Cash Flow</h3>
         <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-8"></TableHead>
-              <TableHead>Account</TableHead>
-              <TableHead className="text-right">Debits</TableHead>
-              <TableHead className="text-right">Credits</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cashFlows.map((item, index) => {
-              const isSelected = selectedAccountId === "all" || selectedAccountId === item.id;
-              return (
-                <TableRow 
-                  key={item.id} 
-                  className={`${!isSelected ? "opacity-40 grayscale" : "hover:bg-zinc-50"} transition-all`}
-                  onClick={() => setSelectedAccountId(item.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <TableCell>
-                    <div 
-                      className="w-2.5 h-2.5 rounded-full" 
-                      style={{ backgroundColor: LINE_COLORS[index % LINE_COLORS.length] }}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium text-zinc-700 whitespace-nowrap">{item.name}</TableCell>
-                  <TableCell className="text-right font-mono text-red-600">
-                    {item.debits > 0 ? `-${item.debits.toLocaleString()}` : "0"}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-emerald-600">
-                    {item.credits > 0 ? `+${item.credits.toLocaleString()}` : "0"}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="shrink-0">
+          <Table className="table-fixed">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-8"></TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead className="w-24 text-right">Debits</TableHead>
+                <TableHead className="w-24 text-right">Credits</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <Table className="table-fixed">
+            <TableBody>
+              {cashFlows.map((item, index) => {
+                const isSelected = selectedAccountId === "all" || selectedAccountId === item.id;
+                return (
+                  <TableRow
+                    key={item.id}
+                    className={`${!isSelected ? "opacity-40 grayscale" : "hover:bg-zinc-50"} transition-all`}
+                    onClick={() => setSelectedAccountId(item.id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <TableCell className="w-8">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: LINE_COLORS[index % LINE_COLORS.length] }}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium text-zinc-700 whitespace-nowrap">{item.name}</TableCell>
+                    <TableCell className="w-24 text-right font-mono text-red-600">
+                      {item.debits > 0 ? `-${item.debits.toLocaleString()}` : "0"}
+                    </TableCell>
+                    <TableCell className="w-24 text-right font-mono text-emerald-600">
+                      {item.credits > 0 ? `+${item.credits.toLocaleString()}` : "0"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
