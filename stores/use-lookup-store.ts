@@ -25,17 +25,24 @@ export type LookupItem = {
 
 export type CollectionKey = "account-types" | "vehicles" | "departments";
 
+type CompanyLookupCache = {
+  accountTypes: LookupItem[];
+  vehicles: LookupItem[];
+  departments: LookupItem[];
+};
+
 type LookupState = {
+  activeCompanyId: string | null;
   accountTypes: LookupItem[];
   vehicles: LookupItem[];
   departments: LookupItem[];
   loading: Record<CollectionKey, boolean>;
   error: Record<CollectionKey, string | null>;
+  /** In-memory per-company snapshots so switching back doesn't flash empty. */
+  cacheByCompany: Record<string, CompanyLookupCache>;
 
-  // Real-time subscriptions
   subscribeAll: (companyId: string, userId: string) => () => void;
 
-  // Generic CRUD
   createItem: (
     companyId: string,
     userId: string,
@@ -94,27 +101,57 @@ function mapDoc(d: {
   };
 }
 
+const emptyLoading = {
+  "account-types": true,
+  vehicles: true,
+  departments: true,
+} as const;
+
+const emptyError = {
+  "account-types": null,
+  vehicles: null,
+  departments: null,
+} as const;
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useLookupStore = create<LookupState>((set) => ({
+export const useLookupStore = create<LookupState>((set, get) => ({
+  activeCompanyId: null,
   accountTypes: [],
   vehicles: [],
   departments: [],
-  loading: { "account-types": true, vehicles: true, departments: true },
-  error: { "account-types": null, vehicles: null, departments: null },
+  loading: { ...emptyLoading },
+  error: { ...emptyError },
+  cacheByCompany: {},
 
-  // ── Subscribe to all three collections in real-time ──────────────────────
   subscribeAll: (companyId, _userId) => {
     const keys: CollectionKey[] = ["account-types", "vehicles", "departments"];
+    const cached = get().cacheByCompany[companyId];
 
-    // Clear previous company data so UI doesn't flash stale lookups
-    set({
-      accountTypes: [],
-      vehicles: [],
-      departments: [],
-      loading: { "account-types": true, vehicles: true, departments: true },
-      error: { "account-types": null, vehicles: null, departments: null },
-    });
+    if (cached) {
+      // Warm hydrate — avoid empty flash; still attach live listeners below.
+      set({
+        activeCompanyId: companyId,
+        accountTypes: cached.accountTypes,
+        vehicles: cached.vehicles,
+        departments: cached.departments,
+        loading: {
+          "account-types": false,
+          vehicles: false,
+          departments: false,
+        },
+        error: { ...emptyError },
+      });
+    } else {
+      set({
+        activeCompanyId: companyId,
+        accountTypes: [],
+        vehicles: [],
+        departments: [],
+        loading: { ...emptyLoading },
+        error: { ...emptyError },
+      });
+    }
 
     const unsubs = keys.map((key) => {
       const q = query(
@@ -126,11 +163,30 @@ export const useLookupStore = create<LookupState>((set) => ({
         q,
         (snapshot) => {
           const items = snapshot.docs.map(mapDoc);
-          set((state) => ({
-            [stateKey[key]]: items,
-            loading: { ...state.loading, [key]: false },
-            error: { ...state.error, [key]: null },
-          }));
+          set((state) => {
+            const nextSlice = { [stateKey[key]]: items } as Pick<
+              LookupState,
+              "accountTypes" | "vehicles" | "departments"
+            >;
+            const prevCache = state.cacheByCompany[companyId] ?? {
+              accountTypes: state.accountTypes,
+              vehicles: state.vehicles,
+              departments: state.departments,
+            };
+            const nextCacheEntry: CompanyLookupCache = {
+              ...prevCache,
+              ...nextSlice,
+            };
+            return {
+              ...nextSlice,
+              loading: { ...state.loading, [key]: false },
+              error: { ...state.error, [key]: null },
+              cacheByCompany: {
+                ...state.cacheByCompany,
+                [companyId]: nextCacheEntry,
+              },
+            };
+          });
         },
         (err) => {
           console.error(`[useLookupStore] Failed to fetch ${key}:`, err);
@@ -145,11 +201,9 @@ export const useLookupStore = create<LookupState>((set) => ({
       );
     });
 
-    // Return a single unsubscribe that tears down all listeners
     return () => unsubs.forEach((u) => u());
   },
 
-  // ── Create ───────────────────────────────────────────────────────────────
   createItem: async (companyId, userId, collectionKey, data) => {
     const batch = writeBatch(db);
 
@@ -175,7 +229,6 @@ export const useLookupStore = create<LookupState>((set) => ({
     await batch.commit();
   },
 
-  // ── Update ───────────────────────────────────────────────────────────────
   updateItem: async (companyId, userId, collectionKey, id, data) => {
     const batch = writeBatch(db);
 
@@ -198,7 +251,6 @@ export const useLookupStore = create<LookupState>((set) => ({
     await batch.commit();
   },
 
-  // ── Delete ───────────────────────────────────────────────────────────────
   deleteItem: async (companyId, userId, collectionKey, id, itemName) => {
     const batch = writeBatch(db);
 

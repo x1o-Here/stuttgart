@@ -106,9 +106,7 @@ export default function AddCustomReportDialog() {
         createdBy: user.uid,
         entityStatus: true,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       });
-
       appendAuditLog(batch, {
         userId: user.uid,
         action: "create",

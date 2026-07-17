@@ -38,14 +38,17 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth-context";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
+import {
+  AccountsLedgerProvider,
+  useAccountsContext,
+} from "@/contexts/useAccountsContext";
 import { useCustomReport } from "@/hooks/use-custom-reports";
 import { db } from "@/lib/firebase/firebase-client";
 import { matchesTagFilter, TAG_OPTIONS } from "@/lib/helpers/transaction-tags";
 import ExportReportDialog from "./components/export-report-dialog";
 import ShareReportDialog from "./components/share-report-dialog";
 
-export default function CustomReportPage() {
+function CustomReportPageContent() {
   const params = useParams();
   const reportId = typeof params.id === "string" ? params.id : undefined;
   const { report, loading, error } = useCustomReport(reportId);
@@ -220,20 +223,33 @@ export default function CustomReportPage() {
   }
 
   async function handleSaveFilters() {
-    if (!activeCompany || !reportId) return;
+    if (!activeCompany || !reportId || !report) return;
+
+    const nextFilters = {
+      accountFilter,
+      typeFilter,
+      departmentFilter,
+      vehicleFilter,
+      tagFilter,
+    };
+    const prev = report.filters;
+    const unchanged =
+      prev &&
+      prev.accountFilter === nextFilters.accountFilter &&
+      prev.typeFilter === nextFilters.typeFilter &&
+      prev.departmentFilter === nextFilters.departmentFilter &&
+      prev.vehicleFilter === nextFilters.vehicleFilter &&
+      JSON.stringify(prev.tagFilter ?? []) ===
+        JSON.stringify(nextFilters.tagFilter);
+
+    if (unchanged) return;
 
     setSaving(true);
     try {
       await updateDoc(
         doc(db, "companies", activeCompany, "reports", reportId),
         {
-          filters: {
-            accountFilter,
-            typeFilter,
-            departmentFilter,
-            vehicleFilter,
-            tagFilter,
-          },
+          filters: nextFilters,
           updatedAt: serverTimestamp(),
         },
       );
@@ -591,5 +607,13 @@ export default function CustomReportPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CustomReportPage() {
+  return (
+    <AccountsLedgerProvider mode="all">
+      <CustomReportPageContent />
+    </AccountsLedgerProvider>
   );
 }

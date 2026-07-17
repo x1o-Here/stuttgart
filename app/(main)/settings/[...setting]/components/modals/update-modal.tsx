@@ -67,18 +67,22 @@ export default function UpdateModal({
 
   async function onSubmit(data: FormSchema) {
     if (!activeCompany || !user || isSubmitting) return;
+
+    const nextShortForm = isVehicle ? "" : (data.shortForm ?? "");
+    if (
+      data.name === initialData.name &&
+      nextShortForm === (initialData.shortForm ?? "")
+    ) {
+      setOpen(false);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      await updateItem(
-        activeCompany,
-        user.uid,
-        collectionKey,
-        initialData.id,
-        {
-          name: data.name,
-          shortForm: isVehicle ? "" : data.shortForm,
-        },
-      );
+      await updateItem(activeCompany, user.uid, collectionKey, initialData.id, {
+        name: data.name,
+        shortForm: nextShortForm,
+      });
       form.reset();
       setOpen(false);
     } catch (error) {

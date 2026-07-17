@@ -1,15 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { LoadingState } from "@/components/shared/loading-state";
+import {
+  AccountsLedgerProvider,
+  useAccountsContext,
+} from "@/contexts/useAccountsContext";
 import {
   type Transaction,
   transactionsColumns,
 } from "./components/logistics/columns";
 import { DashboardTransactionsTable } from "./components/logistics/data-table";
-import { LoadingState } from "@/components/shared/loading-state";
 
-export default function Home() {
+function HomeContent() {
   const { accounts, loading } = useAccountsContext();
 
   const transactionsData = useMemo(() => {
@@ -80,5 +83,13 @@ export default function Home() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <AccountsLedgerProvider mode="all">
+      <HomeContent />
+    </AccountsLedgerProvider>
   );
 }

@@ -111,6 +111,15 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
       const reversalDate = transaction.date || data.date;
       const reversalCreatedAt = Timestamp.fromMillis(Date.now());
       const correctedCreatedAt = Timestamp.fromMillis(Date.now() + 500);
+      const balanceDeltas = new Map<string, number>();
+
+      const addBalanceDelta = (accountId: string | undefined, delta: number) => {
+        if (!accountId) return;
+        balanceDeltas.set(
+          accountId,
+          (balanceDeltas.get(accountId) || 0) + delta,
+        );
+      };
 
       // 1. Reverse the original transaction
       if (transaction.creditingAccountId) {
@@ -133,19 +142,9 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           description: `Reversal: ${transaction.description}`,
           tags: ["reversal"],
           createdAt: reversalCreatedAt,
-          updatedAt: reversalCreatedAt,
         });
 
-        const oldCreditAccountRef = doc(
-          db,
-          "companies",
-          activeCompany,
-          "accounts",
-          transaction.creditingAccountId,
-        );
-        batch.update(oldCreditAccountRef, {
-          balance: increment(-transaction.amount),
-        });
+        addBalanceDelta(transaction.creditingAccountId, -transaction.amount);
 
         const oldCreditTxRef = doc(
           db,
@@ -182,19 +181,9 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           description: `Reversal: ${transaction.description}`,
           tags: ["reversal"],
           createdAt: reversalCreatedAt,
-          updatedAt: reversalCreatedAt,
         });
 
-        const oldDebitAccountRef = doc(
-          db,
-          "companies",
-          activeCompany,
-          "accounts",
-          transaction.debitingAccountId,
-        );
-        batch.update(oldDebitAccountRef, {
-          balance: increment(transaction.amount),
-        });
+        addBalanceDelta(transaction.debitingAccountId, transaction.amount);
 
         const oldDebitTxRef = doc(
           db,
@@ -230,17 +219,9 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
         voucherNo: data.voucherNo,
         description: data.description,
         createdAt: correctedCreatedAt,
-        updatedAt: correctedCreatedAt,
       });
 
-      const newCreditAccountRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "accounts",
-        data.creditingAccount,
-      );
-      batch.update(newCreditAccountRef, { balance: increment(data.amount) });
+      addBalanceDelta(data.creditingAccount, data.amount);
 
       const newDebitTxRef = doc(
         db,
@@ -260,17 +241,18 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
         voucherNo: data.voucherNo,
         description: data.description,
         createdAt: correctedCreatedAt,
-        updatedAt: correctedCreatedAt,
       });
 
-      const newDebitAccountRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "accounts",
-        data.debitingAccount,
-      );
-      batch.update(newDebitAccountRef, { balance: increment(-data.amount) });
+      addBalanceDelta(data.debitingAccount, -data.amount);
+
+      // One balance write per account (coalesced deltas)
+      for (const [accountId, delta] of balanceDeltas) {
+        if (delta === 0) continue;
+        batch.update(
+          doc(db, "companies", activeCompany, "accounts", accountId),
+          { balance: increment(delta) },
+        );
+      }
 
       appendAuditLog(batch, {
         userId: user?.uid,
@@ -329,7 +311,6 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           description: `Reversal: ${transaction.description}`,
           tags: ["reversal"],
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
 
         const oldCreditAccountRef = doc(
@@ -378,7 +359,6 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           description: `Reversal: ${transaction.description}`,
           tags: ["reversal"],
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
 
         const oldDebitAccountRef = doc(

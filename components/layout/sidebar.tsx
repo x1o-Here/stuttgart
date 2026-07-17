@@ -109,10 +109,10 @@ export default function AppSidebar() {
                         )}
                         asChild
                       >
-                        <a href={item.href}>
+                        <Link href={item.href}>
                           <item.icon className="mr-1" />
                           <span>{item.title}</span>
-                        </a>
+                        </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );

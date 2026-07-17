@@ -1,14 +1,7 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -86,11 +79,11 @@ async function fetchAuthProfile(user: User): Promise<AuthProfile> {
 
   let userCompanies: Company[] = [];
   if (companyIds.length > 0) {
-    const companyDocs = await getDocs(
-      query(collection(db, "companies"), where("id", "in", companyIds)),
+    const companySnaps = await Promise.all(
+      companyIds.map((companyId) => getDoc(doc(db, "companies", companyId))),
     );
 
-    userCompanies = companyDocs.docs
+    userCompanies = companySnaps
       .filter((companyDoc) => companyDoc.exists())
       .map((companyDoc) => ({
         id: companyDoc.id,

@@ -10,7 +10,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
 import { useRouter } from "next/navigation";
@@ -101,16 +101,10 @@ export default function SignInPage() {
 
       const user = result.user;
 
-      // Check if this email exists in your admin-created users collection
-      const q = query(
-        collection(db, "users"),
-        where("email", "==", user.email),
-      );
+      // Admin-provisioned users are stored under users/{uid}
+      const userDoc = await getDoc(doc(db, "users", user.uid));
 
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        // User not created by admin → block access
+      if (!userDoc.exists()) {
         await deleteUser(user);
         await auth.signOut();
 

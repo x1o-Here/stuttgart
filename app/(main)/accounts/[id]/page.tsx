@@ -4,17 +4,17 @@ import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Badge } from "@/components/ui/badge";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
+import {
+  AccountsLedgerProvider,
+  useAccountsContext,
+} from "@/contexts/useAccountsContext";
 import { toDate } from "@/lib/helpers/to-date";
 import { transactionsColumns } from "./components/transactions-columns";
 import { TransactionsDataTable } from "./components/transactions-table";
 
-export default function AccountPage() {
-  const params = useParams();
-  const { id } = params;
-
+function AccountPageContent({ accountId }: { accountId: string }) {
   const { accounts, loading } = useAccountsContext();
-  const account = accounts.find((acc) => acc.id === id);
+  const account = accounts.find((acc) => acc.id === accountId);
 
   const transactionsWithRB = useMemo(() => {
     if (!account) return [];
@@ -113,5 +113,24 @@ export default function AccountPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  const params = useParams();
+  const id = typeof params.id === "string" ? params.id : "";
+
+  if (!id) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center">
+        <p className="text-muted-foreground">Account not found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <AccountsLedgerProvider mode={id}>
+      <AccountPageContent accountId={id} />
+    </AccountsLedgerProvider>
   );
 }
