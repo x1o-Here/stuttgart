@@ -10,13 +10,15 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Card,
   CardContent,
@@ -36,7 +38,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { auth, db } from "@/lib/firebase/firebase-client";
-import { collection, getDocs, query, where } from "firebase/firestore";
 
 const bodoniModa = Bodoni_Moda({
   subsets: ["latin"],
@@ -53,7 +54,14 @@ type FormOutput = z.infer<typeof formSchema>;
 
 export default function SignInPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [loading, user, router]);
 
   const form = useForm({
     defaultValues: {
@@ -93,16 +101,10 @@ export default function SignInPage() {
 
       const user = result.user;
 
-      // Check if this email exists in your admin-created users collection
-      const q = query(
-        collection(db, "users"),
-        where("email", "==", user.email)
-      );
+      // Admin-provisioned users are stored under users/{uid}
+      const userDoc = await getDoc(doc(db, "users", user.uid));
 
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        // User not created by admin → block access
+      if (!userDoc.exists()) {
         await deleteUser(user);
         await auth.signOut();
 
@@ -111,7 +113,6 @@ export default function SignInPage() {
       }
 
       router.push("/");
-
     } catch (error) {
       console.error("Failed to sign in with Google", error);
     } finally {

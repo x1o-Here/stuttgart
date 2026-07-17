@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  collection,
-  onSnapshot,
-  orderBy,
-  query,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
-import { db } from "@/lib/firebase/firebase-client";
 import { useAuth } from "@/contexts/auth-context";
+import { db } from "@/lib/firebase/firebase-client";
+import { toDate } from "@/lib/helpers/to-date";
 
 export type Transaction = {
   id: string;
@@ -35,14 +30,31 @@ export type Account = {
   initialBalance: number;
 };
 
-export function useAccounts() {
+function mapTransactionDoc(tx: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): Transaction {
+  const t = tx.data() as Record<string, any>;
+  return {
+    id: tx.id,
+    description: t.description || "",
+    department: t.department || "",
+    vehicle: t.vehicle || "",
+    voucher: t.voucherNo || 0,
+    amount: t.amount || 0,
+    type: t.type,
+    tags: t.tags || [],
+    date: toDate(t.date) || new Date(),
+    createdAt: toDate(t.createdAt),
+  };
+}
+
+/** Accounts collection only — no transaction subcollection listeners. */
+export function useAccountsMeta() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { activeCompany } = useAuth();
-
-  // Keep transaction unsubscribers per account
-  const transactionUnsubs = useRef<Record<string, () => void>>({});
 
   useEffect(() => {
     if (!activeCompany) {
@@ -60,79 +72,23 @@ export function useAccounts() {
       orderBy("createdAt", "desc"),
     );
 
-    const unsubscribeAccounts = onSnapshot(
+    const unsubscribe = onSnapshot(
       accountsQuery,
       (snapshot) => {
-        setAccounts((prev) => {
-          const accountMap = new Map(prev.map((a) => [a.id, a]));
-
-          snapshot.docChanges().forEach((change) => {
-            const id = change.doc.id;
-            const data = change.doc.data() as any;
-
-            if (change.type === "removed") {
-              accountMap.delete(id);
-
-              // cleanup transaction listener
-              transactionUnsubs.current[id]?.();
-              delete transactionUnsubs.current[id];
-              return;
-            }
-
-            const account: Account = {
-              id,
-              name: data.name || "Unnamed Account",
-              accountType: data.accountType,
-              balance: data.balance || 0,
-              transactions: accountMap.get(id)?.transactions || [],
-              initialBalance: data.initialBalance || 0,
-              createdAt:
-                data.createdAt instanceof Timestamp
-                  ? data.createdAt.toDate()
-                  : data.createdAt,
-            };
-
-            accountMap.set(id, account);
-
-            // 🔁 Attach transaction listener once per account
-            if (!transactionUnsubs.current[id]) {
-              const txQuery = query(
-                collection(db, "companies", activeCompany, "accounts", id, "transactions"),
-                orderBy("date", "desc"),
-              );
-
-              transactionUnsubs.current[id] = onSnapshot(txQuery, (txSnap) => {
-                const transactions: Transaction[] = txSnap.docs.map((tx) => {
-                  const t = tx.data() as any;
-                  return {
-                    id: tx.id,
-                    vehicleId: t.vehicleId,
-                    description: t.description || "",
-                    department: t.department || "",
-                    vehicle: t.vehicle || "",
-                    voucher: t.voucherNo || 0,
-                    amount: t.amount || 0,
-                    type: t.type,
-                    tags: t.tags || [],
-                    date:
-                      t.date instanceof Timestamp ? t.date.toDate() : t.date,
-                    createdAt:
-                      t.createdAt instanceof Timestamp ? t.createdAt.toDate() : t.createdAt,
-                  };
-                });
-
-                setAccounts((current) =>
-                  current.map((acc) =>
-                    acc.id === id ? { ...acc, transactions } : acc,
-                  ),
-                );
-              });
-            }
-          });
-
-          setLoading(false);
-          return Array.from(accountMap.values());
+        const next: Account[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as Record<string, any>;
+          return {
+            id: docSnap.id,
+            name: data.name || "Unnamed Account",
+            accountType: data.accountType,
+            balance: data.balance || 0,
+            transactions: [],
+            initialBalance: data.initialBalance || 0,
+            createdAt: toDate(data.createdAt),
+          };
         });
+        setAccounts(next);
+        setLoading(false);
       },
       (err) => {
         console.error("Failed to fetch accounts:", err);
@@ -141,12 +97,108 @@ export function useAccounts() {
       },
     );
 
-    return () => {
-      unsubscribeAccounts();
-      Object.values(transactionUnsubs.current).forEach((unsub) => unsub());
-      transactionUnsubs.current = {};
-    };
+    return unsubscribe;
   }, [activeCompany]);
 
-  return { accounts, loading, error };
+  return { accounts, loading, error, activeCompany };
+}
+
+/**
+ * Live transaction listeners for the given account ids.
+ * Pass a single id for account detail, or all meta account ids for home/reports.
+ */
+export function useAccountTransactionsMap(
+  companyId: string | undefined,
+  accountIds: string[],
+) {
+  const [txByAccount, setTxByAccount] = useState<Record<string, Transaction[]>>(
+    {},
+  );
+  const [loading, setLoading] = useState(true);
+  const unsubsRef = useRef<Record<string, () => void>>({});
+  const accountIdsKey = accountIds.slice().sort().join(",");
+
+  useEffect(() => {
+    if (!companyId || accountIds.length === 0) {
+      Object.values(unsubsRef.current).forEach((u) => u());
+      unsubsRef.current = {};
+      setTxByAccount({});
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const wanted = new Set(accountIds);
+
+    // Tear down listeners for accounts no longer needed
+    for (const id of Object.keys(unsubsRef.current)) {
+      if (!wanted.has(id)) {
+        unsubsRef.current[id]();
+        delete unsubsRef.current[id];
+        setTxByAccount((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }
+    }
+
+    let pendingFirst = accountIds.filter((id) => !unsubsRef.current[id]).length;
+    if (pendingFirst === 0) {
+      setLoading(false);
+    }
+
+    for (const id of accountIds) {
+      if (unsubsRef.current[id]) continue;
+
+      const txQuery = query(
+        collection(db, "companies", companyId, "accounts", id, "transactions"),
+        orderBy("date", "desc"),
+      );
+
+      unsubsRef.current[id] = onSnapshot(
+        txQuery,
+        (txSnap) => {
+          const transactions = txSnap.docs.map((docSnap) =>
+            mapTransactionDoc(docSnap),
+          );
+          setTxByAccount((prev) => ({ ...prev, [id]: transactions }));
+          if (pendingFirst > 0) {
+            pendingFirst -= 1;
+            if (pendingFirst === 0) setLoading(false);
+          }
+        },
+        (err) => {
+          console.error(`Failed to fetch transactions for ${id}:`, err);
+          if (pendingFirst > 0) {
+            pendingFirst -= 1;
+            if (pendingFirst === 0) setLoading(false);
+          }
+        },
+      );
+    }
+
+    return () => {
+      Object.values(unsubsRef.current).forEach((u) => u());
+      unsubsRef.current = {};
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- accountIdsKey captures id set
+  }, [companyId, accountIdsKey]);
+
+  return { txByAccount, loading };
+}
+
+export function mergeAccountsWithTransactions(
+  accounts: Account[],
+  txByAccount: Record<string, Transaction[]>,
+): Account[] {
+  return accounts.map((account) => ({
+    ...account,
+    transactions: txByAccount[account.id] ?? account.transactions,
+  }));
+}
+
+/** @deprecated Prefer useAccountsMeta + AccountsLedgerProvider. */
+export function useAccounts() {
+  return useAccountsMeta();
 }

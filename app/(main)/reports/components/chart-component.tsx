@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { LoadingState } from "@/components/shared/loading-state";
 
 // indigo-500, emerald-500, rose-500, amber-500, sky-500, violet-500, pink-500, cyan-500
 export const LINE_COLORS = [
@@ -32,7 +33,7 @@ export const LINE_COLORS = [
 ];
 
 export default function ChartComponent() {
-  const { accounts } = useAccountsContext();
+  const { accounts, loading } = useAccountsContext();
   const {
     selectedMonthYear,
     setSelectedMonthYear,
@@ -129,12 +130,29 @@ export default function ChartComponent() {
     return dailyData;
   }, [activeAccounts, selectedMonthYear]);
 
+  if (loading) {
+    return (
+      <div className="h-full w-full flex flex-col p-6">
+        <LoadingState
+          message="Loading account trends..."
+          variant="bar"
+          className="my-auto"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full w-full flex flex-col p-6">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-xl font-bold text-zinc-800">Account Balance Trends</h2>
+        <h2 className="text-xl font-bold text-zinc-800">
+          Account Balance Trends
+        </h2>
         <div className="flex gap-3">
-          <Select value={selectedMonthYear} onValueChange={setSelectedMonthYear}>
+          <Select
+            value={selectedMonthYear}
+            onValueChange={setSelectedMonthYear}
+          >
             <SelectTrigger className="w-[140px] bg-white border-zinc-200">
               <SelectValue placeholder="Select month" />
             </SelectTrigger>
@@ -147,7 +165,10 @@ export default function ChartComponent() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+          <Select
+            value={selectedAccountId}
+            onValueChange={setSelectedAccountId}
+          >
             <SelectTrigger className="w-[180px] bg-white border-zinc-200">
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
@@ -169,7 +190,11 @@ export default function ChartComponent() {
             data={chartData}
             margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
           >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid
+              vertical={false}
+              strokeDasharray="3 3"
+              stroke="#e5e7eb"
+            />
             <XAxis
               dataKey="date"
               tickLine={false}

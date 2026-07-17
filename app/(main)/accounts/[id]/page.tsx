@@ -1,19 +1,20 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { useMemo } from "react";
+import { LoadingState } from "@/components/shared/loading-state";
+import { Badge } from "@/components/ui/badge";
+import {
+  AccountsLedgerProvider,
+  useAccountsContext,
+} from "@/contexts/useAccountsContext";
+import { toDate } from "@/lib/helpers/to-date";
 import { transactionsColumns } from "./components/transactions-columns";
 import { TransactionsDataTable } from "./components/transactions-table";
-import { toDate } from "@/lib/helpers/to-date";
-import { Badge } from "@/components/ui/badge";
 
-export default function AccountPage() {
-  const params = useParams();
-  const { id } = params;
-
-  const { accounts } = useAccountsContext();
-  const account = accounts.find((acc) => acc.id === id);
+function AccountPageContent({ accountId }: { accountId: string }) {
+  const { accounts, loading } = useAccountsContext();
+  const account = accounts.find((acc) => acc.id === accountId);
 
   const transactionsWithRB = useMemo(() => {
     if (!account) return [];
@@ -63,17 +64,39 @@ export default function AccountPage() {
     currency: "LKR",
   }).format(account?.balance || 0);
 
-  useEffect(() => {
-    console.log("Account details:", account);
-  }, [account]);
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center font-sans">
+        <div className="w-full min-h-[calc(100vh-2rem)] p-4 bg-zinc-100 rounded-lg">
+          <div className="p-6 bg-white rounded-md">
+            <LoadingState
+              message="Loading account..."
+              variant="skeleton"
+              rows={6}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!account) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center font-sans">
+        <div className="w-full min-h-[calc(100vh-2rem)] p-4 bg-zinc-100 rounded-lg flex items-center justify-center">
+          <p className="text-muted-foreground">Account not found.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 flex items-center justify-center font-sans">
       <div className="w-full min-h-[calc(100vh-2rem)] p-4 bg-zinc-100 rounded-lg flex flex-col">
         <div className="mt-2 p-4 bg-white rounded-md flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-end gap-2">
-            <p className="text-black text-3xl font-semibold">{account?.name}</p>
-            {account?.accountType && (
+            <p className="text-black text-3xl font-semibold">{account.name}</p>
+            {account.accountType && (
               <Badge variant="secondary" className="text-md rounded-md">
                 {account.accountType}
               </Badge>
@@ -90,5 +113,24 @@ export default function AccountPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  const params = useParams();
+  const id = typeof params.id === "string" ? params.id : "";
+
+  if (!id) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center">
+        <p className="text-muted-foreground">Account not found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <AccountsLedgerProvider mode={id}>
+      <AccountPageContent accountId={id} />
+    </AccountsLedgerProvider>
   );
 }

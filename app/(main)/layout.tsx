@@ -1,9 +1,8 @@
 import AppSidebar from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AuthProvider } from "@/contexts/auth-context";
-import { LookupProvider } from "@/contexts/lookup-context";
+import { RequireAuth } from "@/contexts/auth-context";
+import { LookupSubscription } from "@/contexts/lookup-context";
 import { AccountsProvider } from "@/contexts/useAccountsContext";
-import { AllVehiclesProvider } from "@/contexts/useAllVehiclesContext";
 
 export default function MainLayout({
   children,
@@ -11,17 +10,15 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthProvider>
+    <RequireAuth>
       <SidebarProvider className="h-screen w-screen">
-        <AllVehiclesProvider>
-          <AccountsProvider>
-            <LookupProvider>
-              <AppSidebar />
-              <main className="flex-1 overflow-auto">{children}</main>
-            </LookupProvider>
-          </AccountsProvider>
-        </AllVehiclesProvider>
+        <AccountsProvider>
+          <LookupSubscription>
+            <AppSidebar />
+            <main className="flex-1 overflow-auto">{children}</main>
+          </LookupSubscription>
+        </AccountsProvider>
       </SidebarProvider>
-    </AuthProvider>
+    </RequireAuth>
   );
 }

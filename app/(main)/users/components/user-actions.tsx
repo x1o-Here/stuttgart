@@ -1,16 +1,16 @@
 "use client";
 
+import axios from "axios";
+import { KeyRound, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal, KeyRound } from "lucide-react";
-import axios from "axios";
-import { UserData } from "./columns";
+import type { UserData } from "./columns";
 
 interface UserActionsProps {
   user: UserData;
@@ -42,7 +42,7 @@ export function UserActions({ user }: UserActionsProps) {
       await axios.post("/api/users/send-reset-link", {
         email: user.email,
         subject: "Password Reset Request",
-        htmlTemplate: resetTemplate
+        htmlTemplate: resetTemplate,
       });
       alert("Password reset email sent successfully!");
     } catch (error: any) {
