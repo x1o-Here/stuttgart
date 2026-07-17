@@ -34,8 +34,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useAuth } from "@/contexts/auth-context";
+import { appendAuditLog } from "@/lib/firebase/audit-log";
 import { db } from "@/lib/firebase/firebase-client";
-import CalendarPopover from "../../vehicle/[id]/components/calendar-popover";
+import CalendarPopover from "@/components/shared/calendar-popover";
 
 const formSchema = z
   .object({
@@ -106,14 +107,12 @@ export default function AddCustomReportDialog() {
         updatedAt: serverTimestamp(),
       });
 
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
+      appendAuditLog(batch, {
         userId: user.uid,
         action: "create",
         description: `Custom report created: ${data.name.trim()}`,
         companyId: activeCompany,
         entityStatus: true,
-        createdAt: serverTimestamp(),
       });
 
       await batch.commit();

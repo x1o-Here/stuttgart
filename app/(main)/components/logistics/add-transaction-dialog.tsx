@@ -8,12 +8,13 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import z from "zod";
-import CalendarPopover from "../../vehicle/[id]/components/calendar-popover";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { collection, doc, increment, serverTimestamp, writeBatch } from "firebase/firestore";
+import { appendAuditLog } from "@/lib/firebase/audit-log";
 import { db } from "@/lib/firebase/firebase-client";
 import { useAuth } from "@/contexts/auth-context";
 import { Separator } from "@/components/ui/separator";
@@ -109,15 +110,13 @@ export function AddTransactionDialog() {
             });
 
             // Audit Log
-            const auditLogRef = doc(collection(db, "auditLogs"));
-            batch.set(auditLogRef, {
+            appendAuditLog(batch, {
                 userId: user?.uid,
                 transactionId: transactionId,
                 action: "create",
                 description: `Transaction added`,
                 companyId: activeCompany,
                 entityStatus: true,
-                createdAt: serverTimestamp(),
             });
 
             await batch.commit();

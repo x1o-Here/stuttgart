@@ -1,31 +1,13 @@
-import { Timestamp } from "firebase/firestore";
+import { toDate } from "@/lib/helpers/to-date";
 
 export function calculateMonthsSincePurchase(
-  purchasedDateInput: Timestamp | Date | string | null | undefined,
-  endDateInput?: Timestamp | Date | string | null,
+  purchasedDateInput: unknown,
+  endDateInput?: unknown,
 ): number {
-  if (!purchasedDateInput) return 0;
+  const purchasedDate = toDate(purchasedDateInput);
+  if (!purchasedDate) return 0;
 
-  let purchasedDate: Date;
-  let endDate: Date;
-
-  // --- Purchased Date ---
-  if (purchasedDateInput instanceof Timestamp)
-    purchasedDate = purchasedDateInput.toDate();
-  else if (typeof (purchasedDateInput as any)?.toDate === "function")
-    purchasedDate = (purchasedDateInput as any).toDate();
-  else purchasedDate = new Date(purchasedDateInput);
-
-  if (isNaN(purchasedDate.getTime())) return 0;
-
-  // --- End Date (default to now) ---
-  if (!endDateInput) endDate = new Date();
-  else if (endDateInput instanceof Timestamp) endDate = endDateInput.toDate();
-  else if (typeof (endDateInput as any)?.toDate === "function")
-    endDate = (endDateInput as any).toDate();
-  else endDate = new Date(endDateInput);
-
-  if (isNaN(endDate.getTime())) endDate = new Date();
+  const endDate = toDate(endDateInput) ?? new Date();
 
   const yearsDiff = endDate.getFullYear() - purchasedDate.getFullYear();
   const monthsDiff = endDate.getMonth() - purchasedDate.getMonth();

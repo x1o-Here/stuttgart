@@ -19,7 +19,9 @@ import { useAuth } from "@/contexts/auth-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { Separator } from "@/components/ui/separator";
 import { useLookupStore } from "@/stores/use-lookup-store";
-import CalendarPopover from "../../vehicle/[id]/components/calendar-popover";
+import { hasRestrictedTags } from "@/lib/helpers/transaction-tags";
+import { appendAuditLog } from "@/lib/firebase/audit-log";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import type { Transaction } from "./columns";
 
 const formSchema = z.object({
@@ -161,8 +163,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             const newDebitAccountRef = doc(db, "companies", activeCompany, "accounts", data.debitingAccount);
             batch.update(newDebitAccountRef, { balance: increment(-data.amount) });
 
-            const auditLogRef = doc(collection(db, "auditLogs"));
-            batch.set(auditLogRef, {
+            appendAuditLog(batch, {
                 userId: user?.uid,
                 transactionId: newTxId,
                 action: "update-with-reversal",
@@ -242,15 +243,13 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             }
 
             // Audit log for the edits
-            const auditLogRef = doc(collection(db, "auditLogs"));
-            batch.set(auditLogRef, {
+            appendAuditLog(batch, {
                 userId: user?.uid,
                 transactionId: reversalTxId,
                 action: "delete",
                 description: `Transaction deleted and reversed`,
                 companyId: activeCompany,
                 entityStatus: false,
-                createdAt: serverTimestamp(),
             });
 
             await batch.commit();
@@ -261,9 +260,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
         }
     }
 
-    const hasRestrictedTags = transaction.tags?.includes("corrected") || transaction.tags?.includes("reversal") || transaction.tags?.includes("deleted");
-
-    if (hasRestrictedTags) {
+    if (hasRestrictedTags(transaction.tags)) {
         return null;
     }
 

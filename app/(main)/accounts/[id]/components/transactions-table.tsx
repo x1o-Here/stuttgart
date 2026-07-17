@@ -20,8 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TransactionTypeFilterSelect } from "./transaction-type-filter-select";
-import { TransactionsSortPopover } from "./transactions-sort-popover";
+import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
+import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
 import { TransactionsTagFilter } from "../../../components/logistics/transactions-tag-filter";
 
 interface DataTableProps<TData, TValue> {

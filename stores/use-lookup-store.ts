@@ -1,6 +1,7 @@
 "use client";
 
 import { db } from "@/lib/firebase/firebase-client";
+import { toDate } from "@/lib/helpers/to-date";
 import {
     collection,
     doc,
@@ -8,7 +9,6 @@ import {
     orderBy,
     query,
     serverTimestamp,
-    Timestamp,
     writeBatch,
 } from "firebase/firestore";
 import { create } from "zustand";
@@ -84,10 +84,7 @@ function mapDoc(d: { id: string; data: () => Record<string, unknown> }): LookupI
         name: (data.name as string) ?? "",
         shortForm: data.shortForm as string | undefined,
         entityStatus: (data.entityStatus as boolean) ?? true,
-        createdAt:
-            data.createdAt instanceof Timestamp
-                ? data.createdAt.toDate()
-                : undefined,
+        createdAt: toDate(data.createdAt),
     };
 }
 
@@ -113,8 +110,6 @@ export const useLookupStore = create<LookupState>((set) => ({
             return onSnapshot(
                 q,
                 (snapshot) => {
-                    console.log('LOOKUP UPDATE', key, snapshot.docs.map((x) => x.data()))
-
                     const items = snapshot.docs.map(mapDoc);
                     set((state) => ({
                         [stateKey[key]]: items,

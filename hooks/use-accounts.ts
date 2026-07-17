@@ -5,11 +5,11 @@ import {
   onSnapshot,
   orderBy,
   query,
-  Timestamp,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { db } from "@/lib/firebase/firebase-client";
 import { useAuth } from "@/contexts/auth-context";
+import { toDate } from "@/lib/helpers/to-date";
 
 export type Transaction = {
   id: string;
@@ -86,10 +86,7 @@ export function useAccounts() {
               balance: data.balance || 0,
               transactions: accountMap.get(id)?.transactions || [],
               initialBalance: data.initialBalance || 0,
-              createdAt:
-                data.createdAt instanceof Timestamp
-                  ? data.createdAt.toDate()
-                  : data.createdAt,
+              createdAt: toDate(data.createdAt),
             };
 
             accountMap.set(id, account);
@@ -114,10 +111,8 @@ export function useAccounts() {
                     amount: t.amount || 0,
                     type: t.type,
                     tags: t.tags || [],
-                    date:
-                      t.date instanceof Timestamp ? t.date.toDate() : t.date,
-                    createdAt:
-                      t.createdAt instanceof Timestamp ? t.createdAt.toDate() : t.createdAt,
+                    date: toDate(t.date) || new Date(),
+                    createdAt: toDate(t.createdAt),
                   };
                 });
 

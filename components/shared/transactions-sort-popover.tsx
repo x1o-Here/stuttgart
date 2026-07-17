@@ -10,11 +10,17 @@ import {
 } from "@/components/ui/popover";
 
 interface SortPopoverProps {
-  options: { label: string; column: string; direction: "asc" | "desc" }[];
   onSortChange: (column: string, direction: "asc" | "desc") => void;
 }
 
-export function SortPopover({ options, onSortChange }: SortPopoverProps) {
+export function TransactionsSortPopover({ onSortChange }: SortPopoverProps) {
+  const options = [
+    { label: "Date ↑", column: "date", direction: "asc" },
+    { label: "Date ↓", column: "date", direction: "desc" },
+    { label: "Amount ↑", column: "amount", direction: "asc" },
+    { label: "Amount ↓", column: "amount", direction: "desc" },
+  ];
+
   return (
     <Popover>
       <PopoverTrigger asChild>

@@ -1,9 +1,10 @@
 "use client";
 
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Filter } from "lucide-react";
 import { Table } from "@tanstack/react-table";
+import { TAG_OPTIONS } from "@/lib/helpers/transaction-tags";
 
 import { useState, useEffect, useRef } from "react";
 
@@ -48,7 +49,7 @@ export function TransactionsTagFilter<TData>({ table }: TransactionsTagFilterPro
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-                {["active", "deleted", "corrected", "reversal"].map((status) => {
+                {TAG_OPTIONS.map((status) => {
                     const isSelected = selectedStatuses.includes(status);
 
                     return (

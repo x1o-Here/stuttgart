@@ -3,9 +3,9 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ColumnDef, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, getPaginationRowModel, useReactTable } from "@tanstack/react-table";
 import { useState } from "react";
-import { TransactionsSortPopover } from "../../accounts/[id]/components/transactions-sort-popover";
+import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
 import { Input } from "@/components/ui/input";
-import { TransactionTypeFilterSelect } from "../../accounts/[id]/components/transaction-type-filter-select";
+import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { Button } from "@/components/ui/button";
 import { CircleX, Filter } from "lucide-react";
 import { AddTransactionDialog } from "./add-transaction-dialog";

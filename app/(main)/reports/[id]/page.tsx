@@ -28,31 +28,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TransactionTypeFilterSelect } from "@/app/(main)/accounts/[id]/components/transaction-type-filter-select";
+import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useAuth } from "@/contexts/auth-context";
 import { useCustomReport } from "@/hooks/use-custom-reports";
 import { db } from "@/lib/firebase/firebase-client";
+import { TAG_OPTIONS, matchesTagFilter } from "@/lib/helpers/transaction-tags";
 import ExportReportDialog from "./components/export-report-dialog";
 import ShareReportDialog from "./components/share-report-dialog";
-
-const TAG_OPTIONS = ["active", "deleted", "corrected", "reversal"] as const;
-
-function matchesTagFilter(tags: string[] | undefined, selectedTags: string[]) {
-  if (!selectedTags.length) return true;
-
-  const safeTags = tags || [];
-  const hasRestricted =
-    safeTags.includes("deleted") ||
-    safeTags.includes("corrected") ||
-    safeTags.includes("reversal");
-  const isActive = !hasRestricted;
-
-  return selectedTags.some((filter) => {
-    if (filter === "active") return isActive;
-    return safeTags.includes(filter);
-  });
-}
 
 export default function CustomReportPage() {
   const params = useParams();

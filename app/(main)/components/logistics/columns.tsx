@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { toDate } from "@/lib/helpers/to-date";
+import { tagsColumnFilterFn } from "@/lib/helpers/transaction-tags";
 import { ColumnDef, FilterFnOption } from "@tanstack/react-table";
 import { TransactionActions } from "./transaction-actions";
 import { Badge } from "@/components/ui/badge";
@@ -38,19 +39,8 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     {
         accessorKey: "tags",
         header: "Tags",
-        filterFn: (row, id, filterValues: string[]) => {
-            if (!filterValues || filterValues.length === 0) return true;
-
-            const tags = (row.getValue(id) as string[]) || [];
-            const hasRestricted = tags.includes("deleted") || tags.includes("corrected") || tags.includes("reversal");
-            const isActive = !hasRestricted;
-
-            for (const filter of filterValues) {
-                if (filter === "active" && isActive) return true;
-                if (filter !== "active" && tags.includes(filter)) return true;
-            }
-            return false;
-        }
+        filterFn: (row, id, filterValues: string[]) =>
+            tagsColumnFilterFn(row, id, filterValues),
     },
     {
         accessorKey: "department",
