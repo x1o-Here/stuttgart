@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
 import { useRouter } from "next/navigation";
@@ -36,7 +37,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { auth, db } from "@/lib/firebase/firebase-client";
-import { collection, getDocs, query, where } from "firebase/firestore";
 
 const bodoniModa = Bodoni_Moda({
   subsets: ["latin"],
@@ -96,7 +96,7 @@ export default function SignInPage() {
       // Check if this email exists in your admin-created users collection
       const q = query(
         collection(db, "users"),
-        where("email", "==", user.email)
+        where("email", "==", user.email),
       );
 
       const snapshot = await getDocs(q);
@@ -111,7 +111,6 @@ export default function SignInPage() {
       }
 
       router.push("/");
-
     } catch (error) {
       console.error("Failed to sign in with Google", error);
     } finally {

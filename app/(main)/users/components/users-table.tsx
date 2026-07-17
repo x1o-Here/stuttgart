@@ -3,8 +3,8 @@
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase/firebase-client";
+import { columns, type UserData } from "./columns";
 import { DataTable } from "./data-table";
-import { columns, UserData } from "./columns";
 
 export default function UsersTable() {
   const [users, setUsers] = useState<UserData[]>([]);

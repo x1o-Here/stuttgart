@@ -37,7 +37,8 @@ export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const activeRoute = getActiveSidebarRoute(pathname);
-  const { username, role, companies, activeCompany, setActiveCompany } = useAuth();
+  const { username, role, companies, activeCompany, setActiveCompany } =
+    useAuth();
 
   async function handleLogout() {
     try {

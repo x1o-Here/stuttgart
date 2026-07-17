@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { useReportFilter } from "@/contexts/report-filter-context";
 import {
   Table,
   TableBody,
@@ -11,11 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useReportFilter } from "@/contexts/report-filter-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { LINE_COLORS } from "./chart-component";
 
 export default function MonthEndBalanceTable() {
   const { accounts } = useAccountsContext();
-  const { selectedMonthYear, selectedAccountId, setSelectedAccountId } = useReportFilter();
+  const { selectedMonthYear, selectedAccountId, setSelectedAccountId } =
+    useReportFilter();
 
   const monthEndBalances = useMemo(() => {
     const [monthStr, yearStr] = selectedMonthYear.split(" ");
@@ -61,7 +62,8 @@ export default function MonthEndBalanceTable() {
           <Table className="table-fixed">
             <TableBody>
               {monthEndBalances.map((item, index) => {
-                const isSelected = selectedAccountId === "all" || selectedAccountId === item.id;
+                const isSelected =
+                  selectedAccountId === "all" || selectedAccountId === item.id;
                 return (
                   <TableRow
                     key={item.id}
@@ -72,10 +74,15 @@ export default function MonthEndBalanceTable() {
                     <TableCell className="w-10">
                       <div
                         className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: LINE_COLORS[index % LINE_COLORS.length] }}
+                        style={{
+                          backgroundColor:
+                            LINE_COLORS[index % LINE_COLORS.length],
+                        }}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-zinc-700">{item.name}</TableCell>
+                    <TableCell className="font-medium text-zinc-700">
+                      {item.name}
+                    </TableCell>
                     <TableCell className="w-28 text-right font-mono text-zinc-600">
                       {item.balance.toLocaleString()}
                     </TableCell>

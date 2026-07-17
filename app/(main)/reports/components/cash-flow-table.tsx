@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { useReportFilter } from "@/contexts/report-filter-context";
 import {
   Table,
   TableBody,
@@ -11,11 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useReportFilter } from "@/contexts/report-filter-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { LINE_COLORS } from "./chart-component";
 
 export default function CashFlowTable() {
   const { accounts } = useAccountsContext();
-  const { selectedMonthYear, selectedAccountId, setSelectedAccountId } = useReportFilter();
+  const { selectedMonthYear, selectedAccountId, setSelectedAccountId } =
+    useReportFilter();
 
   const cashFlows = useMemo(() => {
     const [monthStr, yearStr] = selectedMonthYear.split(" ");
@@ -28,10 +29,7 @@ export default function CashFlowTable() {
 
       acc.transactions.forEach((tx) => {
         const txDate = new Date(tx.date);
-        if (
-          txDate.getMonth() === monthIndex &&
-          txDate.getFullYear() === year
-        ) {
+        if (txDate.getMonth() === monthIndex && txDate.getFullYear() === year) {
           if (tx.type === "credit") {
             credits += tx.amount;
           } else {
@@ -72,7 +70,8 @@ export default function CashFlowTable() {
           <Table className="table-fixed">
             <TableBody>
               {cashFlows.map((item, index) => {
-                const isSelected = selectedAccountId === "all" || selectedAccountId === item.id;
+                const isSelected =
+                  selectedAccountId === "all" || selectedAccountId === item.id;
                 return (
                   <TableRow
                     key={item.id}
@@ -83,15 +82,24 @@ export default function CashFlowTable() {
                     <TableCell className="w-8">
                       <div
                         className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: LINE_COLORS[index % LINE_COLORS.length] }}
+                        style={{
+                          backgroundColor:
+                            LINE_COLORS[index % LINE_COLORS.length],
+                        }}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-zinc-700 whitespace-nowrap">{item.name}</TableCell>
+                    <TableCell className="font-medium text-zinc-700 whitespace-nowrap">
+                      {item.name}
+                    </TableCell>
                     <TableCell className="w-24 text-right font-mono text-red-600">
-                      {item.debits > 0 ? `-${item.debits.toLocaleString()}` : "0"}
+                      {item.debits > 0
+                        ? `-${item.debits.toLocaleString()}`
+                        : "0"}
                     </TableCell>
                     <TableCell className="w-24 text-right font-mono text-emerald-600">
-                      {item.credits > 0 ? `+${item.credits.toLocaleString()}` : "0"}
+                      {item.credits > 0
+                        ? `+${item.credits.toLocaleString()}`
+                        : "0"}
                     </TableCell>
                   </TableRow>
                 );

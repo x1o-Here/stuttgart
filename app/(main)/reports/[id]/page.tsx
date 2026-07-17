@@ -1,10 +1,18 @@
 "use client";
 
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import {
+  ArrowLeft,
+  CircleX,
+  Download,
+  Filter,
+  Save,
+  Share2,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { ArrowLeft, CircleX, Download, Filter, Save, Share2 } from "lucide-react";
+import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,12 +36,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useAuth } from "@/contexts/auth-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useCustomReport } from "@/hooks/use-custom-reports";
 import { db } from "@/lib/firebase/firebase-client";
-import { TAG_OPTIONS, matchesTagFilter } from "@/lib/helpers/transaction-tags";
+import { matchesTagFilter, TAG_OPTIONS } from "@/lib/helpers/transaction-tags";
 import ExportReportDialog from "./components/export-report-dialog";
 import ShareReportDialog from "./components/share-report-dialog";
 
@@ -63,7 +70,8 @@ export default function CustomReportPage() {
       setDepartmentFilter(report.filters.departmentFilter || "all");
       setVehicleFilter(report.filters.vehicleFilter || "all");
       setTagFilter(
-        Array.isArray(report.filters.tagFilter) && report.filters.tagFilter.length
+        Array.isArray(report.filters.tagFilter) &&
+          report.filters.tagFilter.length
           ? report.filters.tagFilter
           : ["active"],
       );
@@ -176,9 +184,11 @@ export default function CustomReportPage() {
 
   const filteredTransactions = useMemo(() => {
     return transactionSummaries.filter((tx) => {
-      if (accountFilter !== "all" && tx.accountId !== accountFilter) return false;
+      if (accountFilter !== "all" && tx.accountId !== accountFilter)
+        return false;
       if (typeFilter !== "all" && tx.type !== typeFilter) return false;
-      if (departmentFilter !== "all" && tx.department !== departmentFilter) return false;
+      if (departmentFilter !== "all" && tx.department !== departmentFilter)
+        return false;
       if (vehicleFilter !== "all" && tx.vehicle !== vehicleFilter) return false;
       if (!matchesTagFilter(tx.tags, tagFilter)) return false;
       return true;
@@ -213,16 +223,19 @@ export default function CustomReportPage() {
 
     setSaving(true);
     try {
-      await updateDoc(doc(db, "companies", activeCompany, "reports", reportId), {
-        filters: {
-          accountFilter,
-          typeFilter,
-          departmentFilter,
-          vehicleFilter,
-          tagFilter,
+      await updateDoc(
+        doc(db, "companies", activeCompany, "reports", reportId),
+        {
+          filters: {
+            accountFilter,
+            typeFilter,
+            departmentFilter,
+            vehicleFilter,
+            tagFilter,
+          },
+          updatedAt: serverTimestamp(),
         },
-        updatedAt: serverTimestamp(),
-      });
+      );
     } catch (err) {
       console.error("Failed to save report filters:", err);
     } finally {
@@ -232,7 +245,8 @@ export default function CustomReportPage() {
 
   let tagButtonLabel = "All";
   if (tagFilter.length === 1) {
-    tagButtonLabel = tagFilter[0].charAt(0).toUpperCase() + tagFilter[0].slice(1);
+    tagButtonLabel =
+      tagFilter[0].charAt(0).toUpperCase() + tagFilter[0].slice(1);
   } else if (tagFilter.length > 1) {
     tagButtonLabel = "Displaying";
   }
@@ -260,7 +274,9 @@ export default function CustomReportPage() {
         ) : (
           <div className="space-y-6">
             <div className="bg-white rounded-xl p-6">
-              <h1 className="text-2xl font-bold text-zinc-800">{report.name}</h1>
+              <h1 className="text-2xl font-bold text-zinc-800">
+                {report.name}
+              </h1>
               {report.description ? (
                 <p className="text-zinc-500 mt-2">{report.description}</p>
               ) : null}
@@ -284,8 +300,18 @@ export default function CustomReportPage() {
               <Tabs defaultValue="accounts">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <TabsList className="gap-1 p-0 bg-transparent">
-                    <TabsTrigger value="accounts" className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer">Account summary</TabsTrigger>
-                    <TabsTrigger value="transactions" className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer">Transaction summary</TabsTrigger>
+                    <TabsTrigger
+                      value="accounts"
+                      className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer"
+                    >
+                      Account summary
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="transactions"
+                      className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer"
+                    >
+                      Transaction summary
+                    </TabsTrigger>
                   </TabsList>
 
                   <div className="flex items-center gap-2">
@@ -333,19 +359,28 @@ export default function CustomReportPage() {
                     <TableBody>
                       {accountSummaries.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center text-zinc-500 py-8">
+                          <TableCell
+                            colSpan={4}
+                            className="text-center text-zinc-500 py-8"
+                          >
                             No accounts in this report
                           </TableCell>
                         </TableRow>
                       ) : (
                         accountSummaries.map((item) => (
                           <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell className="font-medium">
+                              {item.name}
+                            </TableCell>
                             <TableCell className="text-right font-mono text-red-600">
-                              {item.debits > 0 ? `-${item.debits.toLocaleString()}` : "0"}
+                              {item.debits > 0
+                                ? `-${item.debits.toLocaleString()}`
+                                : "0"}
                             </TableCell>
                             <TableCell className="text-right font-mono text-emerald-600">
-                              {item.credits > 0 ? `+${item.credits.toLocaleString()}` : "0"}
+                              {item.credits > 0
+                                ? `+${item.credits.toLocaleString()}`
+                                : "0"}
                             </TableCell>
                             <TableCell className="text-right font-mono text-zinc-700">
                               {item.net.toLocaleString()}
@@ -359,7 +394,10 @@ export default function CustomReportPage() {
 
                 <TabsContent value="transactions" className="mt-4 space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Select value={accountFilter} onValueChange={setAccountFilter}>
+                    <Select
+                      value={accountFilter}
+                      onValueChange={setAccountFilter}
+                    >
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Account" />
                       </SelectTrigger>
@@ -378,7 +416,10 @@ export default function CustomReportPage() {
                       onChange={setTypeFilter}
                     />
 
-                    <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <Select
+                      value={departmentFilter}
+                      onValueChange={setDepartmentFilter}
+                    >
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Department" />
                       </SelectTrigger>
@@ -392,7 +433,10 @@ export default function CustomReportPage() {
                       </SelectContent>
                     </Select>
 
-                    <Select value={vehicleFilter} onValueChange={setVehicleFilter}>
+                    <Select
+                      value={vehicleFilter}
+                      onValueChange={setVehicleFilter}
+                    >
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Vehicle" />
                       </SelectTrigger>
@@ -408,7 +452,10 @@ export default function CustomReportPage() {
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="items-center gap-2">
+                        <Button
+                          variant="outline"
+                          className="items-center gap-2"
+                        >
                           <Filter className="h-4 w-4" />
                           {tagButtonLabel}
                         </Button>
@@ -425,7 +472,9 @@ export default function CustomReportPage() {
                               onCheckedChange={(checked) => {
                                 setTagFilter((current) => {
                                   if (checked) return [...current, status];
-                                  return current.filter((value) => value !== status);
+                                  return current.filter(
+                                    (value) => value !== status,
+                                  );
                                 });
                               }}
                             >
@@ -465,23 +514,34 @@ export default function CustomReportPage() {
                     <TableBody>
                       {filteredTransactions.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-zinc-500 py-8">
+                          <TableCell
+                            colSpan={8}
+                            className="text-center text-zinc-500 py-8"
+                          >
                             No transactions match the current filters
                           </TableCell>
                         </TableRow>
                       ) : (
                         filteredTransactions.map((tx) => (
                           <TableRow key={tx.id}>
-                            <TableCell>{tx.date.toLocaleDateString()}</TableCell>
-                            <TableCell className="font-medium">{tx.accountName}</TableCell>
-                            <TableCell className="max-w-xs truncate">{tx.description || "-"}</TableCell>
+                            <TableCell>
+                              {tx.date.toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {tx.accountName}
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">
+                              {tx.description || "-"}
+                            </TableCell>
                             <TableCell>{tx.department || "-"}</TableCell>
                             <TableCell>{tx.vehicle || "-"}</TableCell>
                             <TableCell>{tx.voucher || "-"}</TableCell>
                             <TableCell>
                               <span
                                 className={
-                                  tx.type === "debit" ? "text-red-600" : "text-emerald-600"
+                                  tx.type === "debit"
+                                    ? "text-red-600"
+                                    : "text-emerald-600"
                                 }
                               >
                                 {tx.type === "debit" ? "Debit" : "Credit"}
@@ -489,7 +549,9 @@ export default function CustomReportPage() {
                             </TableCell>
                             <TableCell
                               className={`text-right font-mono ${
-                                tx.type === "debit" ? "text-red-600" : "text-emerald-600"
+                                tx.type === "debit"
+                                  ? "text-red-600"
+                                  : "text-emerald-600"
                               }`}
                             >
                               {tx.type === "debit" ? "-" : "+"}

@@ -1,7 +1,14 @@
 "use client";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -31,10 +38,7 @@ function storeActiveCompany(uid: string, companyId: string) {
   localStorage.setItem(getActiveCompanyStorageKey(uid), companyId);
 }
 
-function resolveActiveCompany(
-  uid: string,
-  userCompanies: Company[],
-): string {
+function resolveActiveCompany(uid: string, userCompanies: Company[]): string {
   if (userCompanies.length === 0) return "";
 
   const storedCompanyId = getStoredActiveCompany(uid);
@@ -66,7 +70,7 @@ const AuthContext = createContext<AuthContextType>({
   companies: [],
   loading: true,
   activeCompany: "",
-  setActiveCompany: () => { },
+  setActiveCompany: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -103,8 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               ? (data.companies as string[])
               : [];
 
-            const companyDocs = await getDocs(query(collection(db, "companies"), where("id", "in", companyIds)));
-            
+            const companyDocs = await getDocs(
+              query(collection(db, "companies"), where("id", "in", companyIds)),
+            );
+
             const userCompanies: Company[] = companyDocs.docs
               .filter((companyDoc) => companyDoc.exists())
               .map((companyDoc) => ({
@@ -113,7 +119,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }));
 
             setCompanies(userCompanies);
-            setActiveCompanyState(resolveActiveCompany(user.uid, userCompanies));
+            setActiveCompanyState(
+              resolveActiveCompany(user.uid, userCompanies),
+            );
           }
         } catch (error) {
           console.error("Error fetching user data:", error);

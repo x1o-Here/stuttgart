@@ -8,7 +8,8 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
@@ -30,11 +31,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLookupStore } from "@/stores/use-lookup-store";
-import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -68,7 +74,9 @@ export default function AddAccountDialog() {
       const batch = writeBatch(db);
 
       // 1️⃣ Add account
-      const accountRef = doc(collection(db, "companies", activeCompany, "accounts"));
+      const accountRef = doc(
+        collection(db, "companies", activeCompany, "accounts"),
+      );
       batch.set(accountRef, {
         name: data.name,
         initialBalance: data.balance,
@@ -165,12 +173,12 @@ export default function AddAccountDialog() {
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select an account type" />
                             </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              side="bottom"
-                            >
+                            <SelectContent position="popper" side="bottom">
                               {accountTypes.map((accountType) => (
-                                <SelectItem key={accountType.id} value={accountType.name}>
+                                <SelectItem
+                                  key={accountType.id}
+                                  value={accountType.name}
+                                >
                                   {accountType.name}
                                 </SelectItem>
                               ))}

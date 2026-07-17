@@ -1,10 +1,10 @@
 "use client";
 
-import ChartComponent from "./components/chart-component";
-import MonthEndBalanceTable from "./components/month-end-balance-table";
-import CashFlowTable from "./components/cash-flow-table";
-import CustomReportsCard from "./components/custom-reports-card";
 import { ReportFilterProvider } from "@/contexts/report-filter-context";
+import CashFlowTable from "./components/cash-flow-table";
+import ChartComponent from "./components/chart-component";
+import CustomReportsCard from "./components/custom-reports-card";
+import MonthEndBalanceTable from "./components/month-end-balance-table";
 
 export default function Reports() {
   return (

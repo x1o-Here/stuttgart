@@ -23,12 +23,10 @@ import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
@@ -81,7 +79,8 @@ type CompanyOption = {
 
 function getCompanyName(companyOptions: CompanyOption[], companyId: string) {
   return (
-    companyOptions.find((company) => company.id === companyId)?.name ?? companyId
+    companyOptions.find((company) => company.id === companyId)?.name ??
+    companyId
   );
 }
 
@@ -121,17 +120,15 @@ function CompanyMultiSelect({
           )}
         >
           <span className="flex flex-1 flex-wrap gap-1 truncate text-left">
-            {loading ? (
-              "Loading companies..."
-            ) : value.length === 0 ? (
-              "Select companies"
-            ) : (
-              value.map((companyId) => (
-                <Badge key={companyId} variant="secondary">
-                  {getCompanyName(options, companyId)}
-                </Badge>
-              ))
-            )}
+            {loading
+              ? "Loading companies..."
+              : value.length === 0
+                ? "Select companies"
+                : value.map((companyId) => (
+                    <Badge key={companyId} variant="secondary">
+                      {getCompanyName(options, companyId)}
+                    </Badge>
+                  ))}
           </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
@@ -154,7 +151,9 @@ function CompanyMultiSelect({
                     onSelect={() => toggleCompany(company.id)}
                   >
                     <span className="flex-1">{company.name}</span>
-                    {isSelected ? <Check className="size-4 opacity-60" /> : null}
+                    {isSelected ? (
+                      <Check className="size-4 opacity-60" />
+                    ) : null}
                   </CommandItem>
                 );
               })}
@@ -236,7 +235,7 @@ export default function AddUserDialog() {
       let secondaryApp: FirebaseApp;
       try {
         secondaryApp = getApp("SecondaryClient");
-      } catch (e) {
+      } catch {
         secondaryApp = initializeApp(firebaseConfig, "SecondaryClient");
       }
 
@@ -293,7 +292,7 @@ export default function AddUserDialog() {
       await axios.post("/api/users/send-reset-link", {
         email: data.email,
         subject: "Welcome to Stuttgart",
-        htmlTemplate: welcomeTemplate
+        htmlTemplate: welcomeTemplate,
       });
 
       // 4️⃣ Clean up secondary auth session

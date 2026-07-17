@@ -1,6 +1,9 @@
-export const TAG_OPTIONS = ["active", "deleted", "corrected", "reversal"] as const;
-
-export type TransactionTagOption = (typeof TAG_OPTIONS)[number];
+export const TAG_OPTIONS = [
+  "active",
+  "deleted",
+  "corrected",
+  "reversal",
+] as const;
 
 export const RESTRICTED_TAGS = ["deleted", "corrected", "reversal"] as const;
 

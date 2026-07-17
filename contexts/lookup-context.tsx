@@ -4,33 +4,18 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLookupStore } from "@/stores/use-lookup-store";
 
-export function LookupProvider({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const { user, activeCompany } = useAuth();
+export function LookupProvider({ children }: { children: React.ReactNode }) {
+  const { user, activeCompany } = useAuth();
 
-    const subscribeAll = useLookupStore(
-        (state) => state.subscribeAll
-    );
+  const subscribeAll = useLookupStore((state) => state.subscribeAll);
 
-    useEffect(() => {
-        if (!user || !activeCompany) return;
+  useEffect(() => {
+    if (!user || !activeCompany) return;
 
-        const unsubscribe = subscribeAll(
-            activeCompany,
-            user.uid
-        );
+    const unsubscribe = subscribeAll(activeCompany, user.uid);
 
-        return unsubscribe;
+    return unsubscribe;
+  }, [user, activeCompany, subscribeAll]);
 
-    }, [
-        user,
-        activeCompany,
-        subscribeAll
-    ]);
-
-
-    return children;
+  return children;
 }

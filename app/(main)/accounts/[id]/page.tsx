@@ -2,11 +2,11 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { toDate } from "@/lib/helpers/to-date";
 import { transactionsColumns } from "./components/transactions-columns";
 import { TransactionsDataTable } from "./components/transactions-table";
-import { toDate } from "@/lib/helpers/to-date";
-import { Badge } from "@/components/ui/badge";
 
 export default function AccountPage() {
   const params = useParams();

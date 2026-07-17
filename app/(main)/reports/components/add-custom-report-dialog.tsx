@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -32,11 +33,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useAuth } from "@/contexts/auth-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { appendAuditLog } from "@/lib/firebase/audit-log";
 import { db } from "@/lib/firebase/firebase-client";
-import CalendarPopover from "@/components/shared/calendar-popover";
 
 const formSchema = z
   .object({
@@ -156,7 +156,10 @@ export default function AddCustomReportDialog() {
                   <FormItem>
                     <FormLabel>Report name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Q1 Logistics Summary" {...field} />
+                      <Input
+                        placeholder="e.g. Q1 Logistics Summary"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

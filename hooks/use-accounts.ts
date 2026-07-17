@@ -1,14 +1,9 @@
 "use client";
 
-import {
-  collection,
-  onSnapshot,
-  orderBy,
-  query,
-} from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
-import { db } from "@/lib/firebase/firebase-client";
 import { useAuth } from "@/contexts/auth-context";
+import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
 
 export type Transaction = {
@@ -94,7 +89,14 @@ export function useAccounts() {
             // 🔁 Attach transaction listener once per account
             if (!transactionUnsubs.current[id]) {
               const txQuery = query(
-                collection(db, "companies", activeCompany, "accounts", id, "transactions"),
+                collection(
+                  db,
+                  "companies",
+                  activeCompany,
+                  "accounts",
+                  id,
+                  "transactions",
+                ),
                 orderBy("date", "desc"),
               );
 

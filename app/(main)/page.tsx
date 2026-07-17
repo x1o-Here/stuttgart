@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { transactionsColumns, type Transaction } from "./components/logistics/columns";
-import { DashboardTransactionsTable } from "./components/logistics/data-table";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import {
+  type Transaction,
+  transactionsColumns,
+} from "./components/logistics/columns";
+import { DashboardTransactionsTable } from "./components/logistics/data-table";
 
 export default function Home() {
   const { accounts } = useAccountsContext();
@@ -33,7 +36,9 @@ export default function Home() {
 
         const existingTx = txMap.get(tx.id)!;
         if (tx.tags && tx.tags.length > 0) {
-          existingTx.tags = Array.from(new Set([...(existingTx.tags || []), ...tx.tags]));
+          existingTx.tags = Array.from(
+            new Set([...(existingTx.tags || []), ...tx.tags]),
+          );
         }
 
         if (tx.type === "credit") {

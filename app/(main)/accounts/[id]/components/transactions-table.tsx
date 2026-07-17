@@ -10,6 +10,8 @@ import {
 } from "@tanstack/react-table";
 import { CircleX } from "lucide-react";
 import { useState } from "react";
+import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
+import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,8 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
-import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
 import { TransactionsTagFilter } from "../../../components/logistics/transactions-tag-filter";
 
 interface DataTableProps<TData, TValue> {
@@ -64,7 +64,10 @@ export function TransactionsDataTable<TData, TValue>({
   data,
 }: DataTableProps<TData, TValue>) {
   const [search, setSearch] = useState("");
-  const [sorting, setSorting] = useState([{ id: "date", desc: true }, { id: "createdAt", desc: true }]);
+  const [sorting, setSorting] = useState([
+    { id: "date", desc: true },
+    { id: "createdAt", desc: true },
+  ]);
   const [columnFilters, setColumnFilters] = useState<
     { id: string; value: any }[]
   >([]);

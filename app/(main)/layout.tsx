@@ -12,12 +12,12 @@ export default function MainLayout({
   return (
     <AuthProvider>
       <SidebarProvider className="h-screen w-screen">
-          <AccountsProvider>
-            <LookupProvider>
-              <AppSidebar />
-              <main className="flex-1 overflow-auto">{children}</main>
-            </LookupProvider>
-          </AccountsProvider>
+        <AccountsProvider>
+          <LookupProvider>
+            <AppSidebar />
+            <main className="flex-1 overflow-auto">{children}</main>
+          </LookupProvider>
+        </AccountsProvider>
       </SidebarProvider>
     </AuthProvider>
   );

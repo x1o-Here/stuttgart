@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 
 import { UserActions } from "./user-actions";
@@ -53,7 +53,11 @@ export const columns: ColumnDef<UserData>[] = [
     header: "Companies",
     cell: ({ row }) => {
       const companies = row.getValue("companies") as string[];
-      return <span className="font-light italic text-muted-foreground">{companies.join(", ")}</span>;
+      return (
+        <span className="font-light italic text-muted-foreground">
+          {companies.join(", ")}
+        </span>
+      );
     },
   },
   {

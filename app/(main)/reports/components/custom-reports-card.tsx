@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
 import { ChevronRight, FileText, Search } from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useCustomReports } from "@/hooks/use-custom-reports";
 import AddCustomReportDialog from "./add-custom-report-dialog";
@@ -47,7 +47,9 @@ export default function CustomReportsCard() {
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (
-          <p className="text-sm text-zinc-500 py-6 text-center">Loading reports...</p>
+          <p className="text-sm text-zinc-500 py-6 text-center">
+            Loading reports...
+          </p>
         ) : error ? (
           <p className="text-sm text-red-500 py-6 text-center">{error}</p>
         ) : filteredReports.length === 0 ? (

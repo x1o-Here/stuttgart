@@ -1,6 +1,6 @@
+import axios from "axios";
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/firebase-admin";
-import axios from "axios";
 
 export async function POST(req: Request) {
   try {

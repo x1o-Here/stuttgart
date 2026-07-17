@@ -1,15 +1,27 @@
 "use client";
 
+import {
+  type ColumnFiltersState,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
-import AddAccountDialog from "./components/add-account-dialog";
-import { ColumnFiltersState, getCoreRowModel, getFilteredRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { accountsColumns } from "./components/accounts-columns";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLookupStore } from "@/stores/use-lookup-store";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { useLookupStore } from "@/stores/use-lookup-store";
+import { accountsColumns } from "./components/accounts-columns";
+import AddAccountDialog from "./components/add-account-dialog";
 
 const ACCOUNTS_PAGE_SIZE = 12;
 
@@ -68,7 +80,7 @@ export default function AccountsPage() {
       (entries) => {
         if (entries[0]?.isIntersecting) {
           setVisibleCount((current) =>
-            Math.min(current + ACCOUNTS_PAGE_SIZE, filteredRows.length)
+            Math.min(current + ACCOUNTS_PAGE_SIZE, filteredRows.length),
           );
         }
       },
@@ -105,19 +117,11 @@ export default function AccountsPage() {
                 <SelectValue placeholder="Filter by account type" />
               </SelectTrigger>
 
-              <SelectContent
-                position="popper"
-                side="bottom"
-              >
-                <SelectItem value="all">
-                  All Account Types
-                </SelectItem>
+              <SelectContent position="popper" side="bottom">
+                <SelectItem value="all">All Account Types</SelectItem>
 
                 {accountTypes.map((accountType) => (
-                  <SelectItem
-                    key={accountType.id}
-                    value={accountType.name}
-                  >
+                  <SelectItem key={accountType.id} value={accountType.name}>
                     {accountType.name}
                   </SelectItem>
                 ))}

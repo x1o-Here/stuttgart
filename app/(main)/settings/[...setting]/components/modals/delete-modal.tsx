@@ -1,10 +1,7 @@
-'use client'
+"use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { useLookupStore, CollectionKey } from "@/stores/use-lookup-store";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +13,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
+import { type CollectionKey, useLookupStore } from "@/stores/use-lookup-store";
 
 interface DeleteModalProps {
   entityLabel: string;
@@ -23,20 +23,35 @@ interface DeleteModalProps {
   itemName: string;
 }
 
-export default function DeleteModal({ entityLabel, itemId, itemName }: DeleteModalProps) {
+export default function DeleteModal({
+  entityLabel,
+  itemId,
+  itemName,
+}: DeleteModalProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { user, activeCompany } = useAuth();
   const store = useLookupStore();
 
   const label = entityLabel.toLowerCase();
-  const collectionKey: CollectionKey = label === "vehicle" ? "vehicles" : label === "account type" ? "account-types" : "departments";
+  const collectionKey: CollectionKey =
+    label === "vehicle"
+      ? "vehicles"
+      : label === "account type"
+        ? "account-types"
+        : "departments";
 
   const handleDelete = async () => {
     if (!activeCompany || !user) return;
     try {
       setIsDeleting(true);
-      await store.deleteItem(activeCompany, user.uid, collectionKey, itemId, itemName);
+      await store.deleteItem(
+        activeCompany,
+        user.uid,
+        collectionKey,
+        itemId,
+        itemName,
+      );
       setOpen(false);
     } catch (error) {
       console.error(`Failed to delete ${entityLabel.toLowerCase()}`, error);
@@ -48,7 +63,11 @@ export default function DeleteModal({ entityLabel, itemId, itemName }: DeleteMod
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="icon" className="cursor-pointer w-8 h-8 text-destructive hover:bg-destructive/10">
+        <Button
+          variant="outline"
+          size="icon"
+          className="cursor-pointer w-8 h-8 text-destructive hover:bg-destructive/10"
+        >
           <Trash2 className="w-4 h-4" />
         </Button>
       </AlertDialogTrigger>
@@ -56,7 +75,8 @@ export default function DeleteModal({ entityLabel, itemId, itemName }: DeleteMod
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {entityLabel}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the {entityLabel.toLowerCase()} <strong>{itemName}</strong>? This action cannot be undone.
+            Are you sure you want to delete the {entityLabel.toLowerCase()}{" "}
+            <strong>{itemName}</strong>? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -1,13 +1,14 @@
 "use client";
 
 import {
-  ColumnDef,
+  type ColumnDef,
   flexRender,
   getCoreRowModel,
-  useReactTable,
   getPaginationRowModel,
+  useReactTable,
 } from "@tanstack/react-table";
-
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -16,8 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
