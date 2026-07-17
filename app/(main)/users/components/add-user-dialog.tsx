@@ -23,12 +23,10 @@ import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
@@ -65,6 +63,34 @@ import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 
+type CompanyOption = {
+  id: string;
+  name: string;
+};
+
+/** Session cache — all companies for assignment UI (not membership-scoped). */
+let companiesCache: CompanyOption[] | null = null;
+let companiesCachePromise: Promise<CompanyOption[]> | null = null;
+
+async function getAllCompanies(): Promise<CompanyOption[]> {
+  if (companiesCache) return companiesCache;
+  if (!companiesCachePromise) {
+    companiesCachePromise = getDocs(collection(db, "companies"))
+      .then((companySnapshot) => {
+        companiesCache = companySnapshot.docs.map((companyDoc) => ({
+          id: (companyDoc.data().id as string) ?? companyDoc.id,
+          name: (companyDoc.data().name as string) ?? companyDoc.id,
+        }));
+        return companiesCache;
+      })
+      .catch((error) => {
+        companiesCachePromise = null;
+        throw error;
+      });
+  }
+  return companiesCachePromise;
+}
+
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -74,14 +100,10 @@ const formSchema = z.object({
 
 type FormOutput = z.infer<typeof formSchema>;
 
-type CompanyOption = {
-  id: string;
-  name: string;
-};
-
 function getCompanyName(companyOptions: CompanyOption[], companyId: string) {
   return (
-    companyOptions.find((company) => company.id === companyId)?.name ?? companyId
+    companyOptions.find((company) => company.id === companyId)?.name ??
+    companyId
   );
 }
 
@@ -121,17 +143,15 @@ function CompanyMultiSelect({
           )}
         >
           <span className="flex flex-1 flex-wrap gap-1 truncate text-left">
-            {loading ? (
-              "Loading companies..."
-            ) : value.length === 0 ? (
-              "Select companies"
-            ) : (
-              value.map((companyId) => (
-                <Badge key={companyId} variant="secondary">
-                  {getCompanyName(options, companyId)}
-                </Badge>
-              ))
-            )}
+            {loading
+              ? "Loading companies..."
+              : value.length === 0
+                ? "Select companies"
+                : value.map((companyId) => (
+                    <Badge key={companyId} variant="secondary">
+                      {getCompanyName(options, companyId)}
+                    </Badge>
+                  ))}
           </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
@@ -154,7 +174,9 @@ function CompanyMultiSelect({
                     onSelect={() => toggleCompany(company.id)}
                   >
                     <span className="flex-1">{company.name}</span>
-                    {isSelected ? <Check className="size-4 opacity-60" /> : null}
+                    {isSelected ? (
+                      <Check className="size-4 opacity-60" />
+                    ) : null}
                   </CommandItem>
                 );
               })}
@@ -177,35 +199,46 @@ function generateRandomPassword() {
   return retVal;
 }
 
-export default function AddUserDialog() {
+export default function AddUserDialog({
+  onCreated,
+}: {
+  onCreated?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>(
+    () => companiesCache ?? [],
+  );
+  const [companiesLoading, setCompaniesLoading] = useState(!companiesCache);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
     if (!open) return;
 
+    let cancelled = false;
     async function fetchCompanies() {
+      if (companiesCache) {
+        setCompanyOptions(companiesCache);
+        setCompaniesLoading(false);
+        return;
+      }
       setCompaniesLoading(true);
       try {
-        const companySnapshot = await getDocs(collection(db, "companies"));
-        setCompanyOptions(
-          companySnapshot.docs.map((companyDoc) => ({
-            id: (companyDoc.data().id as string) ?? companyDoc.id,
-            name: (companyDoc.data().name as string) ?? companyDoc.id,
-          })),
-        );
+        const options = await getAllCompanies();
+        if (!cancelled) setCompanyOptions(options);
       } catch (error) {
         console.error("Failed to fetch companies:", error);
-        setCompanyOptions([]);
+        if (!cancelled) setCompanyOptions([]);
       } finally {
-        setCompaniesLoading(false);
+        if (!cancelled) setCompaniesLoading(false);
       }
     }
 
     fetchCompanies();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   const form = useForm<FormOutput>({
@@ -223,6 +256,7 @@ export default function AddUserDialog() {
   async function onSubmit(data: FormOutput) {
     let userCredential;
     try {
+      setIsSubmitting(true);
       const firebaseConfig = {
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -236,7 +270,7 @@ export default function AddUserDialog() {
       let secondaryApp: FirebaseApp;
       try {
         secondaryApp = getApp("SecondaryClient");
-      } catch (e) {
+      } catch {
         secondaryApp = initializeApp(firebaseConfig, "SecondaryClient");
       }
 
@@ -293,7 +327,7 @@ export default function AddUserDialog() {
       await axios.post("/api/users/send-reset-link", {
         email: data.email,
         subject: "Welcome to Stuttgart",
-        htmlTemplate: welcomeTemplate
+        htmlTemplate: welcomeTemplate,
       });
 
       // 4️⃣ Clean up secondary auth session
@@ -301,6 +335,7 @@ export default function AddUserDialog() {
 
       form.reset();
       setOpen(false);
+      onCreated?.();
     } catch (error) {
       console.error("Failed to add user or send email", error);
 
@@ -318,10 +353,13 @@ export default function AddUserDialog() {
       form.setError("root", {
         message: "Failed to create user. Please try again.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
+    if (isSubmitting) return;
     if (form.formState.isDirty) {
       setConfirmClose(true);
     } else {
@@ -433,8 +471,15 @@ export default function AddUserDialog() {
               </div>
             </div>
             <DialogFooter className="mt-4">
-              <Button type="submit">Submit</Button>
-              <Button type="button" variant="outline" onClick={handleCancel}>
+              <Button type="submit" disabled={isSubmitting || companiesLoading}>
+                {isSubmitting ? "Creating..." : "Submit"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             </DialogFooter>

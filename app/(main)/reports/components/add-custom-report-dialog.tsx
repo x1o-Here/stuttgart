@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -32,10 +33,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useAuth } from "@/contexts/auth-context";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { appendAuditLog } from "@/lib/firebase/audit-log";
 import { db } from "@/lib/firebase/firebase-client";
-import CalendarPopover from "../../vehicle/[id]/components/calendar-popover";
 
 const formSchema = z
   .object({
@@ -63,6 +64,7 @@ const defaultValues: FormOutput = {
 export default function AddCustomReportDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
   const { accounts } = useAccountsContext();
 
@@ -86,9 +88,10 @@ export default function AddCustomReportDialog() {
   }
 
   async function onSubmit(data: FormOutput) {
-    if (!activeCompany || !user) return;
+    if (!activeCompany || !user || isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       const batch = writeBatch(db);
 
       const reportRef = doc(
@@ -103,17 +106,13 @@ export default function AddCustomReportDialog() {
         createdBy: user.uid,
         entityStatus: true,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       });
-
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
+      appendAuditLog(batch, {
         userId: user.uid,
         action: "create",
         description: `Custom report created: ${data.name.trim()}`,
         companyId: activeCompany,
         entityStatus: true,
-        createdAt: serverTimestamp(),
       });
 
       await batch.commit();
@@ -122,10 +121,13 @@ export default function AddCustomReportDialog() {
       setOpen(false);
     } catch (error) {
       console.error("Failed to add custom report", error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
+    if (isSubmitting) return;
     if (form.formState.isDirty) {
       setConfirmClose(true);
     } else {
@@ -157,7 +159,10 @@ export default function AddCustomReportDialog() {
                   <FormItem>
                     <FormLabel>Report name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Q1 Logistics Summary" {...field} />
+                      <Input
+                        placeholder="e.g. Q1 Logistics Summary"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -283,8 +288,15 @@ export default function AddCustomReportDialog() {
             </div>
 
             <DialogFooter>
-              <Button type="submit">Create Report</Button>
-              <Button type="button" variant="outline" onClick={handleCancel}>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Report"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             </DialogFooter>

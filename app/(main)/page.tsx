@@ -1,12 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { transactionsColumns, type Transaction } from "./components/logistics/columns";
+import { LoadingState } from "@/components/shared/loading-state";
+import {
+  AccountsLedgerProvider,
+  useAccountsContext,
+} from "@/contexts/useAccountsContext";
+import {
+  type Transaction,
+  transactionsColumns,
+} from "./components/logistics/columns";
 import { DashboardTransactionsTable } from "./components/logistics/data-table";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
 
-export default function Home() {
-  const { accounts } = useAccountsContext();
+function HomeContent() {
+  const { accounts, loading } = useAccountsContext();
 
   const transactionsData = useMemo(() => {
     const txMap = new Map<string, Transaction>();
@@ -33,7 +40,9 @@ export default function Home() {
 
         const existingTx = txMap.get(tx.id)!;
         if (tx.tags && tx.tags.length > 0) {
-          existingTx.tags = Array.from(new Set([...(existingTx.tags || []), ...tx.tags]));
+          existingTx.tags = Array.from(
+            new Set([...(existingTx.tags || []), ...tx.tags]),
+          );
         }
 
         if (tx.type === "credit") {
@@ -58,12 +67,29 @@ export default function Home() {
   return (
     <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
       <div className="w-full h-full p-4 bg-zinc-100 rounded-lg overflow-y-auto">
-        {/* <TableTabs /> */}
-        <DashboardTransactionsTable
-          columns={transactionsColumns}
-          data={transactionsData}
-        />
+        {loading ? (
+          <div className="bg-white rounded-lg p-6">
+            <LoadingState
+              message="Loading transactions..."
+              variant="skeleton"
+              rows={8}
+            />
+          </div>
+        ) : (
+          <DashboardTransactionsTable
+            columns={transactionsColumns}
+            data={transactionsData}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <AccountsLedgerProvider mode="all">
+      <HomeContent />
+    </AccountsLedgerProvider>
   );
 }

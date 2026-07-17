@@ -8,7 +8,8 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
@@ -30,11 +31,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLookupStore } from "@/stores/use-lookup-store";
-import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -47,6 +53,7 @@ type FormOutput = z.infer<typeof formSchema>;
 export default function AddAccountDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const { user, activeCompany } = useAuth();
 
@@ -65,10 +72,13 @@ export default function AddAccountDialog() {
 
   async function onSubmit(data: FormOutput) {
     try {
+      setIsSubmitting(true);
       const batch = writeBatch(db);
 
       // 1️⃣ Add account
-      const accountRef = doc(collection(db, "companies", activeCompany, "accounts"));
+      const accountRef = doc(
+        collection(db, "companies", activeCompany, "accounts"),
+      );
       batch.set(accountRef, {
         name: data.name,
         initialBalance: data.balance,
@@ -95,10 +105,13 @@ export default function AddAccountDialog() {
       setOpen(false);
     } catch (error) {
       console.error("Failed to add account", error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
+    if (isSubmitting) return;
     if (form.formState.isDirty) {
       setConfirmClose(true);
     } else {
@@ -165,12 +178,12 @@ export default function AddAccountDialog() {
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select an account type" />
                             </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              side="bottom"
-                            >
+                            <SelectContent position="popper" side="bottom">
                               {accountTypes.map((accountType) => (
-                                <SelectItem key={accountType.id} value={accountType.name}>
+                                <SelectItem
+                                  key={accountType.id}
+                                  value={accountType.name}
+                                >
                                   {accountType.name}
                                 </SelectItem>
                               ))}
@@ -212,8 +225,15 @@ export default function AddAccountDialog() {
               </div>
             </div>
             <DialogFooter className="mt-4">
-              <Button type="submit">Submit</Button>
-              <Button type="button" variant="outline" onClick={handleCancel}>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Submit"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             </DialogFooter>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Download, FileSpreadsheet, FileText, Printer } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Download, FileSpreadsheet, FileText, Printer } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -70,7 +70,11 @@ function csvLine(values: Array<string | number>) {
   return values
     .map((value) => {
       // Already quoted by formatCsvDate
-      if (typeof value === "string" && value.startsWith('"') && value.endsWith('"')) {
+      if (
+        typeof value === "string" &&
+        value.startsWith('"') &&
+        value.endsWith('"')
+      ) {
         return value;
       }
       return escapeCsvValue(value);
@@ -277,16 +281,18 @@ function buildPdf({
 
     autoTable(doc, {
       startY: cursorY,
-      head: [[
-        "Date",
-        "Account",
-        "Description",
-        "Dept",
-        "Vehicle",
-        "Voucher",
-        "Type",
-        "Amount",
-      ]],
+      head: [
+        [
+          "Date",
+          "Account",
+          "Description",
+          "Dept",
+          "Vehicle",
+          "Voucher",
+          "Type",
+          "Amount",
+        ],
+      ],
       body: transactions.length
         ? transactions.map((tx) => [
             formatDisplayDate(tx.date),
@@ -332,7 +338,8 @@ export default function ExportReportDialog({
   }, [open]);
 
   const canExport = includeAccounts || includeTransactions;
-  const safeName = reportName.replace(/[^\w\-]+/g, "_").toLowerCase() || "report";
+  const safeName =
+    reportName.replace(/[^\w-]+/g, "_").toLowerCase() || "report";
 
   const exportPayload = {
     reportName,
@@ -348,7 +355,11 @@ export default function ExportReportDialog({
 
   function handleDownloadCsv() {
     if (!canExport) return;
-    downloadBlob(`${safeName}.csv`, buildCsv(exportPayload), "text/csv;charset=utf-8;");
+    downloadBlob(
+      `${safeName}.csv`,
+      buildCsv(exportPayload),
+      "text/csv;charset=utf-8;",
+    );
     onOpenChange(false);
   }
 
@@ -379,7 +390,9 @@ export default function ExportReportDialog({
 
         <div className="space-y-4 py-2">
           <div className="space-y-3">
-            <p className="text-sm font-medium text-zinc-700">Include in export</p>
+            <p className="text-sm font-medium text-zinc-700">
+              Include in export
+            </p>
             <label className="flex items-center gap-3 cursor-pointer">
               <Checkbox
                 checked={includeAccounts}
@@ -442,7 +455,11 @@ export default function ExportReportDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
         </DialogFooter>

@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  onSnapshot,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
+import { toDate } from "@/lib/helpers/to-date";
 
 export type ReportFilters = {
   accountFilter: string;
@@ -30,21 +26,6 @@ export type CustomReport = {
   createdAt?: Date;
   entityStatus?: boolean;
 };
-
-function toDate(value: unknown): Date | undefined {
-  if (!value) return undefined;
-  if (value instanceof Timestamp) return value.toDate();
-  if (value instanceof Date) return value;
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "toDate" in value &&
-    typeof (value as { toDate: unknown }).toDate === "function"
-  ) {
-    return (value as { toDate: () => Date }).toDate();
-  }
-  return undefined;
-}
 
 function mapReportDoc(id: string, data: Record<string, any>): CustomReport {
   return {

@@ -1,30 +1,37 @@
 "use client";
 
+import {
+  type ColumnFiltersState,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
-import AddAccountDialog from "./components/add-account-dialog";
-import { ColumnFiltersState, getCoreRowModel, getFilteredRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { accountsColumns } from "./components/accounts-columns";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useLookupStore } from "@/stores/use-lookup-store";
-import { useAuth } from "@/contexts/auth-context";
+import { LoadingState } from "@/components/shared/loading-state";
+import { accountsColumns } from "./components/accounts-columns";
+import AddAccountDialog from "./components/add-account-dialog";
 
 const ACCOUNTS_PAGE_SIZE = 12;
 
 export default function AccountsPage() {
-  const { accounts } = useAccountsContext();
-  const { user, activeCompany } = useAuth();
+  const { accounts, loading } = useAccountsContext();
   const router = useRouter();
-
-  const store = useLookupStore();
-  const { accountTypes } = store;
-
-  useEffect(() => {
-    if (!activeCompany || !user) return;
-    return store.subscribeAll(activeCompany, user.uid);
-  }, [activeCompany, user, store]);
+  const accountTypes = useLookupStore((s) => s.accountTypes);
+  const accountTypesLoading = useLookupStore(
+    (s) => s.loading["account-types"],
+  );
 
   const columns = useMemo(() => accountsColumns, []);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -68,7 +75,7 @@ export default function AccountsPage() {
       (entries) => {
         if (entries[0]?.isIntersecting) {
           setVisibleCount((current) =>
-            Math.min(current + ACCOUNTS_PAGE_SIZE, filteredRows.length)
+            Math.min(current + ACCOUNTS_PAGE_SIZE, filteredRows.length),
           );
         }
       },
@@ -105,22 +112,20 @@ export default function AccountsPage() {
                 <SelectValue placeholder="Filter by account type" />
               </SelectTrigger>
 
-              <SelectContent
-                position="popper"
-                side="bottom"
-              >
-                <SelectItem value="all">
-                  All Account Types
-                </SelectItem>
+              <SelectContent position="popper" side="bottom">
+                <SelectItem value="all">All Account Types</SelectItem>
 
-                {accountTypes.map((accountType) => (
-                  <SelectItem
-                    key={accountType.id}
-                    value={accountType.name}
-                  >
-                    {accountType.name}
+                {accountTypesLoading ? (
+                  <SelectItem value="__loading" disabled>
+                    Loading types...
                   </SelectItem>
-                ))}
+                ) : (
+                  accountTypes.map((accountType) => (
+                    <SelectItem key={accountType.id} value={accountType.name}>
+                      {accountType.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -131,28 +136,44 @@ export default function AccountsPage() {
           ref={scrollAreaRef}
           className="flex-1 min-h-0 overflow-y-auto rounded-md pr-1"
         >
-          <div className="grid grid-cols-3 gap-x-6 gap-y-4">
-            {visibleRows.map((row) => {
-              const account = row.original;
+          {loading ? (
+            <LoadingState
+              message="Loading accounts..."
+              variant="skeleton"
+              rows={6}
+            />
+          ) : filteredRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">
+              No accounts found.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-x-6 gap-y-4">
+                {visibleRows.map((row) => {
+                  const account = row.original;
 
-              return (
-                <div
-                  key={account.id}
-                  className="min-h-32 bg-white rounded-md shadow cursor-pointer"
-                  onClick={() => router.push(`/accounts/${account.id}`)}
-                >
-                  <div className="h-full flex flex-col items-center justify-center">
-                    <span className="text-xl font-semibold">
-                      LKR {account.balance.toFixed(2)}
-                    </span>
-                    <span className="font-light">{account.name}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  return (
+                    <div
+                      key={account.id}
+                      className="min-h-32 bg-white rounded-md shadow cursor-pointer"
+                      onClick={() => router.push(`/accounts/${account.id}`)}
+                    >
+                      <div className="h-full flex flex-col items-center justify-center">
+                        <span className="text-xl font-semibold">
+                          LKR {account.balance.toFixed(2)}
+                        </span>
+                        <span className="font-light">{account.name}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-          {hasMoreRows && <div ref={loadMoreRef} className="h-8" aria-hidden />}
+              {hasMoreRows && (
+                <div ref={loadMoreRef} className="h-8" aria-hidden />
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
