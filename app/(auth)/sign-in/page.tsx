@@ -14,10 +14,11 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Card,
   CardContent,
@@ -53,7 +54,14 @@ type FormOutput = z.infer<typeof formSchema>;
 
 export default function SignInPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [loading, user, router]);
 
   const form = useForm({
     defaultValues: {

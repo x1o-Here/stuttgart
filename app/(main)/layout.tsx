@@ -1,6 +1,6 @@
 import AppSidebar from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AuthProvider } from "@/contexts/auth-context";
+import { RequireAuth } from "@/contexts/auth-context";
 import { LookupSubscription } from "@/contexts/lookup-context";
 import { AccountsProvider } from "@/contexts/useAccountsContext";
 
@@ -10,7 +10,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthProvider>
+    <RequireAuth>
       <SidebarProvider className="h-screen w-screen">
         <AccountsProvider>
           <LookupSubscription>
@@ -19,6 +19,6 @@ export default function MainLayout({
           </LookupSubscription>
         </AccountsProvider>
       </SidebarProvider>
-    </AuthProvider>
+    </RequireAuth>
   );
 }

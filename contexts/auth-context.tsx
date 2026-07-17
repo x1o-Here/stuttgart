@@ -10,12 +10,13 @@ import {
   where,
 } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { auth, db } from "@/lib/firebase/firebase-client";
@@ -24,6 +25,19 @@ export type Company = {
   id: string;
   name: string;
 };
+
+type AuthProfile = {
+  user: User;
+  username: string | null;
+  role: string | null;
+  companies: Company[];
+  activeCompany: string;
+};
+
+/** Survives React remounts for the lifetime of the JS session. */
+let sessionProfile: AuthProfile | null = null;
+
+const PUBLIC_PATHS = ["/sign-in"];
 
 function getActiveCompanyStorageKey(uid: string) {
   return `stuttgart:activeCompany:${uid}`;
@@ -53,6 +67,46 @@ function resolveActiveCompany(uid: string, userCompanies: Company[]): string {
   return defaultCompanyId;
 }
 
+async function fetchAuthProfile(user: User): Promise<AuthProfile> {
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  if (!userDoc.exists()) {
+    return {
+      user,
+      username: null,
+      role: null,
+      companies: [],
+      activeCompany: "",
+    };
+  }
+
+  const data = userDoc.data();
+  const companyIds = Array.isArray(data.companies)
+    ? (data.companies as string[])
+    : [];
+
+  let userCompanies: Company[] = [];
+  if (companyIds.length > 0) {
+    const companyDocs = await getDocs(
+      query(collection(db, "companies"), where("id", "in", companyIds)),
+    );
+
+    userCompanies = companyDocs.docs
+      .filter((companyDoc) => companyDoc.exists())
+      .map((companyDoc) => ({
+        id: companyDoc.id,
+        name: companyDoc.data().name as string,
+      }));
+  }
+
+  return {
+    user,
+    username: data.username ?? null,
+    role: data.role ?? null,
+    companies: userCompanies,
+    activeCompany: resolveActiveCompany(user.uid, userCompanies),
+  };
+}
+
 type AuthContextType = {
   user: User | null;
   username: string | null;
@@ -74,73 +128,121 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeCompany, setActiveCompanyState] = useState<string>("");
-  const router = useRouter();
-
-  const setActiveCompany = useCallback(
-    (companyId: string) => {
-      setActiveCompanyState(companyId);
-      if (user?.uid) {
-        storeActiveCompany(user.uid, companyId);
-      }
-    },
-    [user?.uid],
+  const [user, setUser] = useState<User | null>(
+    () => sessionProfile?.user ?? null,
   );
+  const [username, setUsername] = useState<string | null>(
+    () => sessionProfile?.username ?? null,
+  );
+  const [role, setRole] = useState<string | null>(
+    () => sessionProfile?.role ?? null,
+  );
+  const [companies, setCompanies] = useState<Company[]>(
+    () => sessionProfile?.companies ?? [],
+  );
+  const [activeCompany, setActiveCompanyState] = useState<string>(
+    () => sessionProfile?.activeCompany ?? "",
+  );
+  const [loading, setLoading] = useState(() => !sessionProfile);
+
+  const setActiveCompany = useCallback((companyId: string) => {
+    setActiveCompanyState(companyId);
+    if (sessionProfile) {
+      sessionProfile = { ...sessionProfile, activeCompany: companyId };
+    }
+    const uid = sessionProfile?.user.uid ?? auth.currentUser?.uid;
+    if (uid) {
+      storeActiveCompany(uid, companyId);
+    }
+  }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setUsername(data.username);
-            setRole(data.role);
-
-            const companyIds = Array.isArray(data.companies)
-              ? (data.companies as string[])
-              : [];
-
-            const companyDocs = await getDocs(
-              query(collection(db, "companies"), where("id", "in", companyIds)),
-            );
-
-            const userCompanies: Company[] = companyDocs.docs
-              .filter((companyDoc) => companyDoc.exists())
-              .map((companyDoc) => ({
-                id: companyDoc.id,
-                name: companyDoc.data().name as string,
-              }));
-
-            setCompanies(userCompanies);
-            setActiveCompanyState(
-              resolveActiveCompany(user.uid, userCompanies),
-            );
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
-      } else {
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      if (!nextUser) {
+        sessionProfile = null;
         setUser(null);
         setUsername(null);
         setRole(null);
         setCompanies([]);
         setActiveCompanyState("");
-        router.push("/sign-in");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      // Same user already loaded this session — keep cached profile.
+      if (sessionProfile?.user.uid === nextUser.uid) {
+        sessionProfile = { ...sessionProfile, user: nextUser };
+        setUser(nextUser);
+        setUsername(sessionProfile.username);
+        setRole(sessionProfile.role);
+        setCompanies(sessionProfile.companies);
+        setActiveCompanyState(sessionProfile.activeCompany);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const profile = await fetchAuthProfile(nextUser);
+        sessionProfile = profile;
+        setUser(profile.user);
+        setUsername(profile.username);
+        setRole(profile.role);
+        setCompanies(profile.companies);
+        setActiveCompanyState(profile.activeCompany);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        sessionProfile = null;
+        setUser(nextUser);
+        setUsername(null);
+        setRole(null);
+        setCompanies([]);
+        setActiveCompanyState("");
+      } finally {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
-  }, [router]);
+    return unsubscribe;
+  }, []);
 
-  if (loading) {
+  const value = useMemo(
+    () => ({
+      user,
+      username,
+      role,
+      companies,
+      loading,
+      activeCompany,
+      setActiveCompany,
+    }),
+    [
+      user,
+      username,
+      role,
+      companies,
+      loading,
+      activeCompany,
+      setActiveCompany,
+    ],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/** Gate protected routes. Auth data itself lives in AuthProvider (root). */
+export function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user && !PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
+      router.replace("/sign-in");
+    }
+  }, [loading, user, pathname, router]);
+
+  if (loading && !sessionProfile) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-gray-50">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -149,24 +251,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return null; // Don't render children if not authenticated (redirect happened)
+    return null;
   }
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        username,
-        role,
-        companies,
-        loading,
-        activeCompany,
-        setActiveCompany,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return children;
 }
 
 export const useAuth = () => useContext(AuthContext);
