@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/contexts/auth-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import { accountsColumns } from "./components/accounts-columns";
@@ -27,16 +26,8 @@ const ACCOUNTS_PAGE_SIZE = 12;
 
 export default function AccountsPage() {
   const { accounts } = useAccountsContext();
-  const { user, activeCompany } = useAuth();
   const router = useRouter();
-
-  const store = useLookupStore();
-  const { accountTypes } = store;
-
-  useEffect(() => {
-    if (!activeCompany || !user) return;
-    return store.subscribeAll(activeCompany, user.uid);
-  }, [activeCompany, user, store]);
+  const accountTypes = useLookupStore((s) => s.accountTypes);
 
   const columns = useMemo(() => accountsColumns, []);
   const [globalFilter, setGlobalFilter] = useState("");

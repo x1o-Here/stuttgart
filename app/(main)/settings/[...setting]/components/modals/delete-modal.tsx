@@ -31,7 +31,7 @@ export default function DeleteModal({
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { user, activeCompany } = useAuth();
-  const store = useLookupStore();
+  const deleteItem = useLookupStore((s) => s.deleteItem);
 
   const label = entityLabel.toLowerCase();
   const collectionKey: CollectionKey =
@@ -45,7 +45,7 @@ export default function DeleteModal({
     if (!activeCompany || !user) return;
     try {
       setIsDeleting(true);
-      await store.deleteItem(
+      await deleteItem(
         activeCompany,
         user.uid,
         collectionKey,

@@ -15,7 +15,7 @@ interface TransactionsVehicleFilterProps<TData> {
 export default function TransactionsVehicleFilter<TData>({
   table,
 }: TransactionsVehicleFilterProps<TData>) {
-  const vehicles = useLookupStore.getState().vehicles;
+  const vehicles = useLookupStore((s) => s.vehicles);
 
   return (
     <Select

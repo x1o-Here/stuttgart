@@ -21,6 +21,13 @@ export type Transaction = {
   amount: number;
 };
 
+function DepartmentBadge({ departmentName }: { departmentName: string }) {
+  const departments = useLookupStore((state) => state.departments);
+  const dept = departments.find((d) => d.name === departmentName);
+  if (!dept) return null;
+  return <Badge variant="secondary">{dept.shortForm}</Badge>;
+}
+
 export const transactionsColumns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "date",
@@ -46,12 +53,9 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     header: "Dept",
     size: 70,
     meta: { globalFilter: true },
-    cell: ({ row }) => {
-      const departments = useLookupStore((state) => state.departments);
-      const dept = departments.find((d) => d.name === row.original.department);
-
-      return dept && <Badge variant="secondary">{dept?.shortForm}</Badge>;
-    },
+    cell: ({ row }) => (
+      <DepartmentBadge departmentName={row.original.department} />
+    ),
   },
   {
     accessorKey: "description",

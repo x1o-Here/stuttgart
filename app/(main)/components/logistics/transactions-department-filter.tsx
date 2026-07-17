@@ -15,7 +15,7 @@ interface TransactionsDepartmentFilterProps<TData> {
 export default function TransactionsDepartmentFilter<TData>({
   table,
 }: TransactionsDepartmentFilterProps<TData>) {
-  const departments = useLookupStore.getState().departments;
+  const departments = useLookupStore((s) => s.departments);
 
   return (
     <Select

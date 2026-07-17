@@ -4,17 +4,21 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLookupStore } from "@/stores/use-lookup-store";
 
-export function LookupProvider({ children }: { children: React.ReactNode }) {
+/**
+ * Bootstraps the lookup Zustand store subscription for the active company.
+ * Not a React Context — consumers read via useLookupStore selectors.
+ */
+export function LookupSubscription({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, activeCompany } = useAuth();
-
   const subscribeAll = useLookupStore((state) => state.subscribeAll);
 
   useEffect(() => {
     if (!user || !activeCompany) return;
-
-    const unsubscribe = subscribeAll(activeCompany, user.uid);
-
-    return unsubscribe;
+    return subscribeAll(activeCompany, user.uid);
   }, [user, activeCompany, subscribeAll]);
 
   return children;

@@ -107,6 +107,15 @@ export const useLookupStore = create<LookupState>((set) => ({
   subscribeAll: (companyId, _userId) => {
     const keys: CollectionKey[] = ["account-types", "vehicles", "departments"];
 
+    // Clear previous company data so UI doesn't flash stale lookups
+    set({
+      accountTypes: [],
+      vehicles: [],
+      departments: [],
+      loading: { "account-types": true, vehicles: true, departments: true },
+      error: { "account-types": null, vehicles: null, departments: null },
+    });
+
     const unsubs = keys.map((key) => {
       const q = query(
         collection(db, ...collectionPath(companyId, key)),

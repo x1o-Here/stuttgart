@@ -47,7 +47,10 @@ export default function SettingPage({ params }: PageProps) {
   const settingSlug = resolvedParams?.setting?.[0];
   const { activeCompany, user } = useAuth();
 
-  const store = useLookupStore();
+  const createItem = useLookupStore((s) => s.createItem);
+  const accountTypes = useLookupStore((s) => s.accountTypes);
+  const vehicles = useLookupStore((s) => s.vehicles);
+  const departments = useLookupStore((s) => s.departments);
 
   const config = SETTING_MAP[settingSlug];
 
@@ -70,7 +73,8 @@ export default function SettingPage({ params }: PageProps) {
   }
 
   const { key, storeKey, label } = config;
-  const rawData = store[storeKey] || [];
+  const dataByKey = { accountTypes, vehicles, departments };
+  const rawData = dataByKey[storeKey] || [];
 
   return (
     <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
@@ -99,7 +103,7 @@ export default function SettingPage({ params }: PageProps) {
             entityLabel={label}
             onCreate={(data) => {
               if (!activeCompany || !user) return Promise.resolve();
-              return store.createItem(activeCompany, user.uid, key, data);
+              return createItem(activeCompany, user.uid, key, data);
             }}
           />
         </div>

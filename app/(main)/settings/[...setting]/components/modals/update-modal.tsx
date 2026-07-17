@@ -36,7 +36,7 @@ export default function UpdateModal({
 }: UpdateModalProps) {
   const [open, setOpen] = useState(false);
   const { user, activeCompany } = useAuth();
-  const store = useLookupStore();
+  const updateItem = useLookupStore((s) => s.updateItem);
 
   const isVehicle = entityLabel.toLowerCase() === "vehicle";
   const label = entityLabel.toLowerCase();
@@ -67,7 +67,7 @@ export default function UpdateModal({
   async function onSubmit(data: FormSchema) {
     if (!activeCompany || !user) return;
     try {
-      await store.updateItem(
+      await updateItem(
         activeCompany,
         user.uid,
         collectionKey,
