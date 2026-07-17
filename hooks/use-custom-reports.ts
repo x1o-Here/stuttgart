@@ -10,6 +10,14 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 
+export type ReportFilters = {
+  accountFilter: string;
+  typeFilter: string;
+  departmentFilter: string;
+  vehicleFilter: string;
+  tagFilter: string[];
+};
+
 export type CustomReport = {
   id: string;
   name: string;
@@ -17,6 +25,7 @@ export type CustomReport = {
   fromDate?: Date;
   toDate?: Date;
   accountIds?: string[];
+  filters?: ReportFilters;
   createdBy?: string;
   createdAt?: Date;
   entityStatus?: boolean;
@@ -43,6 +52,17 @@ function mapReportDoc(id: string, data: Record<string, any>): CustomReport {
     name: data.name || "Untitled report",
     description: data.description || "",
     accountIds: Array.isArray(data.accountIds) ? data.accountIds : [],
+    filters: data.filters
+      ? {
+          accountFilter: data.filters.accountFilter || "all",
+          typeFilter: data.filters.typeFilter || "all",
+          departmentFilter: data.filters.departmentFilter || "all",
+          vehicleFilter: data.filters.vehicleFilter || "all",
+          tagFilter: Array.isArray(data.filters.tagFilter)
+            ? data.filters.tagFilter
+            : ["active"],
+        }
+      : undefined,
     createdBy: data.createdBy,
     entityStatus: data.entityStatus ?? true,
     fromDate: toDate(data.fromDate),

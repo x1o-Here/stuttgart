@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
-import { ArrowLeft, CircleX, Filter } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { ArrowLeft, CircleX, Download, Filter, Save, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,7 +30,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionTypeFilterSelect } from "@/app/(main)/accounts/[id]/components/transaction-type-filter-select";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { useAuth } from "@/contexts/auth-context";
 import { useCustomReport } from "@/hooks/use-custom-reports";
+import { db } from "@/lib/firebase/firebase-client";
+import ExportReportDialog from "./components/export-report-dialog";
+import ShareReportDialog from "./components/share-report-dialog";
 
 const TAG_OPTIONS = ["active", "deleted", "corrected", "reversal"] as const;
 
@@ -54,12 +59,39 @@ export default function CustomReportPage() {
   const reportId = typeof params.id === "string" ? params.id : undefined;
   const { report, loading, error } = useCustomReport(reportId);
   const { accounts } = useAccountsContext();
+  const { activeCompany } = useAuth();
 
   const [accountFilter, setAccountFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [vehicleFilter, setVehicleFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState<string[]>(["active"]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
+
+  useEffect(() => {
+    if (!report || filtersHydrated) return;
+
+    if (report.filters) {
+      setAccountFilter(report.filters.accountFilter || "all");
+      setTypeFilter(report.filters.typeFilter || "all");
+      setDepartmentFilter(report.filters.departmentFilter || "all");
+      setVehicleFilter(report.filters.vehicleFilter || "all");
+      setTagFilter(
+        Array.isArray(report.filters.tagFilter) && report.filters.tagFilter.length
+          ? report.filters.tagFilter
+          : ["active"],
+      );
+    }
+
+    setFiltersHydrated(true);
+  }, [report, filtersHydrated]);
+
+  useEffect(() => {
+    setFiltersHydrated(false);
+  }, [reportId]);
 
   const periodBounds = useMemo(() => {
     if (!report) return { fromTime: undefined, toTime: undefined };
@@ -193,6 +225,28 @@ export default function CustomReportPage() {
     setTagFilter(["active"]);
   }
 
+  async function handleSaveFilters() {
+    if (!activeCompany || !reportId) return;
+
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "companies", activeCompany, "reports", reportId), {
+        filters: {
+          accountFilter,
+          typeFilter,
+          departmentFilter,
+          vehicleFilter,
+          tagFilter,
+        },
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to save report filters:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   let tagButtonLabel = "All";
   if (tagFilter.length === 1) {
     tagButtonLabel = tagFilter[0].charAt(0).toUpperCase() + tagFilter[0].slice(1);
@@ -245,10 +299,43 @@ export default function CustomReportPage() {
 
             <div className="bg-white rounded-xl p-6">
               <Tabs defaultValue="accounts">
-                <TabsList>
-                  <TabsTrigger value="accounts">Account summary</TabsTrigger>
-                  <TabsTrigger value="transactions">Transaction summary</TabsTrigger>
-                </TabsList>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <TabsList className="gap-1 p-0 bg-transparent">
+                    <TabsTrigger value="accounts" className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer">Account summary</TabsTrigger>
+                    <TabsTrigger value="transactions" className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer">Transaction summary</TabsTrigger>
+                  </TabsList>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSaveFilters}
+                      disabled={saving}
+                    >
+                      <Save className="mr-1.5 h-4 w-4" />
+                      {saving ? "Saving..." : "Save"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShareOpen(true)}
+                    >
+                      <Share2 className="mr-1.5 h-4 w-4" />
+                      Share
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExportOpen(true)}
+                    >
+                      <Download className="mr-1.5 h-4 w-4" />
+                      Export
+                    </Button>
+                  </div>
+                </div>
 
                 <TabsContent value="accounts" className="mt-4">
                   <Table>
@@ -433,6 +520,27 @@ export default function CustomReportPage() {
                 </TabsContent>
               </Tabs>
             </div>
+
+            <ShareReportDialog
+              open={shareOpen}
+              onOpenChange={setShareOpen}
+              reportName={report.name}
+            />
+            <ExportReportDialog
+              open={exportOpen}
+              onOpenChange={setExportOpen}
+              reportName={report.name}
+              periodLabel={
+                report.fromDate && report.toDate
+                  ? `${report.fromDate.toLocaleDateString()} – ${report.toDate.toLocaleDateString()}`
+                  : "-"
+              }
+              fromDate={report.fromDate}
+              toDate={report.toDate}
+              accountNames={selectedAccounts.map((account) => account.name)}
+              accountSummaries={accountSummaries}
+              transactions={filteredTransactions}
+            />
           </div>
         )}
       </div>
