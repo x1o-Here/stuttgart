@@ -17,6 +17,9 @@ export type Transaction = {
   description: string;
   amount: number;
   type: "debit" | "credit";
+  department: string;
+  vehicle: string;
+  voucher: number;
   createdAt?: Date;
   tags?: string[];
   runningBalance?: number;
@@ -25,6 +28,7 @@ export type Transaction = {
 export type Account = {
   id: string;
   name: string;
+  accountType?: string;
   balance: number;
   transactions: Transaction[];
   createdAt?: Date;
@@ -78,6 +82,7 @@ export function useAccounts() {
             const account: Account = {
               id,
               name: data.name || "Unnamed Account",
+              accountType: data.accountType,
               balance: data.balance || 0,
               transactions: accountMap.get(id)?.transactions || [],
               initialBalance: data.initialBalance || 0,
@@ -103,6 +108,9 @@ export function useAccounts() {
                     id: tx.id,
                     vehicleId: t.vehicleId,
                     description: t.description || "",
+                    department: t.department || "",
+                    vehicle: t.vehicle || "",
+                    voucher: t.voucherNo || 0,
                     amount: t.amount || 0,
                     type: t.type,
                     tags: t.tags || [],

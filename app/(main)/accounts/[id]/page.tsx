@@ -6,6 +6,7 @@ import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { transactionsColumns } from "./components/transactions-columns";
 import { TransactionsDataTable } from "./components/transactions-table";
 import { toDate } from "@/lib/helpers/to-date";
+import { Badge } from "@/components/ui/badge";
 
 export default function AccountPage() {
   const params = useParams();
@@ -70,7 +71,14 @@ export default function AccountPage() {
     <div className="min-h-screen p-4 flex items-center justify-center font-sans">
       <div className="w-full min-h-[calc(100vh-2rem)] p-4 bg-zinc-100 rounded-lg flex flex-col">
         <div className="mt-2 p-4 bg-white rounded-md flex items-center justify-between gap-4 shrink-0">
-          <p className="text-black text-3xl font-semibold">{account?.name}</p>
+          <div className="flex items-end gap-2">
+            <p className="text-black text-3xl font-semibold">{account?.name}</p>
+            {account?.accountType && (
+              <Badge variant="secondary" className="text-md rounded-md">
+                {account.accountType}
+              </Badge>
+            )}
+          </div>
           <p className="text-black text-xl font-light">{formattedAmount}</p>
         </div>
 

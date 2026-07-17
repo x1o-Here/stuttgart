@@ -163,7 +163,7 @@ export default function ChartComponent() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-[400px]">
+      <div className="flex-1 min-h-0">
         <ChartContainer config={chartConfig} className="h-full w-full">
           <LineChart
             data={chartData}

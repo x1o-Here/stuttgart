@@ -1,10 +1,10 @@
 "use client";
 
 import { signOut } from "firebase/auth";
-import { LogOut, Regex } from "lucide-react";
+import { LogOut, Regex, Settings } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { MainSidebarContent } from "@/data/sidebar-items";
 import { getActiveSidebarRoute } from "@/lib/active-route";
@@ -35,9 +35,9 @@ const bodoniModa = Bodoni_Moda({
 
 export default function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const activeRoute = getActiveSidebarRoute(pathname);
-  const { username, role, companies, activeCompany, setActiveCompany } =
-    useAuth();
+  const { username, role, companies, activeCompany, setActiveCompany } = useAuth();
 
   async function handleLogout() {
     try {
@@ -126,6 +126,15 @@ export default function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-y-2">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="text-gray-600 flex w-full items-center rounded-lg px-2 py-1 cursor-pointer"
+                  onClick={() => router.push("/settings")}
+                >
+                  <Settings className="mr-1" />
+                  <span>Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   className="text-gray-600 hover:text-red-500 hover:bg-red-100 flex w-full items-center rounded-lg px-2 py-1 cursor-pointer"

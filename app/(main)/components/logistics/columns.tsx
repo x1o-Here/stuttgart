@@ -2,11 +2,16 @@ import { Button } from "@/components/ui/button";
 import { toDate } from "@/lib/helpers/to-date";
 import { ColumnDef, FilterFnOption } from "@tanstack/react-table";
 import { TransactionActions } from "./transaction-actions";
+import { Badge } from "@/components/ui/badge";
+import { useLookupStore } from "@/stores/use-lookup-store";
 
 export type Transaction = {
     id: string;
     date: Date;
     description: string;
+    department: string;
+    vehicle?: string;
+    voucher: number
     creditingAccount: string;
     debitingAccount: string;
     creditingAccountId?: string;
@@ -20,7 +25,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     {
         accessorKey: "date",
         header: "Date",
-        size: 100,
+        size: 90,
         cell: ({ row }) => {
             const date = toDate(row.getValue("date"));
             return date ? date.toLocaleDateString() : "-";
@@ -48,9 +53,37 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         }
     },
     {
+        accessorKey: "department",
+        header: "Dept",
+        size: 70,
+        meta: { globalFilter: true },
+        cell: ({ row }) => {
+            const departments = useLookupStore((state) => state.departments);
+            const dept = departments.find((d) => d.name === row.original.department);
+
+            return dept && (
+                <Badge variant="secondary">
+                    {dept?.shortForm}
+                </Badge>
+            )
+        }
+    },
+    {
         accessorKey: "description",
         header: "Description",
-        size: 300,
+        size: 240,
+        meta: { globalFilter: true },
+    },
+    {
+        accessorKey: "vehicle",
+        header: "Lorry",
+        size: 75,
+        meta: { globalFilter: true },
+    },
+    {
+        accessorKey: "voucher",
+        header: "V/No",
+        size: 50,
         meta: { globalFilter: true },
     },
     {
@@ -68,7 +101,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     {
         accessorKey: "amount",
         header: "Amount",
-        size: 150,
+        size: 125,
         cell: ({ row }) => {
             const amount = parseFloat(row.getValue("amount"));
             const formatted = new Intl.NumberFormat("en-US", {
@@ -82,7 +115,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     },
     {
         id: "actions",
-        size: 40,
+        size: 50,
         cell: ({ row }) => {
             return <TransactionActions transaction={row.original} />;
         },
