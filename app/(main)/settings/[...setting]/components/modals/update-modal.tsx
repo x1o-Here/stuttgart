@@ -35,6 +35,7 @@ export default function UpdateModal({
   initialData,
 }: UpdateModalProps) {
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
   const updateItem = useLookupStore((s) => s.updateItem);
 
@@ -65,8 +66,9 @@ export default function UpdateModal({
   }, [open, initialData]);
 
   async function onSubmit(data: FormSchema) {
-    if (!activeCompany || !user) return;
+    if (!activeCompany || !user || isSubmitting) return;
     try {
+      setIsSubmitting(true);
       await updateItem(
         activeCompany,
         user.uid,
@@ -81,6 +83,8 @@ export default function UpdateModal({
       setOpen(false);
     } catch (error) {
       console.error(`Failed to update ${entityLabel}`, error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -156,12 +160,12 @@ export default function UpdateModal({
         </div>
         <DialogFooter className="pt-4 border-t">
           <DialogClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={isSubmitting}>
               Cancel
             </Button>
           </DialogClose>
-          <Button type="submit" form="update-form">
-            Save Changes
+          <Button type="submit" form="update-form" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

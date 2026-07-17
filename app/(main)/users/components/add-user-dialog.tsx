@@ -179,6 +179,7 @@ function generateRandomPassword() {
 export default function AddUserDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const { user: currentUser } = useAuth();
@@ -222,6 +223,7 @@ export default function AddUserDialog() {
   async function onSubmit(data: FormOutput) {
     let userCredential;
     try {
+      setIsSubmitting(true);
       const firebaseConfig = {
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -317,10 +319,13 @@ export default function AddUserDialog() {
       form.setError("root", {
         message: "Failed to create user. Please try again.",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
+    if (isSubmitting) return;
     if (form.formState.isDirty) {
       setConfirmClose(true);
     } else {
@@ -432,8 +437,15 @@ export default function AddUserDialog() {
               </div>
             </div>
             <DialogFooter className="mt-4">
-              <Button type="submit">Submit</Button>
-              <Button type="button" variant="outline" onClick={handleCancel}>
+              <Button type="submit" disabled={isSubmitting || companiesLoading}>
+                {isSubmitting ? "Creating..." : "Submit"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             </DialogFooter>

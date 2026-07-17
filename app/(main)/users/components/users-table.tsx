@@ -2,6 +2,7 @@
 
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
+import { LoadingState } from "@/components/shared/loading-state";
 import { db } from "@/lib/firebase/firebase-client";
 import { columns, type UserData } from "./columns";
 import { DataTable } from "./data-table";
@@ -42,11 +43,7 @@ export default function UsersTable() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        Loading users...
-      </div>
-    );
+    return <LoadingState message="Loading users..." variant="compact" />;
   }
 
   return (

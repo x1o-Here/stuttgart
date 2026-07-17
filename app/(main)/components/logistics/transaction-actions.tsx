@@ -74,6 +74,8 @@ interface TransactionActionsProps {
 export function TransactionActions({ transaction }: TransactionActionsProps) {
   const [openDropdown, setOpenDropdown] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { accounts } = useAccountsContext();
   const { user, activeCompany } = useAuth();
@@ -100,6 +102,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
 
   async function onSubmit(data: FormOutput) {
     try {
+      setIsSubmitting(true);
       const batch = writeBatch(db);
       const transactionId = transaction.id;
 
@@ -285,10 +288,13 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
       setOpenDropdown(false);
     } catch (err) {
       console.error("Failed to edit transaction:", err);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleDelete() {
+    if (isDeleting) return;
     if (
       !window.confirm(
         "Are you sure you want to delete this transaction? This action will reverse the transaction and mark it as deleted.",
@@ -298,6 +304,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
     }
 
     try {
+      setIsDeleting(true);
       const batch = writeBatch(db);
       const transactionId = transaction.id;
       const reversalTxId = doc(collection(db, "transactions")).id;
@@ -415,6 +422,8 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
       setOpenDropdown(false);
     } catch (err) {
       console.error("Failed to delete transaction:", err);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -452,10 +461,11 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-red-600 focus:text-red-600"
+            disabled={isDeleting}
             onClick={handleDelete}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete Transaction
+            {isDeleting ? "Deleting..." : "Delete Transaction"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -713,13 +723,18 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
             </FieldGroup>
           </form>
           <DialogFooter className="mt-4">
-            <Button type="submit" form="edit-transaction-form">
-              Save Changes
+            <Button
+              type="submit"
+              form="edit-transaction-form"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => setEditDialogOpen(false)}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>

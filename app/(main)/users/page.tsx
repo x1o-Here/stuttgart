@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LoadingState } from "@/components/shared/loading-state";
 import { useAuth } from "@/contexts/auth-context";
 import AddUserDialog from "./components/add-user-dialog";
 import UsersTable from "./components/users-table";
@@ -16,8 +17,16 @@ export default function UserManagementPage() {
     }
   }, [role, loading, router]);
 
-  if (loading || (role !== "admin" && role !== "manager")) {
-    return null; // Or a loading spinner / unauthorized message
+  if (loading) {
+    return (
+      <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
+        <LoadingState message="Checking access..." />
+      </div>
+    );
+  }
+
+  if (role !== "admin" && role !== "manager") {
+    return null;
   }
 
   return (

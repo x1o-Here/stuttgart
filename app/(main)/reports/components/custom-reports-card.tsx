@@ -4,6 +4,7 @@ import { ChevronRight, FileText, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/shared/loading-state";
 import { useCustomReports } from "@/hooks/use-custom-reports";
 import AddCustomReportDialog from "./add-custom-report-dialog";
 
@@ -47,9 +48,7 @@ export default function CustomReportsCard() {
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (
-          <p className="text-sm text-zinc-500 py-6 text-center">
-            Loading reports...
-          </p>
+          <LoadingState message="Loading reports..." variant="compact" />
         ) : error ? (
           <p className="text-sm text-red-500 py-6 text-center">{error}</p>
         ) : filteredReports.length === 0 ? (

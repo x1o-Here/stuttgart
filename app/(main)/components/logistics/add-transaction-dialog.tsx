@@ -60,6 +60,7 @@ type FormOutput = z.infer<typeof formSchema>;
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { accounts } = useAccountsContext();
   const { user, activeCompany } = useAuth();
@@ -86,6 +87,7 @@ export function AddTransactionDialog() {
 
   async function onSubmit(data: FormOutput) {
     try {
+      setIsSubmitting(true);
       const batch = writeBatch(db);
 
       // Transactions
@@ -172,16 +174,25 @@ export function AddTransactionDialog() {
       setOpen(false);
     } catch (err) {
       console.error("Transaction failed:", err);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
+    if (isSubmitting) return;
     form.reset();
     setOpen(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (isSubmitting) return;
+        setOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -438,10 +449,19 @@ export function AddTransactionDialog() {
           </FieldGroup>
         </form>
         <DialogFooter className="mt-4">
-          <Button type="submit" form="add-transaction-form">
-            Submit
+          <Button
+            type="submit"
+            form="add-transaction-form"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Submit"}
           </Button>
-          <Button type="button" variant="outline" onClick={handleCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
         </DialogFooter>

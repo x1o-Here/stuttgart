@@ -6,6 +6,7 @@ import { use, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { type CollectionKey, useLookupStore } from "@/stores/use-lookup-store";
+import { LoadingState } from "@/components/shared/loading-state";
 import { getLookupColumns } from "./components/columns/lookup-columns";
 import { DataTable } from "./components/data-table";
 
@@ -51,6 +52,7 @@ export default function SettingPage({ params }: PageProps) {
   const accountTypes = useLookupStore((s) => s.accountTypes);
   const vehicles = useLookupStore((s) => s.vehicles);
   const departments = useLookupStore((s) => s.departments);
+  const lookupLoading = useLookupStore((s) => s.loading);
 
   const config = SETTING_MAP[settingSlug];
 
@@ -75,6 +77,7 @@ export default function SettingPage({ params }: PageProps) {
   const { key, storeKey, label } = config;
   const dataByKey = { accountTypes, vehicles, departments };
   const rawData = dataByKey[storeKey] || [];
+  const isLoading = lookupLoading[key];
 
   return (
     <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
@@ -93,19 +96,27 @@ export default function SettingPage({ params }: PageProps) {
         </div>
 
         <div className="w-full p-4 rounded-md bg-white">
-          <DataTable
-            columns={columns}
-            data={rawData.map(({ id, name, shortForm }) => ({
-              id,
-              name,
-              shortForm: shortForm ?? "",
-            }))}
-            entityLabel={label}
-            onCreate={(data) => {
-              if (!activeCompany || !user) return Promise.resolve();
-              return createItem(activeCompany, user.uid, key, data);
-            }}
-          />
+          {isLoading ? (
+            <LoadingState
+              message={`Loading ${label.toLowerCase()}s...`}
+              variant="skeleton"
+              rows={5}
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={rawData.map(({ id, name, shortForm }) => ({
+                id,
+                name,
+                shortForm: shortForm ?? "",
+              }))}
+              entityLabel={label}
+              onCreate={(data) => {
+                if (!activeCompany || !user) return Promise.resolve();
+                return createItem(activeCompany, user.uid, key, data);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

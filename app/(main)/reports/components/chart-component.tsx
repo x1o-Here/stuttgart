@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { LoadingState } from "@/components/shared/loading-state";
 
 // indigo-500, emerald-500, rose-500, amber-500, sky-500, violet-500, pink-500, cyan-500
 export const LINE_COLORS = [
@@ -32,7 +33,7 @@ export const LINE_COLORS = [
 ];
 
 export default function ChartComponent() {
-  const { accounts } = useAccountsContext();
+  const { accounts, loading } = useAccountsContext();
   const {
     selectedMonthYear,
     setSelectedMonthYear,
@@ -128,6 +129,18 @@ export default function ChartComponent() {
 
     return dailyData;
   }, [activeAccounts, selectedMonthYear]);
+
+  if (loading) {
+    return (
+      <div className="h-full w-full flex flex-col p-6">
+        <LoadingState
+          message="Loading account trends..."
+          variant="bar"
+          className="my-auto"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full flex flex-col p-6">

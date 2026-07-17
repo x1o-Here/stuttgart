@@ -64,6 +64,7 @@ const defaultValues: FormOutput = {
 export default function AddCustomReportDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
   const { accounts } = useAccountsContext();
 
@@ -87,9 +88,10 @@ export default function AddCustomReportDialog() {
   }
 
   async function onSubmit(data: FormOutput) {
-    if (!activeCompany || !user) return;
+    if (!activeCompany || !user || isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       const batch = writeBatch(db);
 
       const reportRef = doc(
@@ -121,10 +123,13 @@ export default function AddCustomReportDialog() {
       setOpen(false);
     } catch (error) {
       console.error("Failed to add custom report", error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
+    if (isSubmitting) return;
     if (form.formState.isDirty) {
       setConfirmClose(true);
     } else {
@@ -285,8 +290,15 @@ export default function AddCustomReportDialog() {
             </div>
 
             <DialogFooter>
-              <Button type="submit">Create Report</Button>
-              <Button type="button" variant="outline" onClick={handleCancel}>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Report"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             </DialogFooter>

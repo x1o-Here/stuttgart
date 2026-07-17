@@ -11,10 +11,11 @@ import {
 } from "@/components/ui/table";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { LoadingState } from "@/components/shared/loading-state";
 import { LINE_COLORS } from "./chart-component";
 
 export default function CashFlowTable() {
-  const { accounts } = useAccountsContext();
+  const { accounts, loading } = useAccountsContext();
   const { selectedMonthYear, selectedAccountId, setSelectedAccountId } =
     useReportFilter();
 
@@ -46,6 +47,22 @@ export default function CashFlowTable() {
       };
     });
   }, [accounts, selectedMonthYear]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
+        <div className="border-b border-zinc-100 pb-4 shrink-0">
+          <h3 className="font-semibold text-zinc-800">Monthly Cash Flow</h3>
+          <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
+        </div>
+        <LoadingState
+          message="Loading cash flow..."
+          variant="compact"
+          className="flex-1"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
+import { LoadingState } from "@/components/shared/loading-state";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -264,8 +265,8 @@ export default function CustomReportPage() {
         </div>
 
         {loading ? (
-          <div className="bg-white rounded-xl p-8 text-center text-zinc-500">
-            Loading report...
+          <div className="bg-white rounded-xl p-8">
+            <LoadingState message="Loading report..." variant="bar" />
           </div>
         ) : error || !report ? (
           <div className="bg-white rounded-xl p-8 text-center text-red-500">

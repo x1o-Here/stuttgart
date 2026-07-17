@@ -242,19 +242,21 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, pathname, router]);
 
-  if (loading && !sessionProfile) {
+  // Never flash the auth gate when session is already known.
+  if (user || sessionProfile) {
+    return children;
+  }
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen w-screen bg-gray-50">
+      <div className="flex flex-col items-center justify-center gap-3 h-screen w-screen bg-gray-50 text-muted-foreground">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-sm">Signing you in...</p>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  return children;
+  return null;
 }
 
 export const useAuth = () => useContext(AuthContext);

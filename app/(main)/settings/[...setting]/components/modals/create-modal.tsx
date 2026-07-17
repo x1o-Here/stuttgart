@@ -40,6 +40,7 @@ export default function CreateModal({
   onCreate,
 }: CreateModalProps) {
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isVehicle = entityLabel.toLowerCase() === "vehicle";
 
   const form = useForm<FormSchema>({
@@ -52,6 +53,7 @@ export default function CreateModal({
 
   async function onSubmit(data: FormSchema) {
     try {
+      setIsSubmitting(true);
       await onCreate?.({
         name: data.name,
         shortForm: isVehicle ? "" : data.shortForm,
@@ -60,6 +62,8 @@ export default function CreateModal({
       setOpen(false);
     } catch (error) {
       console.error(`Failed to create ${entityLabel}`, error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -132,12 +136,12 @@ export default function CreateModal({
         </div>
         <DialogFooter className="pt-4 border-t">
           <DialogClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={isSubmitting}>
               Cancel
             </Button>
           </DialogClose>
-          <Button type="submit" form="create-form">
-            Create
+          <Button type="submit" form="create-form" disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
       </DialogContent>
