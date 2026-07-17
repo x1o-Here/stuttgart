@@ -11,6 +11,8 @@ import { CircleX, Filter } from "lucide-react";
 import { AddTransactionDialog } from "./add-transaction-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { TransactionsTagFilter } from "./transactions-tag-filter";
+import TransactionsDepartmentFilter from "./transactions-department-filter";
+import TransactionsVehicleFilter from "./transactions-vehicle-filter";
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
@@ -55,7 +57,7 @@ export function DashboardTransactionsTable<TData, TValue>({
     const [sorting, setSorting] = useState([{ id: "date", desc: true }, { id: "createdAt", desc: true }]);
     const [columnFilters, setColumnFilters] = useState<
         { id: string; value: any }[]
-    >([]);
+    >([{ id: "tags", value: ["active"] }]);
     const [pagination, setPagination] = useState({
         pageIndex: 0,
         pageSize: 10,
@@ -91,7 +93,7 @@ export function DashboardTransactionsTable<TData, TValue>({
     return (
         <div className="bg-white rounded-lg p-4">
             <div className="flex flex-col flex-1 gap-4 min-h-0">
-                <div className="w-full flex items-center justify-between gap-36 shrink-0">
+                <div className="w-full flex items-center justify-between gap-6 shrink-0">
                     <div className="w-full flex items-center gap-2">
                         <TransactionsSortPopover
                             onSortChange={(column, direction) => {
@@ -104,10 +106,13 @@ export function DashboardTransactionsTable<TData, TValue>({
 
                         <Input
                             placeholder="Search by Description or Amount..."
-                            className="w-full min-w-96"
+                            className="w-full"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
+
+                        <TransactionsDepartmentFilter table={table} />
+                        <TransactionsVehicleFilter table={table} />
 
                         <TransactionsTagFilter table={table} />
                     </div>

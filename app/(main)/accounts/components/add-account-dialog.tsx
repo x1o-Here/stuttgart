@@ -8,7 +8,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
@@ -32,9 +32,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLookupStore } from "@/stores/use-lookup-store";
+import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  accountType: z.string().min(1, "Account Type is required"),
   balance: z.number().min(0, "Balance cannot be negative"),
 });
 
@@ -43,11 +47,15 @@ type FormOutput = z.infer<typeof formSchema>;
 export default function AddAccountDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const router = useRouter();
   const { user, activeCompany } = useAuth();
+
+  const accountTypes = useLookupStore((state) => state.accountTypes);
 
   const form = useForm<FormOutput>({
     defaultValues: {
       name: "",
+      accountType: "",
       balance: 0,
     },
     resolver: zodResolver(formSchema),
@@ -64,6 +72,7 @@ export default function AddAccountDialog() {
       batch.set(accountRef, {
         name: data.name,
         initialBalance: data.balance,
+        accountType: data.accountType,
         balance: data.balance,
         entityStatus: true,
         createdAt: serverTimestamp(),
@@ -114,12 +123,12 @@ export default function AddAccountDialog() {
             </DialogHeader>
             <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
               <div className="flex flex-col gap-4">
-                <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="name"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="col-span-2">
                         <FormLabel>Account Name</FormLabel>
                         <FormControl>
                           <Input
@@ -128,6 +137,49 @@ export default function AddAccountDialog() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md"
                             {...field}
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="accountType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Type</FormLabel>
+                        <FormControl>
+                          <Select
+                            onValueChange={(value) => {
+                              if (value === "__new__") {
+                                router.push("/settings/account-types");
+                                return;
+                              }
+
+                              field.onChange(value);
+                            }}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select an account type" />
+                            </SelectTrigger>
+                            <SelectContent
+                              position="popper"
+                              side="bottom"
+                            >
+                              {accountTypes.map((accountType) => (
+                                <SelectItem key={accountType.id} value={accountType.name}>
+                                  {accountType.name}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="__new__">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create new account type
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

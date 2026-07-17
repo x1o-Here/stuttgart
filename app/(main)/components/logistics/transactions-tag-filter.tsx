@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Filter } from "lucide-react";
 import { Table } from "@tanstack/react-table";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface TransactionsTagFilterProps<TData> {
     table: Table<TData>;
@@ -13,13 +13,23 @@ interface TransactionsTagFilterProps<TData> {
 
 export function TransactionsTagFilter<TData>({ table }: TransactionsTagFilterProps<TData>) {
     const tagsColumn = table.getColumn("tags");
+    const hasInitialized = useRef(false);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(
-        (tagsColumn?.getFilterValue() as string[]) || []
+        (tagsColumn?.getFilterValue() as string[]) || ["active"]
     );
 
-    // Sync with table state changes (e.g. from clear filters)
     useEffect(() => {
-        setSelectedStatuses((tagsColumn?.getFilterValue() as string[]) || []);
+        if (!tagsColumn || hasInitialized.current) return;
+        hasInitialized.current = true;
+
+        const filterValue = tagsColumn.getFilterValue() as string[] | undefined;
+        if (!filterValue || filterValue.length === 0) {
+            tagsColumn.setFilterValue(["active"]);
+            setSelectedStatuses(["active"]);
+            return;
+        }
+
+        setSelectedStatuses(filterValue);
     }, [tagsColumn]);
 
     let buttonLabel = "All";

@@ -41,44 +41,50 @@ export default function MonthEndBalanceTable() {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-      <div className="border-b border-zinc-100 bg-zinc-50/50">
+      <div className="border-b border-zinc-100 pb-4 shrink-0">
         <h3 className="font-semibold text-zinc-800">Month-End Balances</h3>
         <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-10"></TableHead>
-              <TableHead>Account</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {monthEndBalances.map((item, index) => {
-              const isSelected = selectedAccountId === "all" || selectedAccountId === item.id;
-              return (
-                <TableRow
-                  key={item.id}
-                  className={`${!isSelected ? "opacity-40 grayscale" : "hover:bg-zinc-50"} transition-all`}
-                  onClick={() => setSelectedAccountId(item.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <TableCell>
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: LINE_COLORS[index % LINE_COLORS.length] }}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium text-zinc-700">{item.name}</TableCell>
-                  <TableCell className="text-right font-mono text-zinc-600">
-                    {item.balance.toLocaleString()}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="shrink-0">
+          <Table className="table-fixed">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead className="w-28 text-right">Balance</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <Table className="table-fixed">
+            <TableBody>
+              {monthEndBalances.map((item, index) => {
+                const isSelected = selectedAccountId === "all" || selectedAccountId === item.id;
+                return (
+                  <TableRow
+                    key={item.id}
+                    className={`${!isSelected ? "opacity-40 grayscale" : "hover:bg-zinc-50"} transition-all`}
+                    onClick={() => setSelectedAccountId(item.id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <TableCell className="w-10">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: LINE_COLORS[index % LINE_COLORS.length] }}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium text-zinc-700">{item.name}</TableCell>
+                    <TableCell className="w-28 text-right font-mono text-zinc-600">
+                      {item.balance.toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
