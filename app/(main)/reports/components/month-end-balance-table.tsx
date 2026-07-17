@@ -41,7 +41,7 @@ export default function MonthEndBalanceTable() {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-      <div className="border-b border-zinc-100 pb-4 mb-4 shrink-0">
+      <div className="border-b border-zinc-100 pb-4 shrink-0">
         <h3 className="font-semibold text-zinc-800">Month-End Balances</h3>
         <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
       </div>
