@@ -1,7 +1,12 @@
 import {
+  ChartColumn,
+  ContactRound,
   KeyRound,
+  Landmark,
+  LayoutDashboard,
   Settings2,
   SquareKanban,
+  UserCog,
   Users,
   Warehouse,
 } from "lucide-react";
@@ -12,25 +17,31 @@ const MainSidebarContent = [
     key: "dashboard" as SidebarRouteKey,
     title: "Dashboard",
     href: "/",
-    icon: Warehouse,
-  },
-  {
-    key: "reports" as SidebarRouteKey,
-    title: "Reports",
-    href: "/reports",
-    icon: SquareKanban,
+    icon: LayoutDashboard,
   },
   {
     key: "accounts" as SidebarRouteKey,
     title: "Accounts",
     href: "/accounts",
-    icon: KeyRound,
+    icon: Landmark,
+  },
+  {
+    key: "clients" as SidebarRouteKey,
+    title: "Clients",
+    href: "/clients",
+    icon: ContactRound,
+  },
+  {
+    key: "reports" as SidebarRouteKey,
+    title: "Reports",
+    href: "/reports",
+    icon: ChartColumn,
   },
   {
     key: "users" as SidebarRouteKey,
     title: "Users",
     href: "/users",
-    icon: Users,
+    icon: UserCog,
   },
 ];
 
