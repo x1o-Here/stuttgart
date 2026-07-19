@@ -52,13 +52,13 @@ export default function ClientDetailPage() {
           return;
         }
 
-        const data = snapshot.data() as Record<string, any>;
+        const data = snapshot.data() as Record<string, unknown>;
         setClient({
           id: snapshot.id,
-          name: data.name || "Unnamed Client",
-          address: data.address || "",
-          vatNo: data.vatNo || "",
-          contactNo: data.contactNo || "",
+          name: typeof data.name === "string" ? data.name : "Unnamed Client",
+          address: typeof data.address === "string" ? data.address : "",
+          vatNo: typeof data.vatNo === "string" ? data.vatNo : "",
+          contactNo: typeof data.contactNo === "string" ? data.contactNo : "",
           status: data.status === "inactive" ? "inactive" : "active",
         });
         setNotFound(false);
@@ -90,7 +90,11 @@ export default function ClientDetailPage() {
         </div>
 
         {loading ? (
-          <LoadingState message="Loading client..." variant="skeleton" rows={4} />
+          <LoadingState
+            message="Loading client..."
+            variant="skeleton"
+            rows={4}
+          />
         ) : notFound || !client ? (
           <div className="p-4 bg-white rounded-lg">
             <p className="text-lg font-semibold mb-4">Client not found</p>
@@ -150,10 +154,24 @@ export default function ClientDetailPage() {
                   clientName={client.name}
                   currentStatus={client.status}
                 />
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/clients/${client.id}/template`)}
+                >
+                  Template
+                </Button>
               </div>
             </div>
 
-            <ClientInvoicesSection clientId={client.id} />
+            <ClientInvoicesSection
+              client={{
+                id: client.id,
+                name: client.name,
+                address: client.address,
+                vatNo: client.vatNo,
+                contactNo: client.contactNo,
+              }}
+            />
           </>
         )}
       </div>

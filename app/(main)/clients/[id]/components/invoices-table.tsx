@@ -3,14 +3,16 @@
 import {
   type ColumnDef,
   type ColumnFiltersState,
-  type SortingState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  type Row,
+  type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
 import { Plus } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { ClientSnapshot, InvoiceTemplate } from "../invoice-model";
+import CreateInvoiceDialog from "./create-invoice-dialog";
 import type { ClientInvoice } from "./invoices-columns";
 import { InvoicesSortPopover } from "./invoices-sort-popover";
 import InvoicesStatusFilter from "./invoices-status-filter";
@@ -34,9 +38,15 @@ import InvoicesStatusFilter from "./invoices-status-filter";
 interface InvoicesTableProps {
   columns: ColumnDef<ClientInvoice>[];
   data: ClientInvoice[];
+  client: ClientSnapshot;
+  template: InvoiceTemplate | null;
 }
 
-const fuzzyFilter = (row: any, _columnId: string, value: string) => {
+const fuzzyFilter = (
+  row: Row<ClientInvoice>,
+  _columnId: string,
+  value: string,
+) => {
   const searchValue = value.toLowerCase();
 
   return Object.values(row.original).some((cellValue) => {
@@ -62,7 +72,12 @@ const fuzzyFilter = (row: any, _columnId: string, value: string) => {
   });
 };
 
-export default function InvoicesTable({ columns, data }: InvoicesTableProps) {
+export default function InvoicesTable({
+  columns,
+  data,
+  client,
+  template,
+}: InvoicesTableProps) {
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
@@ -111,21 +126,37 @@ export default function InvoicesTable({ columns, data }: InvoicesTableProps) {
           <InvoicesStatusFilter table={table} />
         </div>
 
-        <Popover open={templateMessageOpen} onOpenChange={setTemplateMessageOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              className="shrink-0 opacity-50"
-              aria-disabled="true"
+        {template ? (
+          <CreateInvoiceDialog client={client} template={template} />
+        ) : (
+          <Popover
+            open={templateMessageOpen}
+            onOpenChange={setTemplateMessageOpen}
+          >
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                className="shrink-0 opacity-50"
+                aria-disabled="true"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Invoice
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              className="w-72 space-y-3 text-sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Invoice
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent side="bottom" align="end" className="w-64 text-sm">
-            An invoice template should exist to create an invoice.
-          </PopoverContent>
-        </Popover>
+              <p>An invoice template should exist to create an invoice.</p>
+              <Button asChild size="sm" className="w-full">
+                <Link href={`/clients/${client.id}/template`}>
+                  Create Template
+                </Link>
+              </Button>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       <div className="rounded-md border overflow-auto">

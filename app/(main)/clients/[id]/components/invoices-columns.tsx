@@ -6,7 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toDate } from "@/lib/helpers/to-date";
 
-export type InvoiceStatus = "draft" | "issued" | "paid" | "partial" | "overdue" | "cancelled";
+export type InvoiceStatus =
+  | "draft"
+  | "issued"
+  | "paid"
+  | "partial"
+  | "overdue"
+  | "cancelled";
 
 export type ClientInvoice = {
   id: string;

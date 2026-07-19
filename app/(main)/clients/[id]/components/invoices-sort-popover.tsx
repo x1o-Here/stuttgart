@@ -13,11 +13,17 @@ interface InvoicesSortPopoverProps {
   onSortChange: (column: string, direction: "asc" | "desc") => void;
 }
 
-export function InvoicesSortPopover({ onSortChange }: InvoicesSortPopoverProps) {
+export function InvoicesSortPopover({
+  onSortChange,
+}: InvoicesSortPopoverProps) {
   const options = [
     { label: "Date ↑", column: "date", direction: "asc" as const },
     { label: "Date ↓", column: "date", direction: "desc" as const },
-    { label: "Total Amount ↑", column: "totalAmount", direction: "asc" as const },
+    {
+      label: "Total Amount ↑",
+      column: "totalAmount",
+      direction: "asc" as const,
+    },
     {
       label: "Total Amount ↓",
       column: "totalAmount",
