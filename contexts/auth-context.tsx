@@ -231,7 +231,14 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user && !PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
-      router.replace("/sign-in");
+      const search =
+        typeof window !== "undefined" ? window.location.search : "";
+      const nextPath = `${pathname}${search}`;
+      const next =
+        nextPath && nextPath !== "/"
+          ? `?next=${encodeURIComponent(nextPath)}`
+          : "";
+      router.replace(`/sign-in${next}`);
     }
   }, [loading, user, pathname, router]);
 
