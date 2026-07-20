@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth-context";
 import AddUserDialog from "./components/add-user-dialog";
+import AuditLogsTable from "./components/audit-logs-table";
 import CompaniesTable from "./components/companies-table";
 import CompanyFormDialog from "./components/company-form-dialog";
 import UsersTable from "./components/users-table";
@@ -35,26 +36,31 @@ export default function UserManagementPage() {
     return null;
   }
 
+  const title =
+    tab === "companies"
+      ? "Companies"
+      : tab === "audit-logs"
+        ? "Audit logs"
+        : "Users";
+
   return (
     <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
       <div className="w-full h-full p-4 bg-zinc-100 rounded-lg overflow-y-auto">
         <div className="w-full flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">
-            {tab === "companies" ? "Companies" : "Users"}
-          </h1>
+          <h1 className="text-2xl font-bold">{title}</h1>
 
           {tab === "users" ? (
             <AddUserDialog
               onCreated={() => setUsersRefreshToken((token) => token + 1)}
             />
-          ) : (
+          ) : tab === "companies" ? (
             <CompanyFormDialog
               mode="create"
               onSaved={() =>
                 setCompaniesRefreshToken((token) => token + 1)
               }
             />
-          )}
+          ) : null}
         </div>
 
         <Tabs value={tab} onValueChange={setTab} className="w-full">
@@ -71,6 +77,12 @@ export default function UserManagementPage() {
             >
               Companies
             </TabsTrigger>
+            <TabsTrigger
+              value="audit-logs"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer"
+            >
+              Audit logs
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-2">
@@ -82,6 +94,12 @@ export default function UserManagementPage() {
           <TabsContent value="companies" className="mt-2">
             <div className="p-4 bg-white rounded-md flex flex-col gap-4">
               <CompaniesTable refreshToken={companiesRefreshToken} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="audit-logs" className="mt-2">
+            <div className="p-4 bg-white rounded-md flex flex-col gap-4">
+              <AuditLogsTable />
             </div>
           </TabsContent>
         </Tabs>
