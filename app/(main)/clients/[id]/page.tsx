@@ -139,7 +139,7 @@ export default function ClientDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <EditClientDialog
                   clientId={client.id}
                   defaultValues={{
@@ -159,6 +159,12 @@ export default function ClientDetailPage() {
                   onClick={() => router.push(`/clients/${client.id}/template`)}
                 >
                   Template
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/clients/${client.id}/analytics`)}
+                >
+                  Analytics
                 </Button>
               </div>
             </div>
