@@ -1,7 +1,8 @@
+import AppSidebar from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AccountsProvider } from "@/modules/accounts";
-import { LookupSubscription } from "@/modules/catalog";
-import { AppSidebar, RequireAuth } from "@/modules/platform";
+import { RequireAuth } from "@/contexts/auth-context";
+import { LookupSubscription } from "@/contexts/lookup-context";
+import { AccountsProvider } from "@/contexts/useAccountsContext";
 
 export default function MainLayout({
   children,
