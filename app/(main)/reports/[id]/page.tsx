@@ -7,6 +7,7 @@ import {
   Download,
   Filter,
   Save,
+  Search,
   Share2,
 } from "lucide-react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -60,6 +62,7 @@ function CustomReportPageContent() {
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [vehicleFilter, setVehicleFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState<string[]>(["active"]);
+  const [transactionSearch, setTransactionSearch] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -187,6 +190,8 @@ function CustomReportPageContent() {
   }, [transactionSummaries]);
 
   const filteredTransactions = useMemo(() => {
+    const query = transactionSearch.trim().toLowerCase();
+
     return transactionSummaries.filter((tx) => {
       if (accountFilter !== "all" && tx.accountId !== accountFilter)
         return false;
@@ -195,6 +200,31 @@ function CustomReportPageContent() {
         return false;
       if (vehicleFilter !== "all" && tx.vehicle !== vehicleFilter) return false;
       if (!matchesTagFilter(tx.tags, tagFilter)) return false;
+
+      if (query) {
+        const description = (tx.description || "").toLowerCase();
+        const localeDate = tx.date.toLocaleDateString().toLowerCase();
+        const isoDate = tx.date.toISOString().slice(0, 10);
+        const day = String(tx.date.getDate());
+        const month = String(tx.date.getMonth() + 1);
+        const year = String(tx.date.getFullYear());
+        const paddedDay = day.padStart(2, "0");
+        const paddedMonth = month.padStart(2, "0");
+        const slashDate = `${paddedDay}/${paddedMonth}/${year}`;
+        const dashDate = `${paddedDay}-${paddedMonth}-${year}`;
+
+        const matchesDescription = description.includes(query);
+        const matchesDate =
+          localeDate.includes(query) ||
+          isoDate.includes(query) ||
+          slashDate.includes(query) ||
+          dashDate.includes(query) ||
+          `${day}/${month}/${year}`.includes(query) ||
+          `${month}/${day}/${year}`.includes(query);
+
+        if (!matchesDescription && !matchesDate) return false;
+      }
+
       return true;
     });
   }, [
@@ -204,6 +234,7 @@ function CustomReportPageContent() {
     departmentFilter,
     vehicleFilter,
     tagFilter,
+    transactionSearch,
   ]);
 
   const hasActiveFilters =
@@ -212,7 +243,8 @@ function CustomReportPageContent() {
     departmentFilter !== "all" ||
     vehicleFilter !== "all" ||
     tagFilter.length !== 1 ||
-    tagFilter[0] !== "active";
+    tagFilter[0] !== "active" ||
+    transactionSearch.trim() !== "";
 
   function clearFilters() {
     setAccountFilter("all");
@@ -220,6 +252,7 @@ function CustomReportPageContent() {
     setDepartmentFilter("all");
     setVehicleFilter("all");
     setTagFilter(["active"]);
+    setTransactionSearch("");
   }
 
   async function handleSaveFilters() {
@@ -411,6 +444,18 @@ function CustomReportPageContent() {
 
                 <TabsContent value="transactions" className="mt-4 space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-[220px] flex-1 max-w-sm">
+                      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                      <Input
+                        value={transactionSearch}
+                        onChange={(event) =>
+                          setTransactionSearch(event.target.value)
+                        }
+                        placeholder="Search by date or description..."
+                        className="pl-8"
+                      />
+                    </div>
+
                     <Select
                       value={accountFilter}
                       onValueChange={setAccountFilter}
