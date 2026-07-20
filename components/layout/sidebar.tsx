@@ -161,7 +161,7 @@ export default function AppSidebar() {
               )}
               asChild
             >
-              <Link href="#" className="text-gray-600 hover:text-zinc-800">
+              <Link href="/profile" className="text-gray-600 hover:text-zinc-800">
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarFallback>
