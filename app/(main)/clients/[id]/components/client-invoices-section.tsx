@@ -2,7 +2,6 @@
 
 import {
   collection,
-  doc,
   onSnapshot,
   orderBy,
   query,
@@ -15,9 +14,6 @@ import { toDate } from "@/lib/helpers/to-date";
 import {
   type ClientSnapshot,
   calculateInvoiceTotals,
-  getDefaultInvoiceTemplate,
-  type InvoiceTemplate,
-  mapInvoiceTemplate,
 } from "../invoice-model";
 import {
   type ClientInvoice,
@@ -58,16 +54,8 @@ export default function ClientInvoicesSection({
   const { activeCompany } = useAuth();
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [template, setTemplate] = useState<InvoiceTemplate | null>(null);
-  const [companyName, setCompanyName] = useState("");
-  const [templateLoading, setTemplateLoading] = useState(true);
-  const [companyLoading, setCompanyLoading] = useState(true);
 
   const columns = useMemo(() => getInvoicesColumns(client.id), [client.id]);
-  const effectiveTemplate = useMemo(
-    () => template ?? getDefaultInvoiceTemplate(companyName),
-    [companyName, template],
-  );
 
   useEffect(() => {
     if (!activeCompany || !client.id) {
@@ -135,76 +123,16 @@ export default function ClientInvoicesSection({
     return unsubscribe;
   }, [activeCompany, client.id]);
 
-  useEffect(() => {
-    if (!activeCompany || !client.id) {
-      setTemplate(null);
-      setCompanyName("");
-      setTemplateLoading(true);
-      setCompanyLoading(true);
-      return;
-    }
-
-    setTemplateLoading(true);
-    setCompanyLoading(true);
-
-    const unsubscribeCompany = onSnapshot(
-      doc(db, "companies", activeCompany),
-      (snapshot) => {
-        setCompanyName(snapshot.exists() ? snapshot.data().name || "" : "");
-        setCompanyLoading(false);
-      },
-      (error) => {
-        console.error("Failed to fetch company:", error);
-        setCompanyLoading(false);
-      },
-    );
-
-    const unsubscribeTemplate = onSnapshot(
-      doc(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        client.id,
-        "invoice-template",
-        "config",
-      ),
-      (snapshot) => {
-        setTemplate(
-          snapshot.exists()
-            ? mapInvoiceTemplate(snapshot.data() as Record<string, unknown>)
-            : null,
-        );
-        setTemplateLoading(false);
-      },
-      (error) => {
-        console.error("Failed to fetch invoice template:", error);
-        setTemplate(null);
-        setTemplateLoading(false);
-      },
-    );
-
-    return () => {
-      unsubscribeCompany();
-      unsubscribeTemplate();
-    };
-  }, [activeCompany, client.id]);
-
   return (
     <div className="p-4 bg-white rounded-lg flex flex-col gap-4">
-      {loading || templateLoading || companyLoading ? (
+      {loading ? (
         <LoadingState
           message="Loading invoices..."
           variant="skeleton"
           rows={4}
         />
       ) : (
-        <InvoicesTable
-          columns={columns}
-          data={invoices}
-          client={client}
-          template={effectiveTemplate}
-        />
+        <InvoicesTable columns={columns} data={invoices} client={client} />
       )}
     </div>
   );

@@ -213,6 +213,104 @@ export type ClientInvoiceDocument = {
   status: InvoiceStatus;
 };
 
+export type InvoicePayment = {
+  id: string;
+  date: Date;
+  description: string;
+  invoiceNo: string;
+  amount: number;
+  creditingAccountId: string;
+  creditingAccountName: string;
+  debitingAccountId: string;
+  debitingAccountName: string;
+  /** Shared id for the dual-entry account transactions. */
+  transactionId: string;
+  createdAt: Date | null;
+};
+
+export function defaultInvoicePaymentDescription(invoiceNo: string): string {
+  const no = invoiceNo.trim() || "—";
+  return `Payment for invoice ${no}`;
+}
+
+export function roundMoney(value: number): number {
+  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+}
+
+/** Status while collecting payments (Complete → paid is explicit). */
+export function deriveStatusFromBalances(
+  totalIncludingVat: number,
+  outstandingAmount: number,
+  currentStatus: InvoiceStatus,
+): InvoiceStatus {
+  if (currentStatus === "cancelled" || currentStatus === "paid") {
+    return currentStatus;
+  }
+  const outstanding = roundMoney(outstandingAmount);
+  const total = roundMoney(totalIncludingVat);
+  if (outstanding < total) return "partial";
+  return currentStatus === "overdue" ? "overdue" : "issued";
+}
+
+export function canCompleteInvoice(
+  totalIncludingVat: number,
+  outstandingAmount: number,
+  status: InvoiceStatus,
+): boolean {
+  if (status === "paid" || status === "cancelled") return false;
+  return (
+    roundMoney(outstandingAmount) <= 0 && roundMoney(totalIncludingVat) > 0
+  );
+}
+
+export function mapInvoicePayment(
+  id: string,
+  data: Record<string, unknown>,
+): InvoicePayment {
+  const invoiceNo =
+    typeof data.invoiceNo === "string"
+      ? data.invoiceNo
+      : typeof data.taxInvoiceNo === "string"
+        ? data.taxInvoiceNo
+        : "";
+  const descriptionRaw =
+    data.description ?? data.note ?? data.reference ?? "";
+  const description =
+    typeof descriptionRaw === "string"
+      ? descriptionRaw.trim()
+      : String(descriptionRaw ?? "").trim();
+  const resolvedDescription =
+    description || defaultInvoicePaymentDescription(invoiceNo);
+
+  const creditNameRaw = data.creditingAccountName ?? "";
+  const creditingAccountName =
+    typeof creditNameRaw === "string"
+      ? creditNameRaw.trim()
+      : String(creditNameRaw ?? "").trim();
+
+  return {
+    id,
+    date: toDate(data.date) ?? new Date(0),
+    description: resolvedDescription,
+    invoiceNo,
+    amount: Number(data.amount) || 0,
+    creditingAccountId:
+      typeof data.creditingAccountId === "string"
+        ? data.creditingAccountId
+        : "",
+    creditingAccountName,
+    debitingAccountId:
+      typeof data.debitingAccountId === "string" ? data.debitingAccountId : "",
+    debitingAccountName:
+      typeof data.debitingAccountName === "string"
+        ? data.debitingAccountName
+        : "",
+    transactionId:
+      typeof data.transactionId === "string" ? data.transactionId : "",
+    createdAt: toDate(data.createdAt) ?? null,
+  };
+}
+
 export const DEFAULT_TEMPLATE_COLUMNS: TemplateColumn[] = [
   {
     id: "system-no",

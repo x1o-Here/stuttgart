@@ -32,7 +32,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
+import {
+  CLIENT_ACCOUNT_TYPE_NAME,
+  CLIENT_ACCOUNT_TYPE_SHORT_FORM,
+  isClientAccountTypeName,
+} from "@/lib/constants/client-account";
 import { db } from "@/lib/firebase/firebase-client";
+import { useLookupStore } from "@/stores/use-lookup-store";
 
 const formSchema = z.object({
   name: z.string().min(1, "Customer name is required"),
@@ -48,6 +54,7 @@ export default function AddClientDialog() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
+  const accountTypes = useLookupStore((state) => state.accountTypes);
 
   const form = useForm<FormOutput>({
     defaultValues: {
@@ -67,12 +74,13 @@ export default function AddClientDialog() {
     try {
       setIsSubmitting(true);
       const batch = writeBatch(db);
+      const clientName = data.name.trim();
 
       const clientRef = doc(
         collection(db, "companies", activeCompany, "clients"),
       );
       batch.set(clientRef, {
-        name: data.name,
+        name: clientName,
         address: data.address,
         vatNo: data.vatNo,
         contactNo: data.contactNo,
@@ -81,11 +89,64 @@ export default function AddClientDialog() {
         createdAt: serverTimestamp(),
       });
 
+      const existingClientType = accountTypes.find((type) =>
+        isClientAccountTypeName(type.name),
+      );
+      if (!existingClientType) {
+        const clientTypeRef = doc(
+          collection(db, "lookup-lists", activeCompany, "account-types"),
+        );
+        batch.set(clientTypeRef, {
+          name: CLIENT_ACCOUNT_TYPE_NAME,
+          shortForm: CLIENT_ACCOUNT_TYPE_SHORT_FORM,
+          isSystem: true,
+          entityStatus: true,
+          createdAt: serverTimestamp(),
+        });
+      } else if (!existingClientType.isSystem) {
+        batch.update(
+          doc(
+            db,
+            "lookup-lists",
+            activeCompany,
+            "account-types",
+            existingClientType.id,
+          ),
+          {
+            isSystem: true,
+            updatedAt: serverTimestamp(),
+          },
+        );
+      }
+
+      const accountRef = doc(
+        collection(db, "companies", activeCompany, "accounts"),
+      );
+      batch.set(accountRef, {
+        name: clientName,
+        accountType: CLIENT_ACCOUNT_TYPE_NAME,
+        initialBalance: 0,
+        balance: 0,
+        clientId: clientRef.id,
+        entityStatus: true,
+        createdAt: serverTimestamp(),
+      });
+
       const auditLogRef = doc(collection(db, "auditLogs"));
       batch.set(auditLogRef, {
         userId: user.uid,
         action: "create",
-        description: `Client created: ${data.name}`,
+        description: `Client created: ${clientName}`,
+        companyId: activeCompany,
+        entityStatus: true,
+        createdAt: serverTimestamp(),
+      });
+
+      const accountAuditRef = doc(collection(db, "auditLogs"));
+      batch.set(accountAuditRef, {
+        userId: user.uid,
+        action: "create",
+        description: `Client account created: ${clientName}`,
         companyId: activeCompany,
         entityStatus: true,
         createdAt: serverTimestamp(),

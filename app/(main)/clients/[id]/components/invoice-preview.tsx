@@ -23,6 +23,8 @@ type InvoicePreviewProps = {
   totalAmount?: number;
   status?: InvoiceStatus;
   preview?: boolean;
+  /** Adds a ~1/10 page-height top gap (used only while exporting PDF). */
+  exportTopGap?: boolean;
 };
 
 function formatAmount(value: number) {
@@ -102,6 +104,7 @@ export default function InvoicePreview({
   totalAmount = 0,
   status,
   preview = false,
+  exportTopGap = false,
 }: InvoicePreviewProps) {
   const columns = orderedTemplateColumns(template.columns);
   const rows =
@@ -112,12 +115,21 @@ export default function InvoicePreview({
     <div className="mx-auto w-full max-w-[210mm]">
       {/* A4 page */}
       <div
+        data-invoice-paper
         className="font-mono bg-white text-zinc-900 shadow-sm border border-zinc-200"
         style={{
           minHeight: "297mm",
           padding: "14mm 16mm",
         }}
       >
+        {exportTopGap ? (
+          <div
+            aria-hidden
+            style={{ height: "calc(297mm / 10)" }}
+            className="shrink-0"
+          />
+        ) : null}
+
         <h1 className="mb-6 text-center text-base font-bold tracking-wide uppercase">
           Tax Invoice
         </h1>

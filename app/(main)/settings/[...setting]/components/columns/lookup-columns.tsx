@@ -1,5 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
+import { isProtectedAccountType } from "@/lib/constants/client-account";
 import DeleteModal from "../modals/delete-modal";
 import UpdateModal from "../modals/update-modal";
 
@@ -7,6 +8,7 @@ export type LookupColumns = {
   id: string;
   name: string;
   shortForm: string;
+  isSystem?: boolean;
 };
 
 type ColumnOptions = {
@@ -17,6 +19,7 @@ export function getLookupColumns({
   entityLabel,
 }: ColumnOptions): ColumnDef<LookupColumns>[] {
   const isVehicle = entityLabel.toLowerCase() === "vehicle";
+  const isAccountType = entityLabel.toLowerCase() === "account type";
 
   const columns: ColumnDef<LookupColumns>[] = [
     {
@@ -28,7 +31,16 @@ export function getLookupColumns({
     {
       accessorKey: "name",
       header: isVehicle ? "Vehicle Number" : "Name",
-      cell: ({ row }) => <p>{row.original.name}</p>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <p>{row.original.name}</p>
+          {isAccountType && isProtectedAccountType(row.original) ? (
+            <Badge variant="outline" className="text-xs">
+              System
+            </Badge>
+          ) : null}
+        </div>
+      ),
       size: isVehicle ? 85 : 55,
     },
     {
@@ -44,17 +56,25 @@ export function getLookupColumns({
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex gap-2 items-center">
-          <UpdateModal entityLabel={entityLabel} initialData={row.original} />
+      cell: ({ row }) => {
+        if (isAccountType && isProtectedAccountType(row.original)) {
+          return (
+            <span className="text-xs text-muted-foreground">Locked</span>
+          );
+        }
 
-          <DeleteModal
-            entityLabel={entityLabel}
-            itemId={row.original.id}
-            itemName={row.original.name}
-          />
-        </div>
-      ),
+        return (
+          <div className="flex gap-2 items-center">
+            <UpdateModal entityLabel={entityLabel} initialData={row.original} />
+
+            <DeleteModal
+              entityLabel={entityLabel}
+              itemId={row.original.id}
+              itemName={row.original.name}
+            />
+          </div>
+        );
+      },
       size: 10,
     },
   ];

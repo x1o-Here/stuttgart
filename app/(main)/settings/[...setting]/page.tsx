@@ -105,10 +105,11 @@ export default function SettingPage({ params }: PageProps) {
           ) : (
             <DataTable
               columns={columns}
-              data={rawData.map(({ id, name, shortForm }) => ({
+              data={rawData.map(({ id, name, shortForm, isSystem }) => ({
                 id,
                 name,
                 shortForm: shortForm ?? "",
+                isSystem,
               }))}
               entityLabel={label}
               onCreate={(data) => {

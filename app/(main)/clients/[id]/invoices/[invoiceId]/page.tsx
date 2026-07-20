@@ -1,18 +1,21 @@
 "use client";
 
 import { doc, onSnapshot } from "firebase/firestore";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, FileText, Pencil } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
-import InvoicePreview from "../../components/invoice-preview";
 import {
   type ClientInvoiceDocument,
   mapClientInvoiceDocument,
 } from "../../invoice-model";
+import DeleteInvoiceDialog from "./components/delete-invoice-dialog";
+import InvoicePaymentsSection from "./components/invoice-payments-section";
+import InvoiceSummaryCard from "./components/invoice-summary-card";
 
 export default function ClientInvoiceDetailPage() {
   const params = useParams();
@@ -62,20 +65,56 @@ export default function ClientInvoiceDetailPage() {
     );
   }, [activeCompany, clientId, invoiceId]);
 
+  const locked =
+    invoice?.status === "paid" || invoice?.status === "cancelled";
+
   return (
     <div className="min-h-screen h-full p-4 font-sans">
       <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-50 p-4">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="w-fit px-1"
-          onClick={() =>
-            router.push(clientId ? `/clients/${clientId}` : "/clients")
-          }
-        >
-          <ChevronLeft />
-          Back
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-fit px-1"
+            onClick={() =>
+              router.push(clientId ? `/clients/${clientId}` : "/clients")
+            }
+          >
+            <ChevronLeft />
+            Back
+          </Button>
+
+          {!loading && invoice && clientId ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={locked}
+                onClick={() =>
+                  router.push(
+                    `/clients/${clientId}/invoices/${invoice.id}/edit`,
+                  )
+                }
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+              <DeleteInvoiceDialog
+                clientId={clientId}
+                invoiceId={invoice.id}
+                taxInvoiceNo={invoice.taxInvoiceNo}
+                disabled={locked}
+              />
+              <Button asChild>
+                <Link
+                  href={`/clients/${clientId}/invoices/${invoice.id}/document`}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Invoice
+                </Link>
+              </Button>
+            </div>
+          ) : null}
+        </div>
 
         {loading ? (
           <LoadingState
@@ -83,21 +122,15 @@ export default function ClientInvoiceDetailPage() {
             variant="skeleton"
             rows={6}
           />
-        ) : notFound || !invoice ? (
+        ) : notFound || !invoice || !clientId ? (
           <div className="rounded-lg bg-white p-6">
             <h1 className="text-xl font-semibold">Invoice not found</h1>
           </div>
         ) : (
-          <InvoicePreview
-            template={invoice.template}
-            client={invoice.client}
-            taxInvoiceNo={invoice.taxInvoiceNo}
-            invoiceDate={invoice.date}
-            delivery={invoice.delivery}
-            lineItems={invoice.lineItems}
-            totalAmount={invoice.totalAmount}
-            status={invoice.status}
-          />
+          <>
+            <InvoiceSummaryCard invoice={invoice} />
+            <InvoicePaymentsSection clientId={clientId} invoice={invoice} />
+          </>
         )}
       </div>
     </div>

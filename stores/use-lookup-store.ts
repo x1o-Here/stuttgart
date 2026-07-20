@@ -10,6 +10,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { create } from "zustand";
+import {
+  CLIENT_ACCOUNT_TYPE_NAME,
+  isClientAccountTypeName,
+  isProtectedAccountType,
+} from "@/lib/constants/client-account";
 import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
 
@@ -20,6 +25,8 @@ export type LookupItem = {
   name: string;
   shortForm?: string;
   entityStatus: boolean;
+  /** System rows (e.g. Client account type) cannot be edited or deleted. */
+  isSystem?: boolean;
   createdAt?: Date;
 };
 
@@ -97,6 +104,7 @@ function mapDoc(d: {
     name: (data.name as string) ?? "",
     shortForm: data.shortForm as string | undefined,
     entityStatus: (data.entityStatus as boolean) ?? true,
+    isSystem: data.isSystem === true,
     createdAt: toDate(data.createdAt),
   };
 }
@@ -205,6 +213,15 @@ export const useLookupStore = create<LookupState>((set, get) => ({
   },
 
   createItem: async (companyId, userId, collectionKey, data) => {
+    if (
+      collectionKey === "account-types" &&
+      isClientAccountTypeName(data.name)
+    ) {
+      throw new Error(
+        `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type is system-managed and cannot be created manually.`,
+      );
+    }
+
     const batch = writeBatch(db);
 
     const itemRef = doc(
@@ -230,6 +247,20 @@ export const useLookupStore = create<LookupState>((set, get) => ({
   },
 
   updateItem: async (companyId, userId, collectionKey, id, data) => {
+    if (collectionKey === "account-types") {
+      const existing = get().accountTypes.find((item) => item.id === id);
+      if (existing && isProtectedAccountType(existing)) {
+        throw new Error(
+          `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type cannot be edited.`,
+        );
+      }
+      if (data.name && isClientAccountTypeName(data.name)) {
+        throw new Error(
+          `Cannot rename an account type to "${CLIENT_ACCOUNT_TYPE_NAME}".`,
+        );
+      }
+    }
+
     const batch = writeBatch(db);
 
     const itemRef = doc(db, ...collectionPath(companyId, collectionKey), id);
@@ -252,6 +283,18 @@ export const useLookupStore = create<LookupState>((set, get) => ({
   },
 
   deleteItem: async (companyId, userId, collectionKey, id, itemName) => {
+    if (collectionKey === "account-types") {
+      const existing = get().accountTypes.find((item) => item.id === id);
+      if (
+        (existing && isProtectedAccountType(existing)) ||
+        isClientAccountTypeName(itemName)
+      ) {
+        throw new Error(
+          `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type cannot be deleted.`,
+        );
+      }
+    }
+
     const batch = writeBatch(db);
 
     const itemRef = doc(db, ...collectionPath(companyId, collectionKey), id);

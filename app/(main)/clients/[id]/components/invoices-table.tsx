@@ -11,7 +11,10 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -21,8 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ClientSnapshot, InvoiceTemplate } from "../invoice-model";
-import CreateInvoiceDialog from "./create-invoice-dialog";
+import type { ClientSnapshot } from "../invoice-model";
 import type { ClientInvoice } from "./invoices-columns";
 import { InvoicesSortPopover } from "./invoices-sort-popover";
 import InvoicesStatusFilter from "./invoices-status-filter";
@@ -31,7 +33,6 @@ interface InvoicesTableProps {
   columns: ColumnDef<ClientInvoice>[];
   data: ClientInvoice[];
   client: ClientSnapshot;
-  template: InvoiceTemplate;
 }
 
 const fuzzyFilter = (
@@ -68,7 +69,6 @@ export default function InvoicesTable({
   columns,
   data,
   client,
-  template,
 }: InvoicesTableProps) {
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
@@ -117,7 +117,12 @@ export default function InvoicesTable({
           <InvoicesStatusFilter table={table} />
         </div>
 
-        <CreateInvoiceDialog client={client} template={template} />
+        <Button asChild className="shrink-0">
+          <Link href={`/clients/${client.id}/invoices/new`}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Invoice
+          </Link>
+        </Button>
       </div>
 
       <div className="rounded-md border overflow-auto">

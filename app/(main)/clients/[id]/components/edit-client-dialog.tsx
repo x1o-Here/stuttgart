@@ -4,7 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   collection,
   doc,
+  getDocs,
+  query,
   serverTimestamp,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { Pencil } from "lucide-react";
@@ -76,6 +79,7 @@ export default function EditClientDialog({
     try {
       setIsSubmitting(true);
       const batch = writeBatch(db);
+      const clientName = data.name.trim();
 
       const clientRef = doc(
         db,
@@ -85,25 +89,39 @@ export default function EditClientDialog({
         clientId,
       );
       batch.update(clientRef, {
-        name: data.name,
+        name: clientName,
         address: data.address,
         vatNo: data.vatNo,
         contactNo: data.contactNo,
         updatedAt: serverTimestamp(),
       });
 
+      if (clientName !== defaultValues.name.trim()) {
+        const accountsQuery = query(
+          collection(db, "companies", activeCompany, "accounts"),
+          where("clientId", "==", clientId),
+        );
+        const accountSnaps = await getDocs(accountsQuery);
+        for (const accountSnap of accountSnaps.docs) {
+          batch.update(accountSnap.ref, {
+            name: clientName,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+
       const auditLogRef = doc(collection(db, "auditLogs"));
       batch.set(auditLogRef, {
         userId: user.uid,
         action: "update",
-        description: `Client updated: ${data.name}`,
+        description: `Client updated: ${clientName}`,
         companyId: activeCompany,
         entityStatus: true,
         createdAt: serverTimestamp(),
       });
 
       await batch.commit();
-      form.reset(data);
+      form.reset({ ...data, name: clientName });
       setOpen(false);
     } catch (error) {
       console.error("Failed to update client", error);
