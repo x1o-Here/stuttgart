@@ -12,7 +12,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
@@ -63,33 +62,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 
-type CompanyOption = {
-  id: string;
-  name: string;
-};
-
-/** Session cache — all companies for assignment UI (not membership-scoped). */
-let companiesCache: CompanyOption[] | null = null;
-let companiesCachePromise: Promise<CompanyOption[]> | null = null;
-
-async function getAllCompanies(): Promise<CompanyOption[]> {
-  if (companiesCache) return companiesCache;
-  if (!companiesCachePromise) {
-    companiesCachePromise = getDocs(collection(db, "companies"))
-      .then((companySnapshot) => {
-        companiesCache = companySnapshot.docs.map((companyDoc) => ({
-          id: (companyDoc.data().id as string) ?? companyDoc.id,
-          name: (companyDoc.data().name as string) ?? companyDoc.id,
-        }));
-        return companiesCache;
-      })
-      .catch((error) => {
-        companiesCachePromise = null;
-        throw error;
-      });
-  }
-  return companiesCachePromise;
-}
+import {
+  getAllCompanies,
+  type CompanyOption,
+} from "./companies-cache";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -207,10 +183,8 @@ export default function AddUserDialog({
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>(
-    () => companiesCache ?? [],
-  );
-  const [companiesLoading, setCompaniesLoading] = useState(!companiesCache);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
@@ -218,11 +192,6 @@ export default function AddUserDialog({
 
     let cancelled = false;
     async function fetchCompanies() {
-      if (companiesCache) {
-        setCompanyOptions(companiesCache);
-        setCompaniesLoading(false);
-        return;
-      }
       setCompaniesLoading(true);
       try {
         const options = await getAllCompanies();
@@ -235,7 +204,7 @@ export default function AddUserDialog({
       }
     }
 
-    fetchCompanies();
+    void fetchCompanies();
     return () => {
       cancelled = true;
     };

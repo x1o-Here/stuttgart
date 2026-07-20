@@ -13,8 +13,8 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
 import { Bodoni_Moda } from "next/font/google";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -52,16 +52,35 @@ const formSchema = z.object({
 
 type FormOutput = z.infer<typeof formSchema>;
 
+/** Only allow same-origin relative paths (open-redirect safe). */
+function resolvePostAuthPath(next: string | null): string {
+  if (!next) return "/";
+  const trimmed = next.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return "/";
+  if (trimmed.startsWith("/sign-in")) return "/";
+  return trimmed;
+}
+
 export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const redirectTo = resolvePostAuthPath(searchParams.get("next"));
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace("/");
+      router.replace(redirectTo);
     }
-  }, [loading, user, router]);
+  }, [loading, user, router, redirectTo]);
 
   const form = useForm({
     defaultValues: {
@@ -81,7 +100,7 @@ export default function SignInPage() {
       await setPersistence(auth, persistence);
 
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      router.push("/");
+      router.push(redirectTo);
     } catch (error) {
       console.error("Failed to sign in", error);
       form.setError("root", { message: "Invalid email or password" });
@@ -112,7 +131,7 @@ export default function SignInPage() {
         return;
       }
 
-      router.push("/");
+      router.push(redirectTo);
     } catch (error) {
       console.error("Failed to sign in with Google", error);
     } finally {

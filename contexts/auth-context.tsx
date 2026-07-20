@@ -84,10 +84,13 @@ async function fetchAuthProfile(user: User): Promise<AuthProfile> {
     );
 
     userCompanies = companySnaps
-      .filter((companyDoc) => companyDoc.exists())
+      .filter(
+        (companyDoc) =>
+          companyDoc.exists() && companyDoc.data()?.entityStatus !== false,
+      )
       .map((companyDoc) => ({
         id: companyDoc.id,
-        name: companyDoc.data().name as string,
+        name: (companyDoc.data()?.name as string) || companyDoc.id,
       }));
   }
 
@@ -108,6 +111,7 @@ type AuthContextType = {
   loading: boolean;
   activeCompany: string;
   setActiveCompany: (company: string) => void;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -118,6 +122,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   activeCompany: "",
   setActiveCompany: () => {},
+  refreshProfile: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -149,6 +154,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const applyProfile = useCallback((profile: AuthProfile) => {
+    sessionProfile = profile;
+    setUser(profile.user);
+    setUsername(profile.username);
+    setRole(profile.role);
+    setCompanies(profile.companies);
+    setActiveCompanyState(profile.activeCompany);
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      const profile = await fetchAuthProfile(currentUser);
+      applyProfile(profile);
+    } catch (error) {
+      console.error("Error refreshing user profile:", error);
+    }
+  }, [applyProfile]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
       if (!nextUser) {
@@ -176,12 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const profile = await fetchAuthProfile(nextUser);
-        sessionProfile = profile;
-        setUser(profile.user);
-        setUsername(profile.username);
-        setRole(profile.role);
-        setCompanies(profile.companies);
-        setActiveCompanyState(profile.activeCompany);
+        applyProfile(profile);
       } catch (error) {
         console.error("Error fetching user data:", error);
         sessionProfile = null;
@@ -196,7 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, []);
+  }, [applyProfile]);
 
   const value = useMemo(
     () => ({
@@ -207,6 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       activeCompany,
       setActiveCompany,
+      refreshProfile,
     }),
     [
       user,
@@ -216,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       activeCompany,
       setActiveCompany,
+      refreshProfile,
     ],
   );
 
@@ -231,7 +253,14 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user && !PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
-      router.replace("/sign-in");
+      const search =
+        typeof window !== "undefined" ? window.location.search : "";
+      const nextPath = `${pathname}${search}`;
+      const next =
+        nextPath && nextPath !== "/"
+          ? `?next=${encodeURIComponent(nextPath)}`
+          : "";
+      router.replace(`/sign-in${next}`);
     }
   }, [loading, user, pathname, router]);
 
