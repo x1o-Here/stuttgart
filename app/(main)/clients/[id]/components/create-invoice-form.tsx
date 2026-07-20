@@ -10,6 +10,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,6 +63,12 @@ function toDateInput(value: Date) {
   if (!value.getTime()) return todayValue();
   const offset = value.getTimezoneOffset();
   return new Date(value.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+function parseDateInput(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 function lineFromInvoice(
@@ -379,14 +386,27 @@ export default function CreateInvoiceForm({
       );
     }
 
+    if (column.type === "date") {
+      return (
+        <CalendarPopover
+          value={parseDateInput(value)}
+          onChange={(date) =>
+            updateCustomValue(
+              line.id,
+              column.key,
+              date ? toDateInput(date) : "",
+            )
+          }
+        />
+      );
+    }
+
     return (
       <Input
         type={
-          column.type === "date"
-            ? "date"
-            : column.type === "number" || column.type === "decimal"
-              ? "number"
-              : "text"
+          column.type === "number" || column.type === "decimal"
+            ? "number"
+            : "text"
         }
         step={column.type === "decimal" ? "0.01" : undefined}
         value={value}
@@ -408,12 +428,11 @@ export default function CreateInvoiceForm({
         return index + 1;
       case "date":
         return (
-          <Input
-            type="date"
-            value={line.date}
-            onChange={(event) =>
-              updateLine(line.id, { date: event.target.value })
-            }
+          <CalendarPopover
+            value={parseDateInput(line.date)}
+            onChange={(date) => {
+              if (date) updateLine(line.id, { date: toDateInput(date) });
+            }}
           />
         );
       case "vehicleNo":
@@ -480,18 +499,20 @@ export default function CreateInvoiceForm({
         </div>
         <div className="space-y-2">
           <Label>Date of invoice</Label>
-          <Input
-            type="date"
-            value={invoiceDate}
-            onChange={(event) => setInvoiceDate(event.target.value)}
+          <CalendarPopover
+            value={parseDateInput(invoiceDate)}
+            onChange={(date) => {
+              if (date) setInvoiceDate(toDateInput(date));
+            }}
           />
         </div>
         <div className="space-y-2">
           <Label>Date of delivery</Label>
-          <Input
-            type="date"
-            value={deliveryDate}
-            onChange={(event) => setDeliveryDate(event.target.value)}
+          <CalendarPopover
+            value={parseDateInput(deliveryDate)}
+            onChange={(date) => {
+              if (date) setDeliveryDate(toDateInput(date));
+            }}
           />
         </div>
         <div className="space-y-2 md:col-span-2">

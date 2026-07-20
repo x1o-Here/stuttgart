@@ -12,6 +12,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -79,8 +80,8 @@ export default function InvoicePaymentsTable({
   const [amountFilter, setAmountFilter] = useState<"all" | "large" | "small">(
     "all",
   );
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const locked = invoice.status === "paid" || invoice.status === "cancelled";
 
   const columns = useMemo<ColumnDef<InvoicePayment>[]>(
@@ -157,12 +158,14 @@ export default function InvoicePaymentsTable({
       if (amountFilter === "large" && payment.amount < mid) return false;
       if (amountFilter === "small" && payment.amount >= mid) return false;
       if (dateFrom) {
-        const from = new Date(`${dateFrom}T00:00:00`).getTime();
-        if (payment.date.getTime() < from) return false;
+        const from = new Date(dateFrom);
+        from.setHours(0, 0, 0, 0);
+        if (payment.date.getTime() < from.getTime()) return false;
       }
       if (dateTo) {
-        const to = new Date(`${dateTo}T23:59:59`).getTime();
-        if (payment.date.getTime() > to) return false;
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        if (payment.date.getTime() > to.getTime()) return false;
       }
       return true;
     });
@@ -195,20 +198,12 @@ export default function InvoicePaymentsTable({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <Input
-            type="date"
-            className="w-40"
-            value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
-            aria-label="From date"
-          />
-          <Input
-            type="date"
-            className="w-40"
-            value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
-            aria-label="To date"
-          />
+          <div className="w-44" aria-label="From date">
+            <CalendarPopover value={dateFrom} onChange={setDateFrom} />
+          </div>
+          <div className="w-44" aria-label="To date">
+            <CalendarPopover value={dateTo} onChange={setDateTo} />
+          </div>
           <Select
             value={amountFilter}
             onValueChange={(value: "all" | "large" | "small") =>

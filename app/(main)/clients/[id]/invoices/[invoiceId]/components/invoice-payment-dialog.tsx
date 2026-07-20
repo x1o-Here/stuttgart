@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { Pencil, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import CalendarPopover from "@/components/shared/calendar-popover";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,6 +59,12 @@ function toDateInput(value: Date) {
   if (!value.getTime()) return todayValue();
   const offset = value.getTimezoneOffset();
   return new Date(value.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+function parseDateInput(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 function findAccountByName(accounts: Account[], name: string) {
@@ -426,10 +433,11 @@ export default function InvoicePaymentDialog({
 
           <div className="space-y-2">
             <Label>Date</Label>
-            <Input
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
+            <CalendarPopover
+              value={parseDateInput(date)}
+              onChange={(next) => {
+                if (next) setDate(toDateInput(next));
+              }}
             />
           </div>
           <div className="space-y-2">
