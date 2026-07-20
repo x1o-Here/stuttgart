@@ -64,7 +64,7 @@ export default function ClientInvoiceDetailPage() {
 
   return (
     <div className="min-h-screen h-full p-4 font-sans">
-      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-100 p-4">
+      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-50 p-4">
         <Button
           size="sm"
           variant="ghost"

@@ -11,16 +11,8 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -39,7 +31,7 @@ interface InvoicesTableProps {
   columns: ColumnDef<ClientInvoice>[];
   data: ClientInvoice[];
   client: ClientSnapshot;
-  template: InvoiceTemplate | null;
+  template: InvoiceTemplate;
 }
 
 const fuzzyFilter = (
@@ -84,7 +76,6 @@ export default function InvoicesTable({
     { id: "date", desc: true },
   ]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [templateMessageOpen, setTemplateMessageOpen] = useState(false);
 
   const table = useReactTable({
     data,
@@ -126,37 +117,7 @@ export default function InvoicesTable({
           <InvoicesStatusFilter table={table} />
         </div>
 
-        {template ? (
-          <CreateInvoiceDialog client={client} template={template} />
-        ) : (
-          <Popover
-            open={templateMessageOpen}
-            onOpenChange={setTemplateMessageOpen}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                className="shrink-0 opacity-50"
-                aria-disabled="true"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Invoice
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              side="bottom"
-              align="end"
-              className="w-72 space-y-3 text-sm"
-            >
-              <p>An invoice template should exist to create an invoice.</p>
-              <Button asChild size="sm" className="w-full">
-                <Link href={`/clients/${client.id}/template`}>
-                  Create Template
-                </Link>
-              </Button>
-            </PopoverContent>
-          </Popover>
-        )}
+        <CreateInvoiceDialog client={client} template={template} />
       </div>
 
       <div className="rounded-md border overflow-auto">

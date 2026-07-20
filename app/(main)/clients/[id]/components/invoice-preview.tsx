@@ -1,12 +1,3 @@
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type {
   ClientSnapshot,
   DeliveryDetails,
@@ -14,6 +5,11 @@ import type {
   InvoiceStatus,
   InvoiceTemplate,
   TemplateColumn,
+} from "../invoice-model";
+import {
+  amountInWords,
+  calculateInvoiceTotals,
+  orderedTemplateColumns,
 } from "../invoice-model";
 
 type InvoicePreviewProps = {
@@ -23,6 +19,7 @@ type InvoicePreviewProps = {
   invoiceDate?: Date;
   delivery?: DeliveryDetails;
   lineItems?: InvoiceLineItem[];
+  /** Sum of line amounts (total value of supply, before VAT). */
   totalAmount?: number;
   status?: InvoiceStatus;
   preview?: boolean;
@@ -33,6 +30,13 @@ function formatAmount(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function formatDate(value?: Date) {
+  if (!value || Number.isNaN(value.getTime()) || value.getTime() === 0) {
+    return "—";
+  }
+  return value.toLocaleDateString();
 }
 
 function displayCustomValue(
@@ -61,7 +65,7 @@ function displayCell(
     case "no":
       return rowIndex + 1;
     case "date":
-      return item.date.toLocaleDateString();
+      return formatDate(item.date);
     case "vehicleNo":
       return item.vehicleNo || "—";
     case "rate":
@@ -71,6 +75,21 @@ function displayCell(
     default:
       return displayCustomValue(column, item.customValues[column.key]);
   }
+}
+
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-2 text-[11px] leading-relaxed">
+      <span className="text-zinc-600">{label}:</span>
+      <span className="whitespace-pre-wrap">{value || "—"}</span>
+    </div>
+  );
 }
 
 export default function InvoicePreview({
@@ -84,133 +103,168 @@ export default function InvoicePreview({
   status,
   preview = false,
 }: InvoicePreviewProps) {
+  const columns = orderedTemplateColumns(template.columns);
   const rows =
-    preview && lineItems.length === 0 ? [null, null, null] : lineItems;
+    preview && lineItems.length === 0 ? [null, null, null, null, null] : lineItems;
+  const totals = calculateInvoiceTotals(totalAmount);
 
   return (
-    <div className="rounded-lg border bg-white p-6 shadow-sm space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Supplier
-          </p>
-          <h2 className="text-xl font-bold">
-            {template.supplier.name || "Supplier name"}
-          </h2>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {template.supplier.address || "Supplier address"}
-          </p>
-          <p className="text-sm">
-            VAT: {template.supplier.vatNo || "—"} · Contact:{" "}
-            {template.supplier.contactNo || "—"}
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-[210mm]">
+      {/* A4 page */}
+      <div
+        className="font-mono bg-white text-zinc-900 shadow-sm border border-zinc-200"
+        style={{
+          minHeight: "297mm",
+          padding: "14mm 16mm",
+        }}
+      >
+        <h1 className="mb-6 text-center text-base font-bold tracking-wide uppercase">
+          Tax Invoice
+        </h1>
 
-        <div className="min-w-56 space-y-1 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Tax invoice no</span>
-            <span className="font-medium">
-              {taxInvoiceNo || "Generated on invoice"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Invoice date</span>
-            <span className="font-medium">
-              {invoiceDate
-                ? invoiceDate.toLocaleDateString()
-                : "Selected on invoice"}
-            </span>
-          </div>
-          {status ? (
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Status</span>
-              <Badge variant={status === "paid" ? "default" : "secondary"}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </Badge>
+        {/* Header: invoice date + supplier | client */}
+        <div className="mb-5 grid grid-cols-2 gap-8 border-b border-zinc-300 pb-4">
+          <div className="space-y-3">
+            <DetailRow label="Date of Invoice" value={formatDate(invoiceDate)} />
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                Supplier Details
+              </p>
+              <DetailRow
+                label="Supplier's TIN"
+                value={template.supplier.vatNo}
+              />
+              <DetailRow
+                label="Supplier's Name"
+                value={template.supplier.name}
+              />
+              <DetailRow
+                label="Telephone No"
+                value={template.supplier.contactNo}
+              />
             </div>
-          ) : null}
+          </div>
+
+          <div className="space-y-3">
+            <DetailRow label="Tax Invoice No" value={taxInvoiceNo || "—"} />
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                Client Details
+              </p>
+              <DetailRow label="VAT No" value={client.vatNo} />
+              <DetailRow label="Purchaser's Name" value={client.name} />
+              <DetailRow label="Address" value={client.address} />
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-md bg-muted/40 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Client information
+        {/* Delivery */}
+        <div className="mb-5 space-y-2 border-b border-zinc-300 pb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+            Delivery Details
           </p>
-          <p className="font-semibold">{client.name || "Client name"}</p>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {client.address || "Client address"}
-          </p>
-          <p className="mt-2 text-sm">
-            VAT: {client.vatNo || "—"} · Contact: {client.contactNo || "—"}
-          </p>
-        </section>
+          <div className="grid grid-cols-2 gap-8">
+            <DetailRow
+              label="Date of Delivery"
+              value={formatDate(delivery?.date)}
+            />
+            <DetailRow
+              label="Place of Supply"
+              value={delivery?.address || ""}
+            />
+          </div>
+          <DetailRow
+            label="Additional information if any"
+            value={delivery?.reference || ""}
+          />
+        </div>
 
-        <section className="rounded-md bg-muted/40 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Delivery details
-          </p>
-          <p className="text-sm">
-            Date:{" "}
-            {delivery?.date
-              ? delivery.date.toLocaleDateString()
-              : "Selected on invoice"}
-          </p>
-          <p className="text-sm">
-            Reference: {delivery?.reference || "Entered on invoice"}
-          </p>
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {delivery?.address || "Delivery address entered on invoice"}
-          </p>
-        </section>
-      </div>
-
-      <div className="overflow-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {template.columns.map((column) => (
-                <TableHead key={column.id}>{column.label}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((item, rowIndex) => (
-              <TableRow key={item ? `${item.no}-${rowIndex}` : rowIndex}>
-                {template.columns.map((column) => (
-                  <TableCell key={column.id}>
-                    {item ? displayCell(column, item, rowIndex) : "—"}
-                  </TableCell>
+        {/* Cost table */}
+        <div className="mb-5 overflow-x-auto">
+          <table className="w-full border-collapse text-[11px]">
+            <thead>
+              <tr className="border-y border-zinc-800">
+                {columns.map((column) => (
+                  <th
+                    key={column.id}
+                    className="px-1.5 py-2 text-left font-semibold"
+                  >
+                    {column.label}
+                  </th>
                 ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex justify-end">
-        <div className="flex min-w-64 items-center justify-between rounded-md bg-muted/40 px-4 py-3">
-          <span className="font-semibold">Total amount</span>
-          <span className="text-lg font-bold">{formatAmount(totalAmount)}</span>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((item, rowIndex) => (
+                <tr
+                  key={item ? `${item.no}-${rowIndex}` : `empty-${rowIndex}`}
+                  className="border-b border-zinc-200"
+                >
+                  {columns.map((column) => (
+                    <td key={column.id} className="px-1.5 py-1.5 align-top">
+                      {item ? displayCell(column, item, rowIndex) : "\u00A0"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <div className="grid gap-8 pt-10 sm:grid-cols-2">
-        <div className="border-t pt-2 text-center">
-          <p className="font-medium">
-            {template.signing.leftName || "Signature"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {template.signing.leftLabel}
-          </p>
+        {/* Totals */}
+        <div className="mb-6 w-full space-y-1.5 text-[11px]">
+          <div className="flex justify-between gap-4 border-b border-zinc-200 py-1">
+            <span>Total Value of Supply</span>
+            <span className="tabular-nums">
+              {formatAmount(totals.supplyValue)}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4 border-b border-zinc-200 py-1">
+            <span>VAT Amount (Total value of supply @ 18%)</span>
+            <span className="tabular-nums">
+              {formatAmount(totals.vatAmount)}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4 border-b border-zinc-800 py-1.5 font-semibold">
+            <span>Total amount including VAT</span>
+            <span className="tabular-nums">
+              {formatAmount(totals.totalIncludingVat)}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <p className="text-zinc-600">Total amount in words</p>
+            <p className="font-medium leading-snug">
+              {amountInWords(totals.totalIncludingVat)}
+            </p>
+          </div>
         </div>
-        <div className="border-t pt-2 text-center">
-          <p className="font-medium">
-            {template.signing.rightName || "Signature"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {template.signing.rightLabel}
-          </p>
+
+        <p className="mb-10 text-[11px] leading-relaxed text-zinc-700">
+          Please make an arrangement to pay the above mentioned bill amount.<br />
+          Cheques should be drawn in favour "D.M.K TRANSPORT (PVT) LTD"<br />
+          <br />
+          Thanking you<br />
+          Your faithfull
+        </p>
+
+        {/* Signatures */}
+        <div className="mt-auto grid grid-cols-2 gap-12 pt-16">
+          <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
+            <p className="min-h-5 font-medium">
+              {template.signing.leftName || "\u00A0"}
+            </p>
+            <p className="text-zinc-600">
+              {template.signing.leftLabel || "Prepared by"}
+            </p>
+          </div>
+          <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
+            <p className="min-h-5 font-medium">
+              {template.signing.rightName || "\u00A0"}
+            </p>
+            <p className="text-zinc-600">
+              {template.signing.rightLabel || "Authorized by"}
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -31,10 +31,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 import { useLookupStore } from "@/stores/use-lookup-store";
-import type {
-  ClientSnapshot,
-  InvoiceTemplate,
-  TemplateColumn,
+import {
+  amountInWords,
+  calculateInvoiceTotals,
+  type ClientSnapshot,
+  type InvoiceTemplate,
+  orderedTemplateColumns,
+  type TemplateColumn,
 } from "../invoice-model";
 
 type DraftLine = {
@@ -72,6 +75,13 @@ function newLine(columns: TemplateColumn[]): DraftLine {
   };
 }
 
+function formatMoney(value: number) {
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export default function CreateInvoiceDialog({
   client,
   template,
@@ -84,29 +94,37 @@ export default function CreateInvoiceDialog({
   const [taxInvoiceNo, setTaxInvoiceNo] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(todayValue());
   const [deliveryDate, setDeliveryDate] = useState(todayValue());
-  const [deliveryAddress, setDeliveryAddress] = useState(client.address);
-  const [deliveryReference, setDeliveryReference] = useState("");
+  const [placeOfSupply, setPlaceOfSupply] = useState(client.address);
+  const [additionalInfo, setAdditionalInfo] = useState("");
   const [lines, setLines] = useState<DraftLine[]>(() => [
     newLine(template.columns),
   ]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const orderedColumns = useMemo(
+    () => orderedTemplateColumns(template.columns),
+    [template.columns],
+  );
   const customColumns = useMemo(
     () => template.columns.filter((column) => !column.system),
     [template.columns],
   );
-  const totalAmount = useMemo(
+  const supplyValue = useMemo(
     () => lines.reduce((total, line) => total + (Number(line.amount) || 0), 0),
     [lines],
+  );
+  const totals = useMemo(
+    () => calculateInvoiceTotals(supplyValue),
+    [supplyValue],
   );
 
   function resetForm() {
     setTaxInvoiceNo("");
     setInvoiceDate(todayValue());
     setDeliveryDate(todayValue());
-    setDeliveryAddress(client.address);
-    setDeliveryReference("");
+    setPlaceOfSupply(client.address);
+    setAdditionalInfo("");
     setLines([newLine(template.columns)]);
     setError("");
   }
@@ -135,7 +153,7 @@ export default function CreateInvoiceDialog({
     if (!invoiceDate || !deliveryDate) {
       return "Invoice and delivery dates are required.";
     }
-    if (!deliveryAddress.trim()) return "Delivery address is required.";
+    if (!placeOfSupply.trim()) return "Place of supply is required.";
     if (lines.length === 0) return "Add at least one cost item.";
 
     for (const [index, line] of lines.entries()) {
@@ -225,14 +243,16 @@ export default function CreateInvoiceDialog({
         date: Timestamp.fromDate(new Date(`${invoiceDate}T00:00:00`)),
         delivery: {
           date: Timestamp.fromDate(new Date(`${deliveryDate}T00:00:00`)),
-          address: deliveryAddress.trim(),
-          reference: deliveryReference.trim(),
+          address: placeOfSupply.trim(),
+          reference: additionalInfo.trim(),
         },
         client: { ...client },
         template: structuredClone(template),
         lineItems,
-        totalAmount,
-        outstandingAmount: totalAmount,
+        totalAmount: totals.supplyValue,
+        vatAmount: totals.vatAmount,
+        totalIncludingVat: totals.totalIncludingVat,
+        outstandingAmount: totals.totalIncludingVat,
         status: "issued",
         isActive: true,
         entityStatus: true,
@@ -303,6 +323,65 @@ export default function CreateInvoiceDialog({
     );
   }
 
+  function renderSystemCell(column: TemplateColumn, line: DraftLine, index: number) {
+    switch (column.key) {
+      case "no":
+        return index + 1;
+      case "date":
+        return (
+          <Input
+            type="date"
+            value={line.date}
+            onChange={(event) =>
+              updateLine(line.id, { date: event.target.value })
+            }
+          />
+        );
+      case "vehicleNo":
+        return (
+          <Select
+            value={line.vehicleNo}
+            onValueChange={(vehicleNo) => updateLine(line.id, { vehicleNo })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Vehicle" />
+            </SelectTrigger>
+            <SelectContent>
+              {vehicles.map((vehicle) => (
+                <SelectItem key={vehicle.id} value={vehicle.name}>
+                  {vehicle.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case "rate":
+        return (
+          <Input
+            type="number"
+            step="0.01"
+            value={line.rate}
+            onChange={(event) =>
+              updateLine(line.id, { rate: event.target.value })
+            }
+          />
+        );
+      case "amount":
+        return (
+          <Input
+            type="number"
+            step="0.01"
+            value={line.amount}
+            onChange={(event) =>
+              updateLine(line.id, { amount: event.target.value })
+            }
+          />
+        );
+      default:
+        return dynamicInput(column, line);
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -332,7 +411,7 @@ export default function CreateInvoiceDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Invoice date</Label>
+              <Label>Date of invoice</Label>
               <Input
                 type="date"
                 value={invoiceDate}
@@ -340,7 +419,7 @@ export default function CreateInvoiceDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Delivery date</Label>
+              <Label>Date of delivery</Label>
               <Input
                 type="date"
                 value={deliveryDate}
@@ -348,17 +427,17 @@ export default function CreateInvoiceDialog({
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Delivery address</Label>
+              <Label>Place of supply</Label>
               <Textarea
-                value={deliveryAddress}
-                onChange={(event) => setDeliveryAddress(event.target.value)}
+                value={placeOfSupply}
+                onChange={(event) => setPlaceOfSupply(event.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Delivery reference</Label>
+              <Label>Additional information if any</Label>
               <Input
-                value={deliveryReference}
-                onChange={(event) => setDeliveryReference(event.target.value)}
+                value={additionalInfo}
+                onChange={(event) => setAdditionalInfo(event.target.value)}
               />
             </div>
           </div>
@@ -382,7 +461,7 @@ export default function CreateInvoiceDialog({
               <table className="w-full min-w-max text-sm">
                 <thead className="bg-muted/40">
                   <tr>
-                    {template.columns.map((column) => (
+                    {orderedColumns.map((column) => (
                       <th key={column.id} className="p-2 text-left font-medium">
                         {column.label}
                         {column.required ? " *" : ""}
@@ -394,58 +473,18 @@ export default function CreateInvoiceDialog({
                 <tbody>
                   {lines.map((line, index) => (
                     <tr key={line.id} className="border-t align-top">
-                      <td className="p-2">{index + 1}</td>
-                      <td className="min-w-40 p-2">
-                        <Input
-                          type="date"
-                          value={line.date}
-                          onChange={(event) =>
-                            updateLine(line.id, { date: event.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="min-w-44 p-2">
-                        <Select
-                          value={line.vehicleNo}
-                          onValueChange={(vehicleNo) =>
-                            updateLine(line.id, { vehicleNo })
+                      {orderedColumns.map((column) => (
+                        <td
+                          key={column.id}
+                          className={
+                            column.key === "no"
+                              ? "p-2"
+                              : "min-w-32 p-2"
                           }
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Vehicle" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vehicles.map((vehicle) => (
-                              <SelectItem key={vehicle.id} value={vehicle.name}>
-                                {vehicle.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="min-w-32 p-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={line.rate}
-                          onChange={(event) =>
-                            updateLine(line.id, { rate: event.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="min-w-32 p-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={line.amount}
-                          onChange={(event) =>
-                            updateLine(line.id, { amount: event.target.value })
-                          }
-                        />
-                      </td>
-                      {customColumns.map((column) => (
-                        <td key={column.id} className="min-w-40 p-2">
-                          {dynamicInput(column, line)}
+                          {column.system
+                            ? renderSystemCell(column, line, index)
+                            : dynamicInput(column, line)}
                         </td>
                       ))}
                       <td className="p-2">
@@ -470,14 +509,28 @@ export default function CreateInvoiceDialog({
             </div>
           </section>
 
-          <div className="flex justify-end">
-            <div className="rounded-md bg-muted/40 px-4 py-3 text-lg font-bold">
-              Total:{" "}
-              {totalAmount.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+          <div className="ml-auto w-full max-w-md space-y-1.5 rounded-md bg-muted/40 px-4 py-3 text-sm">
+            <div className="flex justify-between gap-4">
+              <span>Total Value of Supply</span>
+              <span className="font-medium tabular-nums">
+                {formatMoney(totals.supplyValue)}
+              </span>
             </div>
+            <div className="flex justify-between gap-4">
+              <span>VAT Amount (18%)</span>
+              <span className="font-medium tabular-nums">
+                {formatMoney(totals.vatAmount)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4 border-t pt-2 text-base font-bold">
+              <span>Total including VAT</span>
+              <span className="tabular-nums">
+                {formatMoney(totals.totalIncludingVat)}
+              </span>
+            </div>
+            <p className="pt-1 text-xs text-muted-foreground">
+              {amountInWords(totals.totalIncludingVat)}
+            </p>
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

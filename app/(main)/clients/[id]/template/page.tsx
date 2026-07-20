@@ -11,8 +11,7 @@ import { db } from "@/lib/firebase/firebase-client";
 import InvoicePreview from "../components/invoice-preview";
 import {
   type ClientSnapshot,
-  DEFAULT_TEMPLATE_COLUMNS,
-  EMPTY_SIGNING_INFORMATION,
+  getDefaultInvoiceTemplate,
   type InvoiceTemplate,
   mapInvoiceTemplate,
 } from "../invoice-model";
@@ -87,18 +86,8 @@ export default function ClientInvoiceTemplatePage() {
     };
   }, [activeCompany, clientId]);
 
-  const previewTemplate = useMemo<InvoiceTemplate>(
-    () =>
-      template ?? {
-        supplier: {
-          name: companyName,
-          address: "",
-          vatNo: "",
-          contactNo: "",
-        },
-        signing: { ...EMPTY_SIGNING_INFORMATION },
-        columns: DEFAULT_TEMPLATE_COLUMNS.map((column) => ({ ...column })),
-      },
+  const previewTemplate = useMemo(
+    () => template ?? getDefaultInvoiceTemplate(companyName),
     [companyName, template],
   );
 
@@ -106,7 +95,7 @@ export default function ClientInvoiceTemplatePage() {
 
   return (
     <div className="min-h-screen h-full p-4 font-sans">
-      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-100 p-4">
+      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button
             size="sm"
@@ -139,13 +128,17 @@ export default function ClientInvoiceTemplatePage() {
           <div className="rounded-lg bg-white p-6">Client not found.</div>
         ) : (
           <>
-            {!template ? (
-              <div className="rounded-lg border border-dashed bg-white p-4 text-sm text-muted-foreground">
-                This client has no invoice template. The preview below shows the
-                fixed invoice structure; create a template to add supplier,
-                signing, and custom cost columns.
-              </div>
-            ) : null}
+            <div className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+              <p className="font-medium text-zinc-900">About this template</p>
+              <p className="mt-1 leading-relaxed">
+                Every invoice already includes the base layout: Tax Invoice
+                header, supplier and client details, delivery fields, the fixed
+                cost columns (No, Date, Vehicle No, Rate, Amount), VAT totals,
+                and signature lines. Those stay in place. Use Manage Template to
+                fill supplier and signing details, and to add any extra columns
+                that appear between Vehicle No and Rate.
+              </p>
+            </div>
             <InvoicePreview
               template={previewTemplate}
               client={client}

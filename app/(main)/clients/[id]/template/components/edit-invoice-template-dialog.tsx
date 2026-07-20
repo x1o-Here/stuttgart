@@ -225,19 +225,13 @@ export default function EditInvoiceTemplateDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          {template ? (
-            <Pencil className="mr-2 h-4 w-4" />
-          ) : (
-            <Plus className="mr-2 h-4 w-4" />
-          )}
-          {template ? "Edit Template" : "Create Template"}
+          <Pencil className="mr-2 h-4 w-4" />
+          Manage Template
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>
-            {template ? "Edit Invoice Template" : "Create Invoice Template"}
-          </DialogTitle>
+          <DialogTitle>Manage Invoice Template</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -301,8 +295,9 @@ export default function EditInvoiceTemplateDialog({
               <div>
                 <h3 className="font-semibold">Cost breakdown columns</h3>
                 <p className="text-sm text-muted-foreground">
-                  Default columns are fixed. Add fields required for this
-                  client.
+                  Base columns stay fixed: No, Date, and Vehicle No first; Rate
+                  and Amount last. Additional columns you add appear between
+                  those groups.
                 </p>
               </div>
               <Button type="button" variant="outline" onClick={addColumn}>

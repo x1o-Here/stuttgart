@@ -14,6 +14,8 @@ import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
 import {
   type ClientSnapshot,
+  calculateInvoiceTotals,
+  getDefaultInvoiceTemplate,
   type InvoiceTemplate,
   mapInvoiceTemplate,
 } from "../invoice-model";
@@ -57,9 +59,15 @@ export default function ClientInvoicesSection({
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<InvoiceTemplate | null>(null);
+  const [companyName, setCompanyName] = useState("");
   const [templateLoading, setTemplateLoading] = useState(true);
+  const [companyLoading, setCompanyLoading] = useState(true);
 
   const columns = useMemo(() => getInvoicesColumns(client.id), [client.id]);
+  const effectiveTemplate = useMemo(
+    () => template ?? getDefaultInvoiceTemplate(companyName),
+    [companyName, template],
+  );
 
   useEffect(() => {
     if (!activeCompany || !client.id) {
@@ -89,6 +97,10 @@ export default function ClientInvoicesSection({
             const data = docSnap.data() as Record<string, unknown>;
             if (data.entityStatus === false) return null;
             const status = normalizeStatus(data.status);
+            const supplyValue = Number(data.totalAmount) || 0;
+            const totals = calculateInvoiceTotals(supplyValue);
+            const totalIncludingVat =
+              Number(data.totalIncludingVat) || totals.totalIncludingVat;
             return {
               id: docSnap.id,
               date: toDate(data.date) || new Date(0),
@@ -98,8 +110,9 @@ export default function ClientInvoicesSection({
                   : typeof data.invoiceNo === "string"
                     ? data.invoiceNo
                     : "—",
-              totalAmount: Number(data.totalAmount) || 0,
-              outstandingAmount: Number(data.outstandingAmount) || 0,
+              totalAmount: totalIncludingVat,
+              outstandingAmount:
+                Number(data.outstandingAmount) || totalIncludingVat,
               status,
               isActive: isActiveInvoiceStatus(status),
             } satisfies ClientInvoice;
@@ -125,12 +138,28 @@ export default function ClientInvoicesSection({
   useEffect(() => {
     if (!activeCompany || !client.id) {
       setTemplate(null);
+      setCompanyName("");
       setTemplateLoading(true);
+      setCompanyLoading(true);
       return;
     }
 
     setTemplateLoading(true);
-    return onSnapshot(
+    setCompanyLoading(true);
+
+    const unsubscribeCompany = onSnapshot(
+      doc(db, "companies", activeCompany),
+      (snapshot) => {
+        setCompanyName(snapshot.exists() ? snapshot.data().name || "" : "");
+        setCompanyLoading(false);
+      },
+      (error) => {
+        console.error("Failed to fetch company:", error);
+        setCompanyLoading(false);
+      },
+    );
+
+    const unsubscribeTemplate = onSnapshot(
       doc(
         db,
         "companies",
@@ -154,11 +183,16 @@ export default function ClientInvoicesSection({
         setTemplateLoading(false);
       },
     );
+
+    return () => {
+      unsubscribeCompany();
+      unsubscribeTemplate();
+    };
   }, [activeCompany, client.id]);
 
   return (
     <div className="p-4 bg-white rounded-lg flex flex-col gap-4">
-      {loading || templateLoading ? (
+      {loading || templateLoading || companyLoading ? (
         <LoadingState
           message="Loading invoices..."
           variant="skeleton"
@@ -169,7 +203,7 @@ export default function ClientInvoicesSection({
           columns={columns}
           data={invoices}
           client={client}
-          template={template}
+          template={effectiveTemplate}
         />
       )}
     </div>
