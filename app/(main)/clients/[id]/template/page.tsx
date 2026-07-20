@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { mapCompanyDoc, type CompanyRecord } from "@/lib/companies/types";
 import { db } from "@/lib/firebase/firebase-client";
 import InvoicePreview from "../components/invoice-preview";
 import {
@@ -14,6 +15,7 @@ import {
   getDefaultInvoiceTemplate,
   type InvoiceTemplate,
   mapInvoiceTemplate,
+  withCompanySupplier,
 } from "../invoice-model";
 import EditInvoiceTemplateDialog from "./components/edit-invoice-template-dialog";
 
@@ -23,7 +25,7 @@ export default function ClientInvoiceTemplatePage() {
   const { activeCompany } = useAuth();
   const clientId = typeof params.id === "string" ? params.id : undefined;
   const [client, setClient] = useState<ClientSnapshot | null>(null);
-  const [companyName, setCompanyName] = useState("");
+  const [company, setCompany] = useState<CompanyRecord | null>(null);
   const [template, setTemplate] = useState<InvoiceTemplate | null>(null);
   const [clientLoading, setClientLoading] = useState(true);
   const [companyLoading, setCompanyLoading] = useState(true);
@@ -54,7 +56,11 @@ export default function ClientInvoiceTemplatePage() {
     const unsubscribeCompany = onSnapshot(
       doc(db, "companies", activeCompany),
       (snapshot) => {
-        setCompanyName(snapshot.exists() ? snapshot.data().name || "" : "");
+        setCompany(
+          snapshot.exists()
+            ? mapCompanyDoc(snapshot.id, snapshot.data() as Record<string, unknown>)
+            : null,
+        );
         setCompanyLoading(false);
       },
     );
@@ -86,10 +92,10 @@ export default function ClientInvoiceTemplatePage() {
     };
   }, [activeCompany, clientId]);
 
-  const previewTemplate = useMemo(
-    () => template ?? getDefaultInvoiceTemplate(companyName),
-    [companyName, template],
-  );
+  const previewTemplate = useMemo(() => {
+    const base = template ?? getDefaultInvoiceTemplate(company);
+    return withCompanySupplier(base, company);
+  }, [company, template]);
 
   const loading = clientLoading || companyLoading || templateLoading;
 
@@ -112,7 +118,7 @@ export default function ClientInvoiceTemplatePage() {
             <EditInvoiceTemplateDialog
               clientId={clientId}
               clientName={client.name}
-              companyName={companyName}
+              company={company}
               template={template}
             />
           ) : null}
@@ -134,9 +140,9 @@ export default function ClientInvoiceTemplatePage() {
                 Every invoice already includes the base layout: Tax Invoice
                 header, supplier and client details, delivery fields, the fixed
                 cost columns (No, Date, Vehicle No, Rate, Amount), VAT totals,
-                and signature lines. Those stay in place. Use Manage Template to
-                fill supplier and signing details, and to add any extra columns
-                that appear between Vehicle No and Rate.
+                and signature lines. Supplier details come from the active
+                company. Use Manage Template to set signing details and add any
+                extra columns that appear between Vehicle No and Rate.
               </p>
             </div>
             <InvoicePreview

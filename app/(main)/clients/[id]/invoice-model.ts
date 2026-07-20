@@ -23,6 +23,14 @@ export type SupplierInformation = {
   contactNo: string;
 };
 
+/** Company master fields used as invoice supplier details. */
+export type CompanySupplierSource = {
+  name: string;
+  address?: string;
+  tin?: string;
+  telephoneNo?: string;
+};
+
 export type SigningInformation = {
   leftLabel: string;
   leftName: string;
@@ -57,6 +65,28 @@ export const VAT_RATE = 0.18;
 export const LEADING_SYSTEM_COLUMN_KEYS = ["no", "date", "vehicleNo"] as const;
 export const TRAILING_SYSTEM_COLUMN_KEYS = ["rate", "amount"] as const;
 
+export function supplierFromCompany(
+  company?: CompanySupplierSource | null,
+): SupplierInformation {
+  return {
+    name: company?.name ?? "",
+    address: company?.address ?? "",
+    vatNo: company?.tin ?? "",
+    contactNo: company?.telephoneNo ?? "",
+  };
+}
+
+export function withCompanySupplier(
+  template: InvoiceTemplate,
+  company?: CompanySupplierSource | null,
+): InvoiceTemplate {
+  if (!company) return template;
+  return {
+    ...template,
+    supplier: supplierFromCompany(company),
+  };
+}
+
 /** No, Date, Vehicle No → custom columns → Rate, Amount */
 export function orderedTemplateColumns(
   columns: TemplateColumn[],
@@ -73,15 +103,15 @@ export function orderedTemplateColumns(
 }
 
 export function getDefaultInvoiceTemplate(
-  companyName = "",
+  company?: CompanySupplierSource | string | null,
 ): InvoiceTemplate {
+  const supplier =
+    typeof company === "string"
+      ? { name: company, address: "", vatNo: "", contactNo: "" }
+      : supplierFromCompany(company);
+
   return {
-    supplier: {
-      name: companyName,
-      address: "",
-      vatNo: "",
-      contactNo: "",
-    },
+    supplier,
     signing: { ...EMPTY_SIGNING_INFORMATION },
     columns: DEFAULT_TEMPLATE_COLUMNS.map((column) => ({ ...column })),
   };

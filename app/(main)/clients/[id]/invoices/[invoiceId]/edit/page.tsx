@@ -3,15 +3,17 @@
 import { doc, onSnapshot } from "firebase/firestore";
 import { ChevronLeft } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { mapCompanyDoc, type CompanyRecord } from "@/lib/companies/types";
 import { db } from "@/lib/firebase/firebase-client";
 import CreateInvoiceForm from "../../../components/create-invoice-form";
 import {
   type ClientInvoiceDocument,
   mapClientInvoiceDocument,
+  withCompanySupplier,
 } from "../../../invoice-model";
 
 export default function EditClientInvoicePage() {
@@ -22,14 +24,16 @@ export default function EditClientInvoicePage() {
   const invoiceId =
     typeof params.invoiceId === "string" ? params.invoiceId : undefined;
   const [invoice, setInvoice] = useState<ClientInvoiceDocument | null>(null);
+  const [company, setCompany] = useState<CompanyRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [companyLoading, setCompanyLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!activeCompany || !clientId || !invoiceId) return;
 
     setLoading(true);
-    return onSnapshot(
+    const unsubscribeInvoice = onSnapshot(
       doc(
         db,
         "companies",
@@ -64,7 +68,34 @@ export default function EditClientInvoicePage() {
         setLoading(false);
       },
     );
+
+    const unsubscribeCompany = onSnapshot(
+      doc(db, "companies", activeCompany),
+      (snapshot) => {
+        setCompany(
+          snapshot.exists()
+            ? mapCompanyDoc(
+                snapshot.id,
+                snapshot.data() as Record<string, unknown>,
+              )
+            : null,
+        );
+        setCompanyLoading(false);
+      },
+    );
+
+    return () => {
+      unsubscribeInvoice();
+      unsubscribeCompany();
+    };
   }, [activeCompany, clientId, invoiceId]);
+
+  const editTemplate = useMemo(() => {
+    if (!invoice) return null;
+    return withCompanySupplier(invoice.template, company);
+  }, [company, invoice]);
+
+  const pageLoading = loading || companyLoading;
 
   return (
     <div className="min-h-screen h-full p-4 font-sans">
@@ -87,13 +118,13 @@ export default function EditClientInvoicePage() {
           Back
         </Button>
 
-        {loading ? (
+        {pageLoading ? (
           <LoadingState
             message="Loading invoice..."
             variant="skeleton"
             rows={8}
           />
-        ) : notFound || !invoice ? (
+        ) : notFound || !invoice || !editTemplate ? (
           <div className="rounded-lg bg-white p-6">
             <h1 className="text-xl font-semibold">
               Invoice not found or cannot be edited
@@ -102,7 +133,7 @@ export default function EditClientInvoicePage() {
         ) : (
           <CreateInvoiceForm
             client={invoice.client}
-            template={invoice.template}
+            template={editTemplate}
             invoice={invoice}
           />
         )}

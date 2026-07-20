@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { mapCompanyDoc, type CompanyRecord } from "@/lib/companies/types";
 import { db } from "@/lib/firebase/firebase-client";
 import CreateInvoiceForm from "../../components/create-invoice-form";
 import {
@@ -14,6 +15,7 @@ import {
   getDefaultInvoiceTemplate,
   type InvoiceTemplate,
   mapInvoiceTemplate,
+  withCompanySupplier,
 } from "../../invoice-model";
 
 export default function CreateClientInvoicePage() {
@@ -22,7 +24,7 @@ export default function CreateClientInvoicePage() {
   const { activeCompany } = useAuth();
   const clientId = typeof params.id === "string" ? params.id : undefined;
   const [client, setClient] = useState<ClientSnapshot | null>(null);
-  const [companyName, setCompanyName] = useState("");
+  const [company, setCompany] = useState<CompanyRecord | null>(null);
   const [template, setTemplate] = useState<InvoiceTemplate | null>(null);
   const [clientLoading, setClientLoading] = useState(true);
   const [companyLoading, setCompanyLoading] = useState(true);
@@ -53,7 +55,11 @@ export default function CreateClientInvoicePage() {
     const unsubscribeCompany = onSnapshot(
       doc(db, "companies", activeCompany),
       (snapshot) => {
-        setCompanyName(snapshot.exists() ? snapshot.data().name || "" : "");
+        setCompany(
+          snapshot.exists()
+            ? mapCompanyDoc(snapshot.id, snapshot.data() as Record<string, unknown>)
+            : null,
+        );
         setCompanyLoading(false);
       },
     );
@@ -85,10 +91,10 @@ export default function CreateClientInvoicePage() {
     };
   }, [activeCompany, clientId]);
 
-  const effectiveTemplate = useMemo(
-    () => template ?? getDefaultInvoiceTemplate(companyName),
-    [companyName, template],
-  );
+  const effectiveTemplate = useMemo(() => {
+    const base = template ?? getDefaultInvoiceTemplate(company);
+    return withCompanySupplier(base, company);
+  }, [company, template]);
 
   const loading = clientLoading || companyLoading || templateLoading;
 

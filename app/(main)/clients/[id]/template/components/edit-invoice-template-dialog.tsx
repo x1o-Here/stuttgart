@@ -26,16 +26,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
+import type { CompanyRecord } from "@/lib/companies/types";
 import { db } from "@/lib/firebase/firebase-client";
 import {
   createCustomColumnKey,
   DEFAULT_TEMPLATE_COLUMNS,
-  EMPTY_SIGNING_INFORMATION,
+  getDefaultInvoiceTemplate,
   type InvoiceTemplate,
   type TemplateColumn,
   type TemplateColumnType,
+  withCompanySupplier,
 } from "../../invoice-model";
 
 const COLUMN_TYPES: { value: TemplateColumnType; label: string }[] = [
@@ -49,49 +50,40 @@ const COLUMN_TYPES: { value: TemplateColumnType; label: string }[] = [
 type EditInvoiceTemplateDialogProps = {
   clientId: string;
   clientName: string;
-  companyName: string;
+  company: CompanyRecord | null;
   template: InvoiceTemplate | null;
 };
 
 function initialTemplate(
   template: InvoiceTemplate | null,
-  companyName: string,
+  company: CompanyRecord | null,
 ): InvoiceTemplate {
-  if (template) {
-    return structuredClone(template);
-  }
-  return {
-    supplier: {
-      name: companyName,
-      address: "",
-      vatNo: "",
-      contactNo: "",
-    },
-    signing: { ...EMPTY_SIGNING_INFORMATION },
-    columns: DEFAULT_TEMPLATE_COLUMNS.map((column) => ({ ...column })),
-  };
+  const base = template
+    ? structuredClone(template)
+    : getDefaultInvoiceTemplate(company);
+  return withCompanySupplier(base, company);
 }
 
 export default function EditInvoiceTemplateDialog({
   clientId,
   clientName,
-  companyName,
+  company,
   template,
 }: EditInvoiceTemplateDialogProps) {
   const { activeCompany, user } = useAuth();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<InvoiceTemplate>(() =>
-    initialTemplate(template, companyName),
+    initialTemplate(template, company),
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setDraft(initialTemplate(template, companyName));
+      setDraft(initialTemplate(template, company));
       setError("");
     }
-  }, [open, template, companyName]);
+  }, [open, template, company]);
 
   const customColumns = useMemo(
     () => draft.columns.filter((column) => !column.system),
@@ -168,10 +160,6 @@ export default function EditInvoiceTemplateDialog({
       setError("Custom columns cannot use a default column name.");
       return;
     }
-    if (!draft.supplier.name.trim()) {
-      setError("Supplier name is required.");
-      return;
-    }
 
     try {
       setSaving(true);
@@ -186,10 +174,11 @@ export default function EditInvoiceTemplateDialog({
         "invoice-template",
         "config",
       );
+      const payload = withCompanySupplier(draft, company);
       batch.set(
         templateRef,
         {
-          ...draft,
+          ...payload,
           clientId,
           entityStatus: true,
           updatedAt: serverTimestamp(),
@@ -237,56 +226,27 @@ export default function EditInvoiceTemplateDialog({
         <div className="space-y-6">
           <section className="space-y-3">
             <h3 className="font-semibold">Supplier information</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                placeholder="Supplier name"
-                value={draft.supplier.name}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    supplier: { ...current.supplier, name: event.target.value },
-                  }))
-                }
-              />
-              <Input
-                placeholder="VAT number"
-                value={draft.supplier.vatNo}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    supplier: {
-                      ...current.supplier,
-                      vatNo: event.target.value,
-                    },
-                  }))
-                }
-              />
-              <Textarea
-                placeholder="Supplier address"
-                value={draft.supplier.address}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    supplier: {
-                      ...current.supplier,
-                      address: event.target.value,
-                    },
-                  }))
-                }
-              />
-              <Input
-                placeholder="Contact number"
-                value={draft.supplier.contactNo}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    supplier: {
-                      ...current.supplier,
-                      contactNo: event.target.value,
-                    },
-                  }))
-                }
-              />
+            <p className="text-sm text-muted-foreground">
+              Pulled from the active company. Update company details under Users
+              → Companies.
+            </p>
+            <div className="grid gap-3 rounded-md border bg-zinc-50 p-3 text-sm sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Company name</p>
+                <p>{company?.name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">TIN</p>
+                <p>{company?.tin || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Address</p>
+                <p className="whitespace-pre-wrap">{company?.address || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Telephone no</p>
+                <p>{company?.telephoneNo || "—"}</p>
+              </div>
             </div>
           </section>
 

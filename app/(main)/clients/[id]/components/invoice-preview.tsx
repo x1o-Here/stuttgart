@@ -151,6 +151,10 @@ export default function InvoicePreview({
                 value={template.supplier.name}
               />
               <DetailRow
+                label="Address"
+                value={template.supplier.address}
+              />
+              <DetailRow
                 label="Telephone No"
                 value={template.supplier.contactNo}
               />
