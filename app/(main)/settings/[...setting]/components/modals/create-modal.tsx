@@ -22,6 +22,10 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  CLIENT_ACCOUNT_TYPE_NAME,
+  isClientAccountTypeName,
+} from "@/lib/constants/client-account";
 
 export const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -41,7 +45,9 @@ export default function CreateModal({
 }: CreateModalProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
   const isVehicle = entityLabel.toLowerCase() === "vehicle";
+  const isAccountType = entityLabel.toLowerCase() === "account type";
 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
@@ -52,8 +58,16 @@ export default function CreateModal({
   });
 
   async function onSubmit(data: FormSchema) {
+    if (isAccountType && isClientAccountTypeName(data.name)) {
+      setFormError(
+        `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type is system-managed and cannot be created manually.`,
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+      setFormError("");
       await onCreate?.({
         name: data.name,
         shortForm: isVehicle ? "" : data.shortForm,
@@ -62,6 +76,11 @@ export default function CreateModal({
       setOpen(false);
     } catch (error) {
       console.error(`Failed to create ${entityLabel}`, error);
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : `Failed to create ${entityLabel.toLowerCase()}.`,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -103,6 +122,10 @@ export default function CreateModal({
                           : `Enter ${entityLabel.toLowerCase()} name`
                       }
                       autoComplete="off"
+                      onChange={(event) => {
+                        field.onChange(event);
+                        if (formError) setFormError("");
+                      }}
                     />
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
@@ -132,6 +155,9 @@ export default function CreateModal({
                 />
               )}
             </FieldGroup>
+            {formError ? (
+              <p className="mt-3 text-sm text-destructive">{formError}</p>
+            ) : null}
           </form>
         </div>
         <DialogFooter className="pt-4 border-t">
