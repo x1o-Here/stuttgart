@@ -44,6 +44,12 @@ function HomeContent() {
             new Set([...(existingTx.tags || []), ...tx.tags]),
           );
         }
+        if (!existingTx.department?.trim() && tx.department?.trim()) {
+          existingTx.department = tx.department;
+        }
+        if (!existingTx.vehicle?.trim() && tx.vehicle?.trim()) {
+          existingTx.vehicle = tx.vehicle;
+        }
 
         if (tx.type === "credit") {
           existingTx.creditingAccount = account.name;

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   ClientSnapshot,
   DeliveryDetails,
@@ -23,7 +24,7 @@ type InvoicePreviewProps = {
   totalAmount?: number;
   status?: InvoiceStatus;
   preview?: boolean;
-  /** Adds a ~1/10 page-height top gap (used only while exporting PDF). */
+  /** Adds a top gap used only while exporting PDF. */
   exportTopGap?: boolean;
 };
 
@@ -79,6 +80,27 @@ function displayCell(
   }
 }
 
+function InvoiceBox({
+  children,
+  className = "",
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <div className={`border border-zinc-800 ${className}`}>
+      {title ? (
+        <div className="border-b border-zinc-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider">
+          {title}
+        </div>
+      ) : null}
+      <div className="px-2 py-1.5">{children}</div>
+    </div>
+  );
+}
+
 function DetailRow({
   label,
   value,
@@ -125,78 +147,84 @@ export default function InvoicePreview({
         {exportTopGap ? (
           <div
             aria-hidden
-            style={{ height: "calc(297mm / 10)" }}
+            style={{ height: "calc(297mm / 8)" }}
             className="shrink-0"
           />
         ) : null}
 
-        <h1 className="mb-6 text-center text-base font-bold tracking-wide uppercase">
-          Tax Invoice
-        </h1>
+        <div className="mb-3 border border-zinc-800 px-2 py-2">
+          <h1 className="text-center text-base font-bold tracking-wide uppercase">
+            Tax Invoice
+          </h1>
+        </div>
 
-        {/* Header: invoice date + supplier | client */}
-        <div className="mb-5 grid grid-cols-2 gap-8 border-b border-zinc-300 pb-4">
-          <div className="space-y-3">
-            <DetailRow label="Date of Invoice" value={formatDate(invoiceDate)} />
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                Supplier Details
-              </p>
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <InvoiceBox>
+            <DetailRow
+              label="Date of Invoice"
+              value={formatDate(invoiceDate)}
+            />
+          </InvoiceBox>
+          <InvoiceBox>
+            <DetailRow label="Tax Invoice No" value={taxInvoiceNo || "—"} />
+          </InvoiceBox>
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <InvoiceBox>
+            <div className="space-y-0.5">
               <DetailRow
                 label="Supplier's TIN"
                 value={template.supplier.vatNo}
               />
-              <DetailRow
-                label="Supplier's Name"
-                value={template.supplier.name}
-              />
-              <DetailRow
-                label="Address"
-                value={template.supplier.address}
-              />
+              <div className="grid grid-cols-[auto_1fr] gap-x-2 text-[11px] leading-relaxed">
+                <span className="text-zinc-600">Supplier&apos;s Name:</span>
+                <div>
+                  <span>{template.supplier.name || "—"}</span>
+                  {template.supplier.address?.trim() ? (
+                    <p className="whitespace-pre-wrap">
+                      {template.supplier.address}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
               <DetailRow
                 label="Telephone No"
                 value={template.supplier.contactNo}
               />
             </div>
-          </div>
-
-          <div className="space-y-3">
-            <DetailRow label="Tax Invoice No" value={taxInvoiceNo || "—"} />
-            <div className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                Client Details
-              </p>
+          </InvoiceBox>
+          <InvoiceBox>
+            <div className="space-y-0.5">
               <DetailRow label="VAT No" value={client.vatNo} />
               <DetailRow label="Purchaser's Name" value={client.name} />
               <DetailRow label="Address" value={client.address} />
             </div>
-          </div>
+          </InvoiceBox>
         </div>
 
-        {/* Delivery */}
-        <div className="mb-5 space-y-2 border-b border-zinc-300 pb-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-            Delivery Details
-          </p>
-          <div className="grid grid-cols-2 gap-8">
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <InvoiceBox>
             <DetailRow
               label="Date of Delivery"
               value={formatDate(delivery?.date)}
             />
+          </InvoiceBox>
+          <InvoiceBox>
             <DetailRow
               label="Place of Supply"
               value={delivery?.address || ""}
             />
-          </div>
-          <DetailRow
-            label="Additional information if any"
-            value={delivery?.reference || ""}
-          />
+          </InvoiceBox>
+          <InvoiceBox className="col-span-2">
+            <DetailRow
+              label="Additional information if any"
+              value={delivery?.reference || ""}
+            />
+          </InvoiceBox>
         </div>
 
-        {/* Cost table */}
-        <div className="mb-5 overflow-x-auto">
+        <div className="mt-8 mb-6 overflow-x-auto">
           <table className="w-full border-collapse text-[11px]">
             <thead>
               <tr className="border-y border-zinc-800">
@@ -227,7 +255,6 @@ export default function InvoicePreview({
           </table>
         </div>
 
-        {/* Totals */}
         <div className="mb-6 w-full space-y-1.5 text-[11px]">
           <div className="flex justify-between gap-4 border-b border-zinc-200 py-1">
             <span>Total Value of Supply</span>
@@ -256,14 +283,16 @@ export default function InvoicePreview({
         </div>
 
         <p className="mb-10 text-[11px] leading-relaxed text-zinc-700">
-          Please make an arrangement to pay the above mentioned bill amount.<br />
-          Cheques should be drawn in favour "D.M.K TRANSPORT (PVT) LTD"<br />
+          Please make an arrangement to pay the above mentioned bill amount.
           <br />
-          Thanking you<br />
+          Cheques should be drawn in favour &quot;D.M.K TRANSPORT (PVT) LTD&quot;
+          <br />
+          <br />
+          Thanking you
+          <br />
           Your faithfull
         </p>
 
-        {/* Signatures */}
         <div className="mt-auto grid grid-cols-2 gap-12 pt-16">
           <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
             <p className="min-h-5 font-medium">
