@@ -14,6 +14,8 @@ import { toDate } from "@/lib/helpers/to-date";
 import {
   type ClientSnapshot,
   calculateInvoiceTotals,
+  resolveOutstandingAmount,
+  roundMoney,
 } from "../invoice-model";
 import {
   type ClientInvoice,
@@ -41,6 +43,8 @@ function normalizeStatus(value: unknown): InvoiceStatus {
   }
   // Treat explicit "active" from data as an open invoice.
   if (value === "active") return "issued";
+  // Legacy / UI synonym for paid.
+  if (value === "complete" || value === "completed") return "paid";
   return "issued";
 }
 
@@ -84,11 +88,26 @@ export default function ClientInvoicesSection({
           .map((docSnap) => {
             const data = docSnap.data() as Record<string, unknown>;
             if (data.entityStatus === false) return null;
-            const status = normalizeStatus(data.status);
             const supplyValue = Number(data.totalAmount) || 0;
             const totals = calculateInvoiceTotals(supplyValue);
             const totalIncludingVat =
               Number(data.totalIncludingVat) || totals.totalIncludingVat;
+            let outstandingAmount = resolveOutstandingAmount(
+              data.outstandingAmount,
+              totalIncludingVat,
+            );
+            let status = normalizeStatus(data.status);
+            if (
+              status !== "cancelled" &&
+              roundMoney(totalIncludingVat) > 0 &&
+              outstandingAmount <= 0
+            ) {
+              outstandingAmount = 0;
+              status = "paid";
+            }
+            if (status === "paid") {
+              outstandingAmount = 0;
+            }
             return {
               id: docSnap.id,
               date: toDate(data.date) || new Date(0),
@@ -99,8 +118,7 @@ export default function ClientInvoicesSection({
                     ? data.invoiceNo
                     : "—",
               totalAmount: totalIncludingVat,
-              outstandingAmount:
-                Number(data.outstandingAmount) || totalIncludingVat,
+              outstandingAmount,
               status,
               isActive: isActiveInvoiceStatus(status),
             } satisfies ClientInvoice;

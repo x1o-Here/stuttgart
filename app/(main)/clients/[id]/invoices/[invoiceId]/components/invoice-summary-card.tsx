@@ -2,7 +2,10 @@
 
 import { Badge } from "@/components/ui/badge";
 import type { ClientInvoiceDocument } from "../../../invoice-model";
-import { roundMoney } from "../../../invoice-model";
+import {
+  outstandingFromPayments,
+  roundMoney,
+} from "../../../invoice-model";
 
 function formatMoney(value: number) {
   return roundMoney(value).toLocaleString(undefined, {
@@ -23,11 +26,27 @@ function statusVariant(status: ClientInvoiceDocument["status"]) {
   }
 }
 
+function statusLabel(status: ClientInvoiceDocument["status"]) {
+  if (status === "paid") return "Complete";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 type InvoiceSummaryCardProps = {
   invoice: ClientInvoiceDocument;
+  /** Sum of active payments for this invoice. */
+  paidAmount?: number;
 };
 
-export default function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps) {
+export default function InvoiceSummaryCard({
+  invoice,
+  paidAmount = 0,
+}: InvoiceSummaryCardProps) {
+  const outstanding =
+    invoice.status === "paid"
+      ? 0
+      : outstandingFromPayments(invoice.totalIncludingVat, paidAmount);
+  const isComplete = outstanding <= 0 && roundMoney(invoice.totalIncludingVat) > 0;
+
   return (
     <div className="rounded-lg bg-white p-4 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -37,8 +56,8 @@ export default function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps)
             {invoice.taxInvoiceNo || "Untitled"}
           </p>
         </div>
-        <Badge variant={statusVariant(invoice.status)} className="capitalize">
-          {invoice.status}
+        <Badge variant={statusVariant(invoice.status)}>
+          {statusLabel(invoice.status)}
         </Badge>
       </div>
 
@@ -82,8 +101,13 @@ export default function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps)
         <div>
           <dt className="text-sm text-muted-foreground">Outstanding amount</dt>
           <dd className="font-medium tabular-nums">
-            {formatMoney(invoice.outstandingAmount)}
+            {formatMoney(outstanding)}
           </dd>
+          {isComplete ? (
+            <Badge className="mt-2" variant="default">
+              Complete
+            </Badge>
+          ) : null}
         </div>
       </dl>
     </div>

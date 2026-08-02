@@ -23,9 +23,14 @@ export type Transaction = {
 
 function DepartmentBadge({ departmentName }: { departmentName: string }) {
   const departments = useLookupStore((state) => state.departments);
-  const dept = departments.find((d) => d.name === departmentName);
-  if (!dept) return null;
-  return <Badge variant="secondary">{dept.shortForm}</Badge>;
+  const name = departmentName?.trim();
+  if (!name) return <span>-</span>;
+
+  const dept = departments.find(
+    (d) => d.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  const label = dept?.shortForm?.trim() || name;
+  return <Badge variant="secondary">{label}</Badge>;
 }
 
 export const transactionsColumns: ColumnDef<Transaction>[] = [

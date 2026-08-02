@@ -49,6 +49,7 @@ function statusVariant(status: InvoiceStatus) {
 }
 
 function statusLabel(status: InvoiceStatus) {
+  if (status === "paid") return "Complete";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 

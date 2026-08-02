@@ -51,6 +51,7 @@ import {
 import {
   calculateInvoiceTotals,
   mapInvoicePayment,
+  resolveOutstandingAmount,
   roundMoney,
 } from "../invoice-model";
 import type {
@@ -97,6 +98,7 @@ function normalizeStatus(value: unknown): InvoiceStatus {
     return value as InvoiceStatus;
   }
   if (value === "active") return "issued";
+  if (value === "complete" || value === "completed") return "paid";
   return "issued";
 }
 
@@ -229,9 +231,22 @@ export default function ClientAnalyticsPage() {
             const totals = calculateInvoiceTotals(supplyValue);
             const totalIncludingVat =
               Number(data.totalIncludingVat) || totals.totalIncludingVat;
-            const outstandingAmount =
-              Number(data.outstandingAmount) || totalIncludingVat;
-            const status = normalizeStatus(data.status);
+            let outstandingAmount = resolveOutstandingAmount(
+              data.outstandingAmount,
+              totalIncludingVat,
+            );
+            let status = normalizeStatus(data.status);
+            if (
+              status !== "cancelled" &&
+              roundMoney(totalIncludingVat) > 0 &&
+              outstandingAmount <= 0
+            ) {
+              outstandingAmount = 0;
+              status = "paid";
+            }
+            if (status === "paid") {
+              outstandingAmount = 0;
+            }
 
             nextInvoices.push({
               id: docSnap.id,
@@ -265,10 +280,9 @@ export default function ClientAnalyticsPage() {
                       id: mapped.id,
                       invoiceId: docSnap.id,
                       invoiceNo:
-                        mapped.invoiceNo ||
-                        (typeof data.taxInvoiceNo === "string"
+                        typeof data.taxInvoiceNo === "string"
                           ? data.taxInvoiceNo
-                          : ""),
+                          : "",
                       date: mapped.date,
                       description: mapped.description,
                       amount: mapped.amount,
@@ -560,8 +574,11 @@ export default function ClientAnalyticsPage() {
                               : "—"}
                           </TableCell>
                           <TableCell>{invoice.taxInvoiceNo}</TableCell>
-                          <TableCell className="capitalize">
-                            {invoice.status}
+                          <TableCell>
+                            {invoice.status === "paid"
+                              ? "Complete"
+                              : invoice.status.charAt(0).toUpperCase() +
+                                invoice.status.slice(1)}
                           </TableCell>
                           <TableCell>{money(invoice.totalIncludingVat)}</TableCell>
                           <TableCell>

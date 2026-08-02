@@ -33,7 +33,10 @@ import type {
   ClientInvoiceDocument,
   InvoicePayment,
 } from "../../../invoice-model";
-import { roundMoney } from "../../../invoice-model";
+import {
+  outstandingFromPayments,
+  roundMoney,
+} from "../../../invoice-model";
 import DeleteInvoicePaymentDialog from "./delete-invoice-payment-dialog";
 import InvoicePaymentDialog from "./invoice-payment-dialog";
 
@@ -52,7 +55,7 @@ const fuzzyFilter = (
   const search = value.toLowerCase();
   return [
     row.original.description,
-    row.original.invoiceNo,
+    row.original.chequeNo,
     row.original.creditingAccountName,
     String(row.original.amount),
   ]
@@ -82,6 +85,15 @@ export default function InvoicePaymentsTable({
   );
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const paidTotal = useMemo(
+    () =>
+      roundMoney(payments.reduce((sum, payment) => sum + payment.amount, 0)),
+    [payments],
+  );
+  const outstandingAmount =
+    invoice.status === "paid"
+      ? 0
+      : outstandingFromPayments(invoice.totalIncludingVat, paidTotal);
   const locked = invoice.status === "paid" || invoice.status === "cancelled";
 
   const columns = useMemo<ColumnDef<InvoicePayment>[]>(
@@ -106,11 +118,10 @@ export default function InvoicePaymentsTable({
         ),
       },
       {
-        id: "invoiceNo",
-        accessorFn: (row) => row.invoiceNo,
-        header: "Invoice no",
-        cell: ({ row }) =>
-          row.original.invoiceNo || invoice.taxInvoiceNo || "—",
+        id: "chequeNo",
+        accessorFn: (row) => row.chequeNo,
+        header: "Cheque no",
+        cell: ({ row }) => row.original.chequeNo || "—",
       },
       {
         id: "amount",
@@ -137,19 +148,21 @@ export default function InvoicePaymentsTable({
               clientId={clientId}
               invoice={invoice}
               payment={row.original}
+              outstandingAmount={outstandingAmount}
               disabled={locked}
             />
             <DeleteInvoicePaymentDialog
               clientId={clientId}
               invoice={invoice}
               payment={row.original}
+              outstandingAmount={outstandingAmount}
               disabled={locked}
             />
           </div>
         ),
       },
     ],
-    [clientId, invoice, locked],
+    [clientId, invoice, locked, outstandingAmount],
   );
 
   const filteredData = useMemo(() => {
@@ -193,7 +206,7 @@ export default function InvoicePaymentsTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Input
-            placeholder="Search description, invoice no, account..."
+            placeholder="Search description, cheque no, account..."
             className="min-w-0 flex-1"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -223,7 +236,8 @@ export default function InvoicePaymentsTable({
         <InvoicePaymentDialog
           clientId={clientId}
           invoice={invoice}
-          disabled={locked}
+          outstandingAmount={outstandingAmount}
+          disabled={locked || outstandingAmount <= 0}
         />
       </div>
 

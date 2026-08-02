@@ -1,17 +1,26 @@
 "use client";
 
-import { doc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
 import { ChevronLeft, FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 import {
   type ClientInvoiceDocument,
+  type InvoicePayment,
   mapClientInvoiceDocument,
+  mapInvoicePayment,
+  roundMoney,
 } from "../../invoice-model";
 import DeleteInvoiceDialog from "./components/delete-invoice-dialog";
 import InvoicePaymentsSection from "./components/invoice-payments-section";
@@ -25,7 +34,9 @@ export default function ClientInvoiceDetailPage() {
   const invoiceId =
     typeof params.invoiceId === "string" ? params.invoiceId : undefined;
   const [invoice, setInvoice] = useState<ClientInvoiceDocument | null>(null);
+  const [payments, setPayments] = useState<InvoicePayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -64,6 +75,53 @@ export default function ClientInvoiceDetailPage() {
       },
     );
   }, [activeCompany, clientId, invoiceId]);
+
+  useEffect(() => {
+    if (!activeCompany || !clientId || !invoiceId) {
+      setPayments([]);
+      setPaymentsLoading(true);
+      return;
+    }
+
+    setPaymentsLoading(true);
+    return onSnapshot(
+      query(
+        collection(
+          db,
+          "companies",
+          activeCompany,
+          "clients",
+          clientId,
+          "invoices",
+          invoiceId,
+          "payments",
+        ),
+        orderBy("date", "desc"),
+      ),
+      (snapshot) => {
+        setPayments(
+          snapshot.docs
+            .map((docSnap) => {
+              const data = docSnap.data() as Record<string, unknown>;
+              if (data.entityStatus === false) return null;
+              return mapInvoicePayment(docSnap.id, data);
+            })
+            .filter((payment): payment is InvoicePayment => payment !== null),
+        );
+        setPaymentsLoading(false);
+      },
+      (error) => {
+        console.error("Failed to fetch invoice payments:", error);
+        setPaymentsLoading(false);
+      },
+    );
+  }, [activeCompany, clientId, invoiceId]);
+
+  const paidAmount = useMemo(
+    () =>
+      roundMoney(payments.reduce((sum, payment) => sum + payment.amount, 0)),
+    [payments],
+  );
 
   const locked =
     invoice?.status === "paid" || invoice?.status === "cancelled";
@@ -128,8 +186,13 @@ export default function ClientInvoiceDetailPage() {
           </div>
         ) : (
           <>
-            <InvoiceSummaryCard invoice={invoice} />
-            <InvoicePaymentsSection clientId={clientId} invoice={invoice} />
+            <InvoiceSummaryCard invoice={invoice} paidAmount={paidAmount} />
+            <InvoicePaymentsSection
+              clientId={clientId}
+              invoice={invoice}
+              payments={payments}
+              loading={paymentsLoading}
+            />
           </>
         )}
       </div>

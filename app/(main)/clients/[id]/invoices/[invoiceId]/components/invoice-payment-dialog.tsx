@@ -2,6 +2,7 @@
 
 import {
   collection,
+  deleteField,
   doc,
   increment,
   serverTimestamp,
@@ -46,6 +47,8 @@ type InvoicePaymentDialogProps = {
   clientId: string;
   invoice: ClientInvoiceDocument;
   payment?: InvoicePayment;
+  /** Remaining balance after existing payments (total − paid). */
+  outstandingAmount?: number;
   disabled?: boolean;
 };
 
@@ -93,6 +96,7 @@ export default function InvoicePaymentDialog({
   clientId,
   invoice,
   payment,
+  outstandingAmount,
   disabled = false,
 }: InvoicePaymentDialogProps) {
   const isEditing = !!payment;
@@ -103,12 +107,15 @@ export default function InvoicePaymentDialog({
   const [description, setDescription] = useState(
     defaultInvoicePaymentDescription(invoice.taxInvoiceNo),
   );
+  const [chequeNo, setChequeNo] = useState("");
   const [amount, setAmount] = useState("");
   const [creditingAccountId, setCreditingAccountId] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const outstanding = roundMoney(invoice.outstandingAmount);
+  const outstanding = roundMoney(
+    outstandingAmount ?? invoice.outstandingAmount,
+  );
   const maxAmount = isEditing
     ? roundMoney(outstanding + payment.amount)
     : outstanding;
@@ -129,15 +136,15 @@ export default function InvoicePaymentDialog({
       setDate(toDateInput(payment.date));
       setDescription(
         payment.description ||
-          defaultInvoicePaymentDescription(
-            payment.invoiceNo || invoice.taxInvoiceNo,
-          ),
+          defaultInvoicePaymentDescription(invoice.taxInvoiceNo),
       );
+      setChequeNo(payment.chequeNo || "");
       setAmount(String(payment.amount));
       setCreditingAccountId(payment.creditingAccountId);
     } else {
       setDate(todayValue());
       setDescription(defaultInvoicePaymentDescription(invoice.taxInvoiceNo));
+      setChequeNo("");
       setAmount("");
       setCreditingAccountId("");
     }
@@ -147,6 +154,7 @@ export default function InvoicePaymentDialog({
   function resetForm() {
     setDate(todayValue());
     setDescription(defaultInvoicePaymentDescription(invoice.taxInvoiceNo));
+    setChequeNo("");
     setAmount("");
     setCreditingAccountId("");
     setError("");
@@ -228,6 +236,7 @@ export default function InvoicePaymentDialog({
 
       const paymentDate = Timestamp.fromDate(new Date(`${date}T00:00:00`));
       const txDescription = description.trim();
+      const trimmedChequeNo = chequeNo.trim();
       const transactionId =
         (isEditing && payment.transactionId) ||
         doc(collection(db, "transactions")).id;
@@ -242,6 +251,7 @@ export default function InvoicePaymentDialog({
         tags: ["invoice-payment", invoice.taxInvoiceNo],
         invoiceId: invoice.id,
         invoiceNo: invoice.taxInvoiceNo,
+        chequeNo: trimmedChequeNo,
         clientId,
         clientName: invoice.client.name,
         paymentId: paymentRef.id,
@@ -325,7 +335,7 @@ export default function InvoicePaymentDialog({
       const payload = {
         date: paymentDate,
         description: txDescription,
-        invoiceNo: invoice.taxInvoiceNo,
+        chequeNo: trimmedChequeNo,
         amount: paymentAmount,
         creditingAccountId: creditAccount.id,
         creditingAccountName: creditAccount.name,
@@ -338,6 +348,7 @@ export default function InvoicePaymentDialog({
       if (isEditing) {
         batch.update(paymentRef, {
           ...payload,
+          invoiceNo: deleteField(),
           updatedAt: serverTimestamp(),
           updatedBy: user.uid,
         });
@@ -448,8 +459,12 @@ export default function InvoicePaymentDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Invoice no</Label>
-            <Input value={invoice.taxInvoiceNo} readOnly disabled />
+            <Label>Cheque no</Label>
+            <Input
+              value={chequeNo}
+              placeholder="Optional"
+              onChange={(event) => setChequeNo(event.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label>Amount</Label>
@@ -459,7 +474,30 @@ export default function InvoicePaymentDialog({
               min="0.01"
               max={maxAmount}
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (next === "") {
+                  setAmount("");
+                  return;
+                }
+                const parsed = Number(next);
+                if (!Number.isFinite(parsed)) {
+                  setAmount(next);
+                  return;
+                }
+                if (parsed > maxAmount) {
+                  setAmount(String(maxAmount));
+                  setError(
+                    `Amount cannot exceed ${maxAmount.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}.`,
+                  );
+                  return;
+                }
+                setAmount(next);
+                if (error.startsWith("Amount cannot exceed")) setError("");
+              }}
             />
           </div>
           <div className="space-y-2">
