@@ -34,6 +34,8 @@ type DeleteInvoicePaymentDialogProps = {
   clientId: string;
   invoice: ClientInvoiceDocument;
   payment: InvoicePayment;
+  /** Remaining balance after existing payments (total − paid). */
+  outstandingAmount?: number;
   disabled?: boolean;
 };
 
@@ -41,6 +43,7 @@ export default function DeleteInvoicePaymentDialog({
   clientId,
   invoice,
   payment,
+  outstandingAmount,
   disabled = false,
 }: DeleteInvoicePaymentDialogProps) {
   const { activeCompany, user } = useAuth();
@@ -63,9 +66,10 @@ export default function DeleteInvoicePaymentDialog({
         invoice.id,
       );
       const paymentRef = doc(invoiceRef, "payments", payment.id);
-      const nextOutstanding = roundMoney(
-        invoice.outstandingAmount + payment.amount,
+      const currentOutstanding = roundMoney(
+        outstandingAmount ?? invoice.outstandingAmount,
       );
+      const nextOutstanding = roundMoney(currentOutstanding + payment.amount);
       const nextStatus =
         invoice.status === "paid"
           ? deriveStatusFromBalances(

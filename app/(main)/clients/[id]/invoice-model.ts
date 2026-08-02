@@ -247,7 +247,8 @@ export type InvoicePayment = {
   id: string;
   date: Date;
   description: string;
-  invoiceNo: string;
+  /** Optional payment reference (e.g. cheque number). */
+  chequeNo: string;
   amount: number;
   creditingAccountId: string;
   creditingAccountName: string;
@@ -267,17 +268,40 @@ export function roundMoney(value: number): number {
   return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
 }
 
-/** Status while collecting payments (Complete → paid is explicit). */
+/** Prefer stored outstanding; never treat 0 as missing. */
+export function resolveOutstandingAmount(
+  raw: unknown,
+  totalIncludingVat: number,
+): number {
+  if (raw !== undefined && raw !== null && raw !== "") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return roundMoney(Math.max(0, parsed));
+  }
+  return roundMoney(totalIncludingVat);
+}
+
+/** Remaining balance = total including VAT − sum of payments. */
+export function outstandingFromPayments(
+  totalIncludingVat: number,
+  paidAmount: number,
+): number {
+  return roundMoney(
+    Math.max(0, roundMoney(totalIncludingVat) - roundMoney(paidAmount)),
+  );
+}
+
+/** Status while collecting payments (`paid` is shown as Complete in the UI). */
 export function deriveStatusFromBalances(
   totalIncludingVat: number,
   outstandingAmount: number,
   currentStatus: InvoiceStatus,
 ): InvoiceStatus {
-  if (currentStatus === "cancelled" || currentStatus === "paid") {
+  if (currentStatus === "cancelled") {
     return currentStatus;
   }
   const outstanding = roundMoney(outstandingAmount);
   const total = roundMoney(totalIncludingVat);
+  if (total > 0 && outstanding <= 0) return "paid";
   if (outstanding < total) return "partial";
   return currentStatus === "overdue" ? "overdue" : "issued";
 }
@@ -297,7 +321,9 @@ export function mapInvoicePayment(
   id: string,
   data: Record<string, unknown>,
 ): InvoicePayment {
-  const invoiceNo =
+  const chequeNo =
+    typeof data.chequeNo === "string" ? data.chequeNo.trim() : "";
+  const legacyInvoiceNo =
     typeof data.invoiceNo === "string"
       ? data.invoiceNo
       : typeof data.taxInvoiceNo === "string"
@@ -310,7 +336,7 @@ export function mapInvoicePayment(
       ? descriptionRaw.trim()
       : String(descriptionRaw ?? "").trim();
   const resolvedDescription =
-    description || defaultInvoicePaymentDescription(invoiceNo);
+    description || defaultInvoicePaymentDescription(legacyInvoiceNo);
 
   const creditNameRaw = data.creditingAccountName ?? "";
   const creditingAccountName =
@@ -322,7 +348,7 @@ export function mapInvoicePayment(
     id,
     date: toDate(data.date) ?? new Date(0),
     description: resolvedDescription,
-    invoiceNo,
+    chequeNo,
     amount: Number(data.amount) || 0,
     creditingAccountId:
       typeof data.creditingAccountId === "string"
@@ -503,10 +529,13 @@ export function mapClientInvoiceDocument(
     vatAmount: Number(data.vatAmount) || totals.vatAmount,
     totalIncludingVat:
       Number(data.totalIncludingVat) || totals.totalIncludingVat,
-    outstandingAmount:
-      Number(data.outstandingAmount) ||
-      Number(data.totalIncludingVat) ||
-      totals.totalIncludingVat,
+    outstandingAmount: (() => {
+      const total =
+        Number(data.totalIncludingVat) || totals.totalIncludingVat;
+      const status = (data.status as InvoiceStatus) || "issued";
+      if (status === "paid") return 0;
+      return resolveOutstandingAmount(data.outstandingAmount, total);
+    })(),
     status: (data.status as InvoiceStatus) || "issued",
   };
 }

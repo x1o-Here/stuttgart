@@ -106,7 +106,7 @@ export default function CompleteInvoiceDialog({
           <AlertDialogTitle>Complete this invoice?</AlertDialogTitle>
           <AlertDialogDescription>
             {canComplete
-              ? `Payments cover the full amount of ${roundMoney(invoice.totalIncludingVat).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Marking it complete will set the status to paid.`
+              ? `Payments cover the full amount of ${roundMoney(invoice.totalIncludingVat).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Marking it complete will set outstanding to 0 and status to Complete.`
               : `Payments must cover the full invoice amount before you can complete it. Outstanding: ${roundMoney(invoice.outstandingAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
