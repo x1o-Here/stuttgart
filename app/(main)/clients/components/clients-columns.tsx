@@ -22,15 +22,7 @@ export const clientsColumns: ColumnDef<Client>[] = [
   {
     accessorKey: "name",
     header: "Name",
-  },
-  {
-    accessorKey: "address",
-    header: "Address",
-    cell: ({ row }) => (
-      <span className="line-clamp-2 whitespace-normal">
-        {row.original.address || "—"}
-      </span>
-    ),
+    size: 300,
   },
   {
     accessorKey: "status",

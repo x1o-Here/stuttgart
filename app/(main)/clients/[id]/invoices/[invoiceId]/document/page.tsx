@@ -15,6 +15,10 @@ import {
   type ClientInvoiceDocument,
   mapClientInvoiceDocument,
 } from "../../../invoice-model";
+import {
+  applyExportPageBreaks,
+  clearExportPageBreaks,
+} from "./export-page-breaks";
 
 type PdfAction = "download" | "print";
 
@@ -78,14 +82,7 @@ export default function InvoiceDocumentPage() {
     );
   }, [activeCompany, clientId, invoiceId]);
 
-  async function buildInvoicePdf() {
-    const paper = previewRef.current?.querySelector(
-      "[data-invoice-paper]",
-    ) as HTMLElement | null;
-    if (!paper) {
-      throw new Error("Could not find the invoice page to export.");
-    }
-
+  async function buildInvoicePdf(paper: HTMLElement) {
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
       import("html2canvas-pro"),
       import("jspdf"),
@@ -154,6 +151,8 @@ export default function InvoiceDocumentPage() {
   async function handlePdfAction(action: PdfAction) {
     if (!invoice || !previewRef.current || exporting) return;
 
+    let paper: HTMLElement | null = null;
+
     try {
       setExportError("");
       setBusyAction(action);
@@ -162,7 +161,17 @@ export default function InvoiceDocumentPage() {
       });
       await waitForNextPaint();
 
-      const pdf = await buildInvoicePdf();
+      paper = previewRef.current.querySelector(
+        "[data-invoice-paper]",
+      ) as HTMLElement | null;
+      if (!paper) {
+        throw new Error("Could not find the invoice page to export.");
+      }
+
+      applyExportPageBreaks(paper);
+      await waitForNextPaint();
+
+      const pdf = await buildInvoicePdf(paper);
       const safeName = (invoice.taxInvoiceNo || invoice.id)
         .replace(/[^\w.-]+/g, "_")
         .slice(0, 80);
@@ -181,6 +190,7 @@ export default function InvoiceDocumentPage() {
           : "Failed to open the print dialog for this invoice.",
       );
     } finally {
+      if (paper) clearExportPageBreaks(paper);
       setExporting(false);
       setBusyAction(null);
     }

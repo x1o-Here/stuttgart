@@ -152,7 +152,7 @@ export default function InvoicePreview({
           />
         ) : null}
 
-        <div className="mb-3 border border-zinc-800 px-2 py-2">
+        <div className="mb-3 px-2 py-2">
           <h1 className="text-center text-base font-bold tracking-wide uppercase">
             Tax Invoice
           </h1>
@@ -216,16 +216,23 @@ export default function InvoicePreview({
               value={delivery?.address || ""}
             />
           </InvoiceBox>
-          <InvoiceBox className="col-span-2">
-            <DetailRow
-              label="Additional information if any"
-              value={delivery?.reference || ""}
-            />
-          </InvoiceBox>
+          {preview || delivery?.reference?.trim() ? (
+            <InvoiceBox className="col-span-2">
+              <DetailRow
+                label="Additional information if any"
+                value={delivery?.reference || ""}
+              />
+            </InvoiceBox>
+          ) : null}
         </div>
 
-        <div className="mt-8 mb-6 overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
+        <div
+          className={`mt-8 mb-6 ${exportTopGap ? "" : "overflow-x-auto"}`}
+        >
+          <table
+            data-invoice-table
+            className="w-full border-collapse text-[11px]"
+          >
             <thead>
               <tr className="border-y border-zinc-800">
                 {columns.map((column) => (
@@ -242,6 +249,7 @@ export default function InvoicePreview({
               {rows.map((item, rowIndex) => (
                 <tr
                   key={item ? `${item.no}-${rowIndex}` : `empty-${rowIndex}`}
+                  data-invoice-table-row
                   className="border-b border-zinc-200"
                 >
                   {columns.map((column) => (
@@ -255,7 +263,10 @@ export default function InvoicePreview({
           </table>
         </div>
 
-        <div className="mb-6 w-full space-y-1.5 text-[11px]">
+        <div
+          data-invoice-totals
+          className="mb-6 w-full space-y-1.5 text-[11px]"
+        >
           <div className="flex justify-between gap-4 border-b border-zinc-200 py-1">
             <span>Total Value of Supply</span>
             <span className="tabular-nums">
@@ -282,33 +293,35 @@ export default function InvoicePreview({
           </div>
         </div>
 
-        <p className="mb-10 text-[11px] leading-relaxed text-zinc-700">
-          Please make an arrangement to pay the above mentioned bill amount.
-          <br />
-          Cheques should be drawn in favour &quot;D.M.K TRANSPORT (PVT) LTD&quot;
-          <br />
-          <br />
-          Thanking you
-          <br />
-          Your faithfull
-        </p>
+        <div data-invoice-closing>
+          <p className="mb-10 text-[11px] leading-relaxed text-zinc-700">
+            Please make an arrangement to pay the above mentioned bill amount.
+            <br />
+            Cheques should be drawn in favour &quot;D.M.K TRANSPORT (PVT) LTD&quot;
+            <br />
+            <br />
+            Thanking you
+            <br />
+            Your faithfull
+          </p>
 
-        <div className="mt-auto grid grid-cols-2 gap-12 pt-16">
-          <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
-            <p className="min-h-5 font-medium">
-              {template.signing.leftName || "\u00A0"}
-            </p>
-            <p className="text-zinc-600">
-              {template.signing.leftLabel || "Prepared by"}
-            </p>
-          </div>
-          <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
-            <p className="min-h-5 font-medium">
-              {template.signing.rightName || "\u00A0"}
-            </p>
-            <p className="text-zinc-600">
-              {template.signing.rightLabel || "Authorized by"}
-            </p>
+          <div className="mt-auto grid grid-cols-2 gap-12 pt-16">
+            <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
+              <p className="min-h-5 font-medium">
+                {template.signing.leftName || "\u00A0"}
+              </p>
+              <p className="text-zinc-600">
+                {template.signing.leftLabel || "Prepared by"}
+              </p>
+            </div>
+            <div className="border-t border-zinc-800 pt-2 text-center text-[11px]">
+              <p className="min-h-5 font-medium">
+                {template.signing.rightName || "\u00A0"}
+              </p>
+              <p className="text-zinc-600">
+                {template.signing.rightLabel || "Authorized by"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
