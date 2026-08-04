@@ -216,12 +216,14 @@ export default function InvoicePreview({
               value={delivery?.address || ""}
             />
           </InvoiceBox>
-          <InvoiceBox className="col-span-2">
-            <DetailRow
-              label="Additional information if any"
-              value={delivery?.reference || ""}
-            />
-          </InvoiceBox>
+          {preview || delivery?.reference?.trim() ? (
+            <InvoiceBox className="col-span-2">
+              <DetailRow
+                label="Additional information if any"
+                value={delivery?.reference || ""}
+              />
+            </InvoiceBox>
+          ) : null}
         </div>
 
         <div className="mt-8 mb-6 overflow-x-auto">
