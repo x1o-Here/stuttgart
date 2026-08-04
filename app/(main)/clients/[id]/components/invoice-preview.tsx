@@ -152,7 +152,7 @@ export default function InvoicePreview({
           />
         ) : null}
 
-        <div className="mb-3 border border-zinc-800 px-2 py-2">
+        <div className="mb-3 px-2 py-2">
           <h1 className="text-center text-base font-bold tracking-wide uppercase">
             Tax Invoice
           </h1>
