@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import {
   AccountsLedgerProvider,
@@ -94,15 +95,22 @@ function AccountPageContent({ accountId }: { accountId: string }) {
     <div className="min-h-screen p-4 flex items-center justify-center font-sans">
       <div className="w-full min-h-[calc(100vh-2rem)] p-4 bg-zinc-100 rounded-lg flex flex-col">
         <div className="mt-2 p-4 bg-white rounded-md flex items-center justify-between gap-4 shrink-0">
-          <div className="flex items-end gap-2">
-            <p className="text-black text-3xl font-semibold">{account.name}</p>
+          <div className="flex min-w-0 items-end gap-2">
+            <TruncatedText className="text-black text-3xl font-semibold">
+              {account.name}
+            </TruncatedText>
             {account.accountType && (
-              <Badge variant="secondary" className="text-md rounded-md">
+              <Badge
+                variant="secondary"
+                className="shrink-0 text-md rounded-md"
+              >
                 {account.accountType}
               </Badge>
             )}
           </div>
-          <p className="text-black text-xl font-light">{formattedAmount}</p>
+          <p className="shrink-0 text-black text-xl font-light">
+            {formattedAmount}
+          </p>
         </div>
 
         <div className="mt-2 p-4 bg-white rounded-md flex flex-col flex-1 min-h-0">

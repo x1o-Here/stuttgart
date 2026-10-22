@@ -14,6 +14,7 @@ import {
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -78,6 +79,11 @@ export default function InvoicesTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
+    defaultColumn: {
+      cell: ({ getValue }) => (
+        <TruncatedText>{String(getValue() ?? "")}</TruncatedText>
+      ),
+    },
     data,
     columns,
     state: {
@@ -136,7 +142,7 @@ export default function InvoicesTable({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="border-l border-gray-100 first:border-l-0"
+                    className="overflow-hidden border-l border-gray-100 first:border-l-0"
                     style={{ width: `${header.getSize()}px` }}
                   >
                     {header.isPlaceholder
@@ -161,7 +167,7 @@ export default function InvoicesTable({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="border-l border-b border-gray-100 first:border-l-0"
+                      className="overflow-hidden border-l border-b border-gray-100 first:border-l-0"
                       style={{ width: `${cell.column.getSize()}px` }}
                     >
                       {flexRender(

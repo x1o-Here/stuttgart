@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 
 export type AuditLogRow = {
@@ -56,9 +57,9 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
       <div className="min-w-28">
         <p className="font-medium">{row.original.username || "—"}</p>
         {row.original.userId ? (
-          <p className="text-xs text-muted-foreground truncate max-w-[160px]">
+          <TruncatedText className="max-w-[160px] text-xs text-muted-foreground">
             {row.original.userId}
-          </p>
+          </TruncatedText>
         ) : null}
       </div>
     ),
@@ -75,9 +76,9 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
       <div className="min-w-28">
         <p className="font-medium">{row.original.companyName || "—"}</p>
         {row.original.companyId ? (
-          <p className="text-xs text-muted-foreground truncate max-w-[160px]">
+          <TruncatedText className="max-w-[160px] text-xs text-muted-foreground">
             {row.original.companyId}
-          </p>
+          </TruncatedText>
         ) : null}
       </div>
     ),
@@ -91,7 +92,9 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
     header: "Transaction",
     cell: ({ row }) =>
       row.original.transactionId ? (
-        <span className="font-mono text-xs">{row.original.transactionId}</span>
+        <TruncatedText className="max-w-[140px] font-mono text-xs">
+          {row.original.transactionId}
+        </TruncatedText>
       ) : (
         "—"
       ),

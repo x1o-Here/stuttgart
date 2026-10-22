@@ -20,6 +20,7 @@ import {
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { accountsColumns } from "./components/accounts-columns";
 import AddAccountDialog from "./components/add-account-dialog";
 
@@ -155,14 +156,16 @@ export default function AccountsPage() {
                   return (
                     <div
                       key={account.id}
-                      className="min-h-32 bg-white rounded-md shadow cursor-pointer"
+                      className="min-h-32 min-w-0 bg-white rounded-md shadow cursor-pointer"
                       onClick={() => router.push(`/accounts/${account.id}`)}
                     >
-                      <div className="h-full flex flex-col items-center justify-center">
-                        <span className="text-xl font-semibold">
+                      <div className="h-full w-full min-w-0 px-4 flex flex-col items-center justify-center text-center">
+                        <TruncatedText className="max-w-full text-xl font-semibold">
                           LKR {account.balance.toFixed(2)}
-                        </span>
-                        <span className="font-light">{account.name}</span>
+                        </TruncatedText>
+                        <TruncatedText className="max-w-full font-light">
+                          {account.name}
+                        </TruncatedText>
                       </div>
                     </div>
                   );

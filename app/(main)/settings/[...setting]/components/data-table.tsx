@@ -9,6 +9,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useState } from "react";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -36,6 +37,11 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
+    defaultColumn: {
+      cell: ({ getValue }) => (
+        <TruncatedText>{String(getValue() ?? "")}</TruncatedText>
+      ),
+    },
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
@@ -69,6 +75,7 @@ export function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
+                      className="overflow-hidden"
                       style={{ width: header.getSize() }}
                     >
                       {header.isPlaceholder
@@ -93,6 +100,7 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
+                      className="overflow-hidden"
                       style={{ width: cell.column.getSize() }}
                     >
                       {flexRender(

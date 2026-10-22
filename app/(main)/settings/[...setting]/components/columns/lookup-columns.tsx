@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { isProtectedAccountType } from "@/lib/constants/client-account";
 import DeleteModal from "../modals/delete-modal";
@@ -32,10 +33,10 @@ export function getLookupColumns({
       accessorKey: "name",
       header: isVehicle ? "Vehicle Number" : "Name",
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <p>{row.original.name}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <TruncatedText>{row.original.name}</TruncatedText>
           {isAccountType && isProtectedAccountType(row.original) ? (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="shrink-0 text-xs">
               System
             </Badge>
           ) : null}
@@ -47,8 +48,8 @@ export function getLookupColumns({
       accessorKey: "shortForm",
       header: "Short Form",
       cell: ({ row }) => (
-        <Badge variant="secondary" className="w-fit">
-          {row.original.shortForm}
+        <Badge variant="secondary" className="w-fit max-w-full">
+          <TruncatedText>{row.original.shortForm}</TruncatedText>
         </Badge>
       ),
       size: 30,

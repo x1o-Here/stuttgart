@@ -12,6 +12,7 @@ import {
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { LINE_COLORS } from "./chart-component";
 
 export default function MonthEndBalanceTable() {
@@ -97,8 +98,8 @@ export default function MonthEndBalanceTable() {
                         }}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-zinc-700">
-                      {item.name}
+                    <TableCell className="overflow-hidden font-medium text-zinc-700">
+                      <TruncatedText>{item.name}</TruncatedText>
                     </TableCell>
                     <TableCell className="w-28 text-right font-mono text-zinc-600">
                       {item.balance.toLocaleString()}

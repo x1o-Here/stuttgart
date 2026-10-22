@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import type { CompanyRecord } from "@/lib/companies/types";
 import { CompanyActions } from "./company-actions";
@@ -14,6 +15,11 @@ export function getCompaniesColumns(
     {
       accessorKey: "name",
       header: "Company name",
+      cell: ({ row }) => (
+        <TruncatedText className="max-w-[220px]">
+          {row.original.name}
+        </TruncatedText>
+      ),
     },
     {
       accessorKey: "address",

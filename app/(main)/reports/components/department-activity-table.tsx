@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import {
   Table,
   TableBody,
@@ -95,7 +96,11 @@ export default function DepartmentActivityTable() {
             {rows.length ? (
               rows.map((row) => (
                 <TableRow key={row.department}>
-                  <TableCell className="font-medium">{row.department}</TableCell>
+                  <TableCell className="font-medium">
+                    <TruncatedText className="max-w-[180px]">
+                      {row.department}
+                    </TruncatedText>
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {row.count}
                   </TableCell>

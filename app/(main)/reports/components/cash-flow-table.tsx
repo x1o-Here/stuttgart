@@ -12,6 +12,7 @@ import {
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { LINE_COLORS } from "./chart-component";
 
 export default function CashFlowTable() {
@@ -105,8 +106,8 @@ export default function CashFlowTable() {
                         }}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-zinc-700 whitespace-nowrap">
-                      {item.name}
+                    <TableCell className="overflow-hidden font-medium text-zinc-700">
+                      <TruncatedText>{item.name}</TruncatedText>
                     </TableCell>
                     <TableCell className="w-24 text-right font-mono text-red-600">
                       {item.debits > 0

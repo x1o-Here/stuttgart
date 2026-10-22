@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toDate } from "@/lib/helpers/to-date";
@@ -77,12 +78,20 @@ export function getInvoicesColumns(
     {
       accessorKey: "totalAmount",
       header: "Total Amount",
-      cell: ({ row }) => formatAmount(row.original.totalAmount || 0),
+      cell: ({ row }) => (
+        <TruncatedText>
+          {formatAmount(row.original.totalAmount || 0)}
+        </TruncatedText>
+      ),
     },
     {
       accessorKey: "outstandingAmount",
       header: "Outstanding Amount",
-      cell: ({ row }) => formatAmount(row.original.outstandingAmount || 0),
+      cell: ({ row }) => (
+        <TruncatedText>
+          {formatAmount(row.original.outstandingAmount || 0)}
+        </TruncatedText>
+      ),
     },
     {
       accessorKey: "status",

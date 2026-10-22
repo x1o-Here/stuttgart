@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { useState } from "react";
 import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Input } from "@/components/ui/input";
 import {
   Pagination,
@@ -81,6 +82,11 @@ export function DashboardTransactionsTable<TData, TValue>({
   });
 
   const table = useReactTable({
+    defaultColumn: {
+      cell: ({ getValue }) => (
+        <TruncatedText>{String(getValue() ?? "")}</TruncatedText>
+      ),
+    },
     data,
     columns,
     state: {
@@ -145,7 +151,7 @@ export function DashboardTransactionsTable<TData, TValue>({
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
-                      className="border-l border-gray-100 first:border-l-0"
+                      className="overflow-hidden border-l border-gray-100 first:border-l-0"
                       style={{ width: `${header.getSize()}px` }}
                     >
                       {header.isPlaceholder
@@ -170,7 +176,7 @@ export function DashboardTransactionsTable<TData, TValue>({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className="border-l border-b border-gray-100 first:border-l-0"
+                        className="overflow-hidden border-l border-b border-gray-100 first:border-l-0"
                         style={{ width: `${cell.column.getSize()}px` }}
                       >
                         {flexRender(

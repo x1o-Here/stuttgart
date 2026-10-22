@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 
@@ -101,11 +102,15 @@ export default function ReportsSummaryCards() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-xl bg-white p-4">
-          <p className="text-xs text-zinc-500">{card.label}</p>
-          <p className={`mt-1 text-xl font-semibold tabular-nums ${card.tone}`}>
+        <div key={card.label} className="min-w-0 rounded-xl bg-white p-4">
+          <TruncatedText className="text-xs text-zinc-500">
+            {card.label}
+          </TruncatedText>
+          <TruncatedText
+            className={`mt-1 text-xl font-semibold tabular-nums ${card.tone}`}
+          >
             {card.value}
-          </p>
+          </TruncatedText>
           <p className="mt-1 text-[11px] text-zinc-400">{selectedMonthYear}</p>
         </div>
       ))}

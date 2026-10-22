@@ -1,4 +1,5 @@
 import { type ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { toDate } from "@/lib/helpers/to-date";
 import { tagsColumnFilterFn } from "@/lib/helpers/transaction-tags";
@@ -30,7 +31,13 @@ function DepartmentBadge({ departmentName }: { departmentName: string }) {
     (d) => d.name.trim().toLowerCase() === name.toLowerCase(),
   );
   const label = dept?.shortForm?.trim() || name;
-  return <Badge variant="secondary">{label}</Badge>;
+  return (
+    <Badge variant="secondary" className="max-w-full">
+      <TruncatedText tooltip={dept?.name?.trim() || name}>
+        {label}
+      </TruncatedText>
+    </Badge>
+  );
 }
 
 export const transactionsColumns: ColumnDef<Transaction>[] = [
@@ -103,7 +110,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(amount);
 
-      return <span>{formatted}</span>;
+      return <TruncatedText>{formatted}</TruncatedText>;
     },
     meta: { globalFilter: true },
   },

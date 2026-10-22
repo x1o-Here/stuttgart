@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
@@ -106,10 +107,13 @@ export default function ClientDetailPage() {
           <>
             <div className="p-4 bg-white rounded-lg flex flex-col gap-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold">{client.name}</h1>
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <h1 className="min-w-0 text-2xl font-bold">
+                      <TruncatedText>{client.name}</TruncatedText>
+                    </h1>
                     <Badge
+                      className="shrink-0"
                       variant={
                         client.status === "active" ? "default" : "secondary"
                       }

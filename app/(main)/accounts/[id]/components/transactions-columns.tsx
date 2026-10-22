@@ -2,6 +2,7 @@
 
 import type { ColumnDef, FilterFnOption } from "@tanstack/react-table";
 import { MoveDownRight, MoveUpRight } from "lucide-react";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { toDate } from "@/lib/helpers/to-date";
 import { tagsColumnFilterFn } from "@/lib/helpers/transaction-tags";
 
@@ -79,7 +80,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(amount);
 
-      return <span>{formatted}</span>;
+      return <TruncatedText>{formatted}</TruncatedText>;
     },
     meta: { globalFilter: true },
   },
@@ -95,7 +96,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(balance || 0);
 
-      return <span className="font-medium">{formatted}</span>;
+      return <TruncatedText className="font-medium">{formatted}</TruncatedText>;
     },
   },
 ];

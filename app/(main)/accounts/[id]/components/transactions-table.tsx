@@ -12,6 +12,7 @@ import { CircleX } from "lucide-react";
 import { useState } from "react";
 import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -73,6 +74,11 @@ export function TransactionsDataTable<TData, TValue>({
   >([]);
 
   const table = useReactTable({
+    defaultColumn: {
+      cell: ({ getValue }) => (
+        <TruncatedText>{String(getValue() ?? "")}</TruncatedText>
+      ),
+    },
     data,
     columns,
     state: {
@@ -151,7 +157,7 @@ export function TransactionsDataTable<TData, TValue>({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="border-l border-gray-100 first:border-l-0"
+                    className="overflow-hidden border-l border-gray-100 first:border-l-0"
                     style={{ width: `${header.getSize()}px` }}
                   >
                     {header.isPlaceholder
@@ -176,7 +182,7 @@ export function TransactionsDataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="border-l border-b border-gray-100 first:border-l-0"
+                      className="overflow-hidden border-l border-b border-gray-100 first:border-l-0"
                       style={{ width: `${cell.column.getSize()}px` }}
                     >
                       {flexRender(

@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -47,10 +48,14 @@ export const clientsColumns: ColumnDef<Client>[] = [
     header: "Outstanding",
     cell: ({ row }) => {
       const amount = row.original.outstandingInvoiceAmount || 0;
-      return amount.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      return (
+        <TruncatedText>
+          {amount.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </TruncatedText>
+      );
     },
   },
   {

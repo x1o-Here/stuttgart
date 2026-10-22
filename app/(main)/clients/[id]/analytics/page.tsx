@@ -24,6 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Button } from "@/components/ui/button";
 import {
   ChartContainer,
@@ -668,9 +669,13 @@ export default function ClientAnalyticsPage() {
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-white p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
+    <div className="min-w-0 rounded-lg bg-white p-4">
+      <TruncatedText className="text-sm text-muted-foreground">
+        {label}
+      </TruncatedText>
+      <TruncatedText className="mt-1 text-xl font-semibold tabular-nums">
+        {value}
+      </TruncatedText>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 
 import { UserActions } from "./user-actions";
@@ -23,9 +24,9 @@ export const columns: ColumnDef<UserData>[] = [
     accessorKey: "email",
     header: "Email",
     cell: ({ row }) => (
-      <span className="font-light italic text-muted-foreground">
-        {row.getValue("email")}
-      </span>
+      <TruncatedText className="max-w-[220px] font-light italic text-muted-foreground">
+        {row.getValue("email") as string}
+      </TruncatedText>
     ),
   },
   {
@@ -54,9 +55,9 @@ export const columns: ColumnDef<UserData>[] = [
     cell: ({ row }) => {
       const companies = row.getValue("companies") as string[];
       return (
-        <span className="font-light italic text-muted-foreground">
+        <TruncatedText className="max-w-[240px] font-light italic text-muted-foreground">
           {companies.join(", ")}
-        </span>
+        </TruncatedText>
       );
     },
   },
