@@ -21,7 +21,10 @@ import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import { LoadingState } from "@/components/shared/loading-state";
 import { TruncatedText } from "@/components/shared/truncated-text";
-import { accountsColumns } from "./components/accounts-columns";
+import {
+  accountsColumns,
+  DEFAULT_ACCOUNT_TYPE_FILTER,
+} from "./components/accounts-columns";
 import AddAccountDialog from "./components/add-account-dialog";
 
 const ACCOUNTS_PAGE_SIZE = 12;
@@ -36,7 +39,9 @@ export default function AccountsPage() {
 
   const columns = useMemo(() => accountsColumns, []);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([
+    { id: "accountType", value: DEFAULT_ACCOUNT_TYPE_FILTER },
+  ]);
   const [visibleCount, setVisibleCount] = useState(ACCOUNTS_PAGE_SIZE);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -103,6 +108,11 @@ export default function AccountsPage() {
               className="bg-white"
             />
             <Select
+              value={
+                (table.getColumn("accountType")?.getFilterValue() as
+                  | string
+                  | undefined) ?? "all"
+              }
               onValueChange={(value) => {
                 table
                   .getColumn("accountType")
@@ -114,6 +124,9 @@ export default function AccountsPage() {
               </SelectTrigger>
 
               <SelectContent position="popper" side="bottom">
+                <SelectItem value={DEFAULT_ACCOUNT_TYPE_FILTER}>
+                  All (excl. Client & Supplier)
+                </SelectItem>
                 <SelectItem value="all">All Account Types</SelectItem>
 
                 {accountTypesLoading ? (
