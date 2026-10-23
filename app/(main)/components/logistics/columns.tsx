@@ -32,7 +32,7 @@ function DepartmentBadge({ departmentName }: { departmentName: string }) {
   );
   const label = dept?.shortForm?.trim() || name;
   return (
-    <Badge variant="secondary" className="max-w-full">
+    <Badge variant="neutral" className="max-w-full">
       <TruncatedText tooltip={dept?.name?.trim() || name}>
         {label}
       </TruncatedText>
@@ -47,7 +47,11 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     size: 90,
     cell: ({ row }) => {
       const date = toDate(row.getValue("date"));
-      return date ? date.toLocaleDateString() : "-";
+      return (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {date ? date.toLocaleDateString() : "-"}
+        </span>
+      );
     },
   },
   {
@@ -101,7 +105,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Amount",
+    header: () => <div className="text-right">Amount</div>,
     size: 125,
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("amount"));
@@ -110,7 +114,11 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(amount);
 
-      return <TruncatedText>{formatted}</TruncatedText>;
+      return (
+        <TruncatedText className="block text-right font-mono tabular-nums text-foreground">
+          {formatted}
+        </TruncatedText>
+      );
     },
     meta: { globalFilter: true },
   },

@@ -9,68 +9,34 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import z from "zod";
-import CalendarPopover from "@/components/shared/calendar-popover";
+import { useForm } from "react-hook-form";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { FieldGroup } from "@/components/ui/field";
 import { useAuth } from "@/contexts/auth-context";
-import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { appendAuditLog } from "@/lib/firebase/audit-log";
 import { db } from "@/lib/firebase/firebase-client";
-import { useLookupStore } from "@/stores/use-lookup-store";
-
-const formSchema = z.object({
-  date: z.date(),
-  description: z.string().min(1, "Description is required"),
-  department: z.string().min(1, "Department is required"),
-  vehicle: z.string().optional(),
-  voucherNo: z.number().min(0, "Voucher number must be positive"),
-  creditingAccount: z.string().min(1, "Crediting Account is required"),
-  debitingAccount: z.string().min(1, "Debitng Account is required"),
-  amount: z.number().min(0, "Amount must be positive"),
-});
-
-type FormOutput = z.infer<typeof formSchema>;
+import {
+  TransactionFormSections,
+  type TransactionFormValues,
+  transactionFormSchema,
+  useTransactionSummary,
+} from "./transaction-form-fields";
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { accounts } = useAccountsContext();
   const { user, activeCompany } = useAuth();
-  const router = useRouter();
 
-  const departments = useLookupStore((state) => state.departments);
-  const vehicles = useLookupStore((state) => state.vehicles);
-
-  const form = useForm<FormOutput>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<TransactionFormValues>({
+    resolver: zodResolver(transactionFormSchema),
     defaultValues: {
       date: new Date(),
       description: "",
@@ -85,7 +51,7 @@ export function AddTransactionDialog() {
     reValidateMode: "onSubmit",
   });
 
-  async function onSubmit(data: FormOutput) {
+  async function onSubmit(data: TransactionFormValues) {
     try {
       setIsSubmitting(true);
       const batch = writeBatch(db);
@@ -185,6 +151,8 @@ export function AddTransactionDialog() {
     setOpen(false);
   }
 
+  const summary = useTransactionSummary({ form });
+
   return (
     <Dialog
       open={open}
@@ -195,276 +163,42 @@ export function AddTransactionDialog() {
     >
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Transaction
+          <Plus />
+          Record transaction
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="min-w-2xl">
-        <DialogHeader className="pb-4">
-          <DialogTitle>Add a New Transaction</DialogTitle>
-        </DialogHeader>
+      <DialogContent className={ruledDialogContentClass}>
+        <RuledDialogHeader
+          eyebrow="( New entry · Ledger )"
+          lead="Record a"
+          title="transaction."
+          description="Moves money from one account to another and updates both balances."
+        />
         <form id="add-transaction-form" onSubmit={form.handleSubmit(onSubmit)}>
-          <FieldGroup>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-6">
-              <Controller
-                name="date"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="date">Date</FieldLabel>
-                    <CalendarPopover
-                      value={field.value}
-                      onChange={(date) => {
-                        if (date) field.onChange(date);
-                      }}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="amount"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="amount">Amount</FieldLabel>
-                    <Input
-                      id="amount"
-                      type="number"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="Amount"
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="department"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="department">Department</FieldLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        if (value === "__new__") {
-                          router.push("/settings/departments");
-                          return;
-                        }
-
-                        field.onChange(value);
-                      }}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an department" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" side="bottom">
-                        {departments.map((department) => (
-                          <SelectItem
-                            key={department.id}
-                            value={department.name}
-                          >
-                            {department.name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__new__">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create new department
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="vehicle"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="vehicle">Vehicle</FieldLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        if (value === "__new__") {
-                          router.push("/fleet");
-                          return;
-                        }
-
-                        field.onChange(value === "__none__" ? "" : value);
-                      }}
-                      defaultValue={field.value}
-                      value={field.value || undefined}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a vehicle" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" side="bottom">
-                        <SelectItem value="__none__">No vehicle</SelectItem>
-                        {vehicles.map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={vehicle.name}>
-                            {vehicle.name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__new__">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create new vehicle
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="voucherNo"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="voucherNo">Voucher No</FieldLabel>
-                    <Input
-                      id="voucherNo"
-                      type="number"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="Voucher No"
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Separator className="col-span-2" />
-
-              <Controller
-                name="debitingAccount"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    className="col-start-1"
-                    data-invalid={fieldState.invalid}
-                  >
-                    <FieldLabel htmlFor="debitingAccount">
-                      Debitng Account
-                    </FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger
-                        id="debitingAccount"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        aria-invalid={fieldState.invalid}
-                      >
-                        <SelectValue placeholder="Select an option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="creditingAccount"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="creditingAccount">
-                      Crediting Account
-                    </FieldLabel>
-                    <Select
-                      name={field.name}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger
-                        id="creditingAccount"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        aria-invalid={fieldState.invalid}
-                      >
-                        <SelectValue placeholder="Select an option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-
-              <Controller
-                name="description"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    data-invalid={fieldState.invalid}
-                    className="col-span-2"
-                  >
-                    <FieldLabel htmlFor="description">Description</FieldLabel>
-                    <Textarea
-                      id="description"
-                      {...field}
-                      placeholder="Description"
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            </div>
+          <FieldGroup className="gap-0">
+            <TransactionFormSections form={form} />
           </FieldGroup>
         </form>
-        <DialogFooter className="mt-4">
-          <Button
-            type="submit"
-            form="add-transaction-form"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Saving..." : "Submit"}
-          </Button>
+        <RuledDialogFooter
+          summary={summary ?? "Choose both accounts and an amount"}
+        >
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={handleCancel}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
-        </DialogFooter>
+          <Button
+            type="submit"
+            form="add-transaction-form"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Recording…" : "Record transaction"}
+          </Button>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

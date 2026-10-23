@@ -21,7 +21,7 @@ export function LoadingState({
   if (variant === "bar") {
     return (
       <div className={cn("w-full space-y-2", className)}>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/3 animate-[loading-bar_1.1s_linear_infinite] rounded-full bg-primary" />
         </div>
         {message ? (

@@ -11,11 +11,13 @@ export default function MainLayout({
 }) {
   return (
     <RequireAuth>
-      <SidebarProvider className="h-screen w-screen">
+      <SidebarProvider className="h-screen w-screen bg-canvas">
         <AccountsProvider>
           <LookupSubscription>
             <AppSidebar />
-            <main className="flex-1 overflow-auto">{children}</main>
+            <main className="min-w-0 flex-1 overflow-auto border-l">
+              {children}
+            </main>
           </LookupSubscription>
         </AccountsProvider>
       </SidebarProvider>

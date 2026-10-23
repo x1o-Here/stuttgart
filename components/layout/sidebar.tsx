@@ -2,7 +2,6 @@
 
 import { signOut } from "firebase/auth";
 import { LogOut, Regex, Settings } from "lucide-react";
-import { Bodoni_Moda } from "next/font/google";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
@@ -19,19 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Separator } from "../ui/separator";
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "../ui/sidebar";
-
-const bodoniModa = Bodoni_Moda({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
 
 export default function AppSidebar() {
   const pathname = usePathname();
@@ -50,138 +37,122 @@ export default function AppSidebar() {
     }
   }
 
+  const visibleItems = MainSidebarContent.filter(
+    (item) => item.key !== "users" || role === "admin" || role === "manager",
+  );
+
   return (
-    <Sidebar
-      collapsible="none"
-      className="h-full flex flex-col justify-between p-1"
-    >
-      <div>
-        <SidebarHeader className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 cursor-default">
-            <Regex className="size-7 text-red-500" strokeWidth={1.5} />
-            <span
-              className={cn(
-                bodoniModa.className,
-                "text-3xl text-gray-700 font-light",
-              )}
-            >
-              Stuttgart
-            </span>
-          </div>
-          {companies.length > 1 && (
-            <Select value={activeCompany} onValueChange={setActiveCompany}>
-              <SelectTrigger className="w-full bg-muted border-none">
-                <SelectValue className="text-sm text-light" />
-              </SelectTrigger>
-              <SelectContent>
-                {companies.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </SidebarHeader>
+    <Sidebar collapsible="none" className="h-full flex flex-col bg-canvas">
+      <SidebarHeader className="flex-col gap-3 border-b px-4 py-0">
+        <div className="flex h-14 items-center gap-2">
+          <Regex className="size-6 text-destructive" strokeWidth={1.5} />
+          <span className="font-bodoni text-2xl font-light text-foreground/80">
+            Stuttgart
+          </span>
+        </div>
+        {companies.length > 0 && (
+          <Select value={activeCompany} onValueChange={setActiveCompany}>
+            <SelectTrigger className="-mt-2 mb-3 h-8 w-full bg-card">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {companies.map((company) => (
+                <SelectItem key={company.id} value={company.id}>
+                  {company.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </SidebarHeader>
 
-        <SidebarContent className="mt-4">
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-y-2">
-                {MainSidebarContent.map((item) => {
-                  // Role-based visibility for Users menu
-                  if (item.key === "users") {
-                    if (role !== "admin" && role !== "manager") {
-                      return null;
-                    }
-                  }
+      <SidebarContent className="flex-1 gap-0 px-2 py-3">
+        <span className="eyebrow px-2 pb-2">( Modules )</span>
+        <SidebarMenu className="gap-y-0.5">
+          {visibleItems.map((item, index) => {
+            const isActive = activeRoute === item.key;
 
-                  const isActive = activeRoute === item.key;
-
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        className={cn(
-                          "flex w-full items-center rounded-lg px-2 py-1",
-                          isActive
-                            ? "bg-zinc-100 text-zinc-800"
-                            : "text-gray-600 hover:text-zinc-800 hover:bg-zinc-100",
-                        )}
-                        asChild
-                      >
-                        <Link href={item.href}>
-                          <item.icon className="mr-1" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-      </div>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-y-2">
-              <SidebarMenuItem>
+            return (
+              <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
-                  className="text-gray-600 flex w-full items-center rounded-lg px-2 py-1 cursor-pointer"
-                  onClick={() => router.push("/settings")}
+                  className={cn(
+                    "h-9 rounded-md px-2 transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground active:bg-primary active:text-primary-foreground"
+                      : "text-muted-foreground hover:bg-card hover:text-foreground",
+                  )}
+                  asChild
                 >
-                  <Settings className="mr-1" />
-                  <span>Settings</span>
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span className="flex-1">{item.title}</span>
+                    <span
+                      className={cn(
+                        "font-mono text-[10px] tabular-nums",
+                        isActive
+                          ? "text-primary-foreground/60"
+                          : "text-muted-foreground/70",
+                      )}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  className="text-gray-600 hover:text-red-500 hover:bg-red-100 flex w-full items-center rounded-lg px-2 py-1 cursor-pointer"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="mr-1" />
-                  <span>Logout</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarContent>
 
-          <Separator className="my-2" />
-
+      <div className="border-t px-2 py-2">
+        <SidebarMenu className="gap-y-0.5">
           <SidebarMenuItem>
             <SidebarMenuButton
-              size="lg"
               className={cn(
-                "flex w-full items-center rounded-lg px-2 py-1",
-                activeRoute === "profile"
-                  ? "bg-zinc-100 text-zinc-800"
-                  : "text-gray-600 hover:text-zinc-800 hover:bg-zinc-100",
+                "h-9 cursor-pointer rounded-md px-2",
+                activeRoute === "settings"
+                  ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                  : "text-muted-foreground hover:bg-card hover:text-foreground",
               )}
-              asChild
+              onClick={() => router.push("/settings")}
             >
-              <Link href="/profile" className="text-gray-600 hover:text-zinc-800">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback>
-                      {username ? username.substring(0, 2).toUpperCase() : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="">
-                    <p className="font-medium leading-none">
-                      {username || "User"}
-                    </p>
-                    <p className="text-xs font-light text-gray-500 capitalize">
-                      {role || "Role"}
-                    </p>
-                  </div>
-                </div>
-              </Link>
+              <Settings />
+              <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        </SidebarGroup>
-      </SidebarContent>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="h-9 cursor-pointer rounded-md px-2 text-muted-foreground hover:bg-danger-soft hover:text-destructive"
+              onClick={handleLogout}
+            >
+              <LogOut />
+              <span>Log out</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </div>
+
+      <Link
+        href="/profile"
+        className={cn(
+          "flex items-center gap-3 border-t px-4 py-3 transition-colors",
+          activeRoute === "profile" ? "bg-card" : "hover:bg-card",
+        )}
+      >
+        <Avatar className="rounded-md">
+          <AvatarFallback className="rounded-md bg-primary font-mono text-xs text-primary-foreground">
+            {username ? username.substring(0, 2).toUpperCase() : "U"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium leading-tight">
+            {username || "User"}
+          </p>
+          <p className="eyebrow normal-case tracking-normal capitalize">
+            {role || "Role"}
+          </p>
+        </div>
+      </Link>
     </Sidebar>
   );
 }

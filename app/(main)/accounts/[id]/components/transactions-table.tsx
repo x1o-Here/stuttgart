@@ -103,61 +103,70 @@ export function TransactionsDataTable<TData, TValue>({
   });
 
   return (
-    <div className="flex flex-col flex-1 gap-4 min-h-0">
-      <div className="w-full flex items-center justify-between gap-2 shrink-0">
-        <TransactionsSortPopover
-          onSortChange={(column, direction) => {
-            setSorting([
-              { id: column, desc: direction === "desc" },
-              { id: "createdAt", desc: true },
-            ]);
-          }}
-        />
-
-        <Input
-          placeholder="Search by Description or Amount..."
-          className="w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <TransactionTypeFilterSelect
-          value={columnFilters.find((f) => f.id === "type")?.value ?? "all"}
-          onChange={(value) => {
-            if (value === "all") {
-              setColumnFilters((prev) => prev.filter((f) => f.id !== "type"));
-            } else {
-              setColumnFilters((prev) => [
-                ...prev.filter((f) => f.id !== "type"),
-                { id: "type", value },
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <div className="flex items-baseline gap-3">
+          <span className="eyebrow normal-case tracking-normal">Ledger</span>
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {table.getFilteredRowModel().rows.length}
+          </span>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2">
+          <TransactionsSortPopover
+            onSortChange={(column, direction) => {
+              setSorting([
+                { id: column, desc: direction === "desc" },
+                { id: "createdAt", desc: true },
               ]);
-            }
-          }}
-        />
+            }}
+          />
 
-        <TransactionsTagFilter table={table as unknown as any} />
+          <Input
+            placeholder="Search by Description or Amount..."
+            className="min-w-48 flex-1"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setColumnFilters([])}
-        >
-          <CircleX />
-        </Button>
+          <TransactionTypeFilterSelect
+            value={columnFilters.find((f) => f.id === "type")?.value ?? "all"}
+            onChange={(value) => {
+              if (value === "all") {
+                setColumnFilters((prev) => prev.filter((f) => f.id !== "type"));
+              } else {
+                setColumnFilters((prev) => [
+                  ...prev.filter((f) => f.id !== "type"),
+                  { id: "type", value },
+                ]);
+              }
+            }}
+          />
+
+          <TransactionsTagFilter table={table as unknown as any} />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Clear filters"
+            onClick={() => setColumnFilters([])}
+          >
+            <CircleX />
+          </Button>
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-md border overflow-auto relative">
+      <div className="relative min-h-0 flex-1 overflow-auto border-t">
         <Table className="table-fixed w-full border-separate border-spacing-0">
-          <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
+          <TableHeader className="sticky top-0 z-10 bg-surface-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="bg-white hover:bg-white"
+                className="bg-surface-muted hover:bg-surface-muted"
               >
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="overflow-hidden border-l border-gray-100 first:border-l-0"
+                    className="overflow-hidden border-b font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
                     style={{ width: `${header.getSize()}px` }}
                   >
                     {header.isPlaceholder
@@ -177,12 +186,12 @@ export function TransactionsDataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="text-gray-600"
+                  className="text-foreground/80 hover:bg-surface-muted"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="overflow-hidden border-l border-b border-gray-100 first:border-l-0"
+                      className="overflow-hidden border-b py-3"
                       style={{ width: `${cell.column.getSize()}px` }}
                     >
                       {flexRender(
@@ -197,7 +206,7 @@ export function TransactionsDataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center text-gray-600"
+                  className="h-24 text-center text-muted-foreground"
                 >
                   No results.
                 </TableCell>
