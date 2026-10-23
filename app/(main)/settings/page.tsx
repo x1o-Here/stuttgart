@@ -1,6 +1,6 @@
 "use client";
 
-import { Building, ChevronRight, Forklift, Tags } from "lucide-react";
+import { Building, ChevronRight, Tags } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -16,12 +16,6 @@ const SETTINGS = [
     description: "Manage departments",
     icon: <Building />,
     path: "/settings/departments",
-  },
-  {
-    name: "Vehicles",
-    description: "Manage vehicles",
-    icon: <Forklift />,
-    path: "/settings/vehicles",
   },
 ];
 

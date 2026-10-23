@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import { use, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
@@ -21,7 +21,7 @@ const SETTING_MAP: Record<
   string,
   {
     key: CollectionKey;
-    storeKey: "accountTypes" | "vehicles" | "departments";
+    storeKey: "accountTypes" | "departments";
     label: string;
   }
 > = {
@@ -29,11 +29,6 @@ const SETTING_MAP: Record<
     key: "account-types",
     storeKey: "accountTypes",
     label: "Account Type",
-  },
-  vehicles: {
-    key: "vehicles",
-    storeKey: "vehicles",
-    label: "Vehicle",
   },
   departments: {
     key: "departments",
@@ -50,9 +45,11 @@ export default function SettingPage({ params }: PageProps) {
 
   const createItem = useLookupStore((s) => s.createItem);
   const accountTypes = useLookupStore((s) => s.accountTypes);
-  const vehicles = useLookupStore((s) => s.vehicles);
   const departments = useLookupStore((s) => s.departments);
   const lookupLoading = useLookupStore((s) => s.loading);
+
+  // Vehicles moved to the Fleet section.
+  if (settingSlug === "vehicles") redirect("/fleet");
 
   const config = SETTING_MAP[settingSlug];
 
@@ -75,7 +72,7 @@ export default function SettingPage({ params }: PageProps) {
   }
 
   const { key, storeKey, label } = config;
-  const dataByKey = { accountTypes, vehicles, departments };
+  const dataByKey = { accountTypes, departments };
   const rawData = dataByKey[storeKey] || [];
   const isLoading = lookupLoading[key];
 

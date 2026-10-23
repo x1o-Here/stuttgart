@@ -552,7 +552,7 @@ export function TransactionActions({ transaction }: TransactionActionsProps) {
                       <Select
                         onValueChange={(value) => {
                           if (value === "__new__") {
-                            router.push("/settings/vehicles");
+                            router.push("/fleet");
                             return;
                           }
 

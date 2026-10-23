@@ -24,6 +24,8 @@ export type LookupItem = {
   id: string;
   name: string;
   shortForm?: string;
+  /** Free-text details (vehicles only). */
+  description?: string;
   entityStatus: boolean;
   /** System rows (e.g. Client account type) cannot be edited or deleted. */
   isSystem?: boolean;
@@ -76,8 +78,11 @@ type LookupState = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Vehicles live with the company's fleet; other lookups stay in lookup-lists.
 const collectionPath = (companyId: string, key: CollectionKey) =>
-  ["lookup-lists", companyId, key] as [string, string, string];
+  (key === "vehicles"
+    ? ["companies", companyId, "vehicles"]
+    : ["lookup-lists", companyId, key]) as [string, string, string];
 
 const stateKey: Record<
   CollectionKey,
@@ -103,6 +108,7 @@ function mapDoc(d: {
     id: d.id,
     name: (data.name as string) ?? "",
     shortForm: data.shortForm as string | undefined,
+    description: data.description as string | undefined,
     entityStatus: (data.entityStatus as boolean) ?? true,
     isSystem: data.isSystem === true,
     createdAt: toDate(data.createdAt),

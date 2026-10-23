@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Settings2,
   SquareKanban,
+  Truck,
   UserCog,
   Users,
   Warehouse,
@@ -30,6 +31,12 @@ const MainSidebarContent = [
     title: "Clients",
     href: "/clients",
     icon: ContactRound,
+  },
+  {
+    key: "fleet" as SidebarRouteKey,
+    title: "Fleet",
+    href: "/fleet",
+    icon: Truck,
   },
   {
     key: "reports" as SidebarRouteKey,
