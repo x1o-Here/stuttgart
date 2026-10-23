@@ -21,12 +21,14 @@ interface DeleteModalProps {
   entityLabel: string;
   itemId: string;
   itemName: string;
+  onDeleted?: () => void;
 }
 
 export default function DeleteModal({
   entityLabel,
   itemId,
   itemName,
+  onDeleted,
 }: DeleteModalProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -53,6 +55,7 @@ export default function DeleteModal({
         itemName,
       );
       setOpen(false);
+      onDeleted?.();
     } catch (error) {
       console.error(`Failed to delete ${entityLabel.toLowerCase()}`, error);
     } finally {

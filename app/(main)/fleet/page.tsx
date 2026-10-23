@@ -7,9 +7,11 @@ import {
   getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { TruncatedText } from "@/components/shared/truncated-text";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -46,9 +48,12 @@ const columns: ColumnDef<VehicleRow>[] = [
   {
     id: "actions",
     header: "Actions",
-    size: 100,
+    size: 170,
     cell: ({ row }) => (
       <div className="flex gap-2 items-center">
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/fleet/${row.original.id}`}>View</Link>
+        </Button>
         <VehicleFormDialog vehicle={row.original} />
         <DeleteModal
           entityLabel="Vehicle"

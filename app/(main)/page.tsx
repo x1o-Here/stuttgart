@@ -6,69 +6,17 @@ import {
   AccountsLedgerProvider,
   useAccountsContext,
 } from "@/contexts/useAccountsContext";
-import {
-  type Transaction,
-  transactionsColumns,
-} from "./components/logistics/columns";
+import { buildLedgerTransactions } from "./components/logistics/build-ledger-transactions";
+import { transactionsColumns } from "./components/logistics/columns";
 import { DashboardTransactionsTable } from "./components/logistics/data-table";
 
 function HomeContent() {
   const { accounts, loading } = useAccountsContext();
 
-  const transactionsData = useMemo(() => {
-    const txMap = new Map<string, Transaction>();
-
-    for (const account of accounts) {
-      if (!account.transactions) continue;
-
-      for (const tx of account.transactions) {
-        if (!txMap.has(tx.id)) {
-          txMap.set(tx.id, {
-            id: tx.id,
-            date: tx.date || new Date(),
-            createdAt: tx.createdAt || new Date(0),
-            tags: tx.tags || [],
-            department: tx.department,
-            vehicle: tx.vehicle,
-            voucher: tx.voucher,
-            description: tx.description,
-            amount: tx.amount,
-            creditingAccount: "-",
-            debitingAccount: "-",
-          });
-        }
-
-        const existingTx = txMap.get(tx.id)!;
-        if (tx.tags && tx.tags.length > 0) {
-          existingTx.tags = Array.from(
-            new Set([...(existingTx.tags || []), ...tx.tags]),
-          );
-        }
-        if (!existingTx.department?.trim() && tx.department?.trim()) {
-          existingTx.department = tx.department;
-        }
-        if (!existingTx.vehicle?.trim() && tx.vehicle?.trim()) {
-          existingTx.vehicle = tx.vehicle;
-        }
-
-        if (tx.type === "credit") {
-          existingTx.creditingAccount = account.name;
-          existingTx.creditingAccountId = account.id;
-        } else if (tx.type === "debit") {
-          existingTx.debitingAccount = account.name;
-          existingTx.debitingAccountId = account.id;
-        }
-      }
-    }
-
-    return Array.from(txMap.values()).sort((a, b) => {
-      const dateDiff = b.date.getTime() - a.date.getTime();
-      if (dateDiff === 0) {
-        return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
-      }
-      return dateDiff;
-    });
-  }, [accounts]);
+  const transactionsData = useMemo(
+    () => buildLedgerTransactions(accounts),
+    [accounts],
+  );
 
   return (
     <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
