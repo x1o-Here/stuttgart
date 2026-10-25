@@ -13,7 +13,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { useAuth } from "@/contexts/auth-context";
 import { mapCompanyDoc } from "@/lib/companies/types";
 import { db } from "@/lib/firebase/firebase-client";
-import { getCompaniesColumns, type CompanyRecord } from "./companies-columns";
+import { type CompanyRecord, getCompaniesColumns } from "./companies-columns";
 import { DataTable } from "./data-table";
 
 export default function CompaniesTable({
@@ -84,12 +84,24 @@ export default function CompaniesTable({
   );
 
   if (loading) {
-    return <LoadingState message="Loading companies..." variant="compact" />;
+    return (
+      <div className="p-4">
+        <LoadingState
+          message="Loading companies..."
+          variant="skeleton"
+          rows={4}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full">
-      <DataTable columns={columns} data={companies} />
-    </div>
+    <DataTable
+      columns={columns}
+      data={companies}
+      caption="Companies"
+      searchPlaceholder="Search by name, TIN or telephone"
+      emptyMessage="No companies yet."
+    />
   );
 }

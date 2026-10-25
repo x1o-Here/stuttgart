@@ -5,14 +5,17 @@ import { Pencil, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import z from "zod";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -42,9 +45,14 @@ export type VehicleRow = {
 interface VehicleFormDialogProps {
   /** Omit to create a new vehicle. */
   vehicle?: VehicleRow;
+  /** Edit trigger style: "icon" for table rows (default), "button" for headers. */
+  triggerVariant?: "icon" | "button";
 }
 
-export default function VehicleFormDialog({ vehicle }: VehicleFormDialogProps) {
+export default function VehicleFormDialog({
+  vehicle,
+  triggerVariant = "icon",
+}: VehicleFormDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
@@ -116,84 +124,123 @@ export default function VehicleFormDialog({ vehicle }: VehicleFormDialogProps) {
     }
   }
 
+  const watchedName = form.watch("name")?.trim();
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!isSubmitting) setOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         {isEdit ? (
-          <Button
-            variant="outline"
-            size="icon"
-            className="cursor-pointer w-8 h-8"
-          >
-            <Pencil />
-          </Button>
+          triggerVariant === "button" ? (
+            <Button variant="outline">
+              <Pencil />
+              Edit details
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Edit ${vehicle.name}`}
+              className="text-muted-foreground hover:text-foreground"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Pencil />
+            </Button>
+          )
         ) : (
-          <Button className="cursor-pointer">
+          <Button>
             <Plus />
-            Add Vehicle
+            New vehicle
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
-        </DialogHeader>
+      <DialogContent
+        className={`${ruledDialogContentClass} sm:max-w-lg`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <RuledDialogHeader
+          eyebrow={
+            isEdit ? `( Fleet · ${vehicle.name} )` : "( Fleet · New vehicle )"
+          }
+          lead={isEdit ? "Edit" : "Register a"}
+          title={isEdit ? "vehicle." : "vehicle."}
+          description="The vehicle number is what you pick when recording a transaction."
+        />
         <form id={formId} onSubmit={form.handleSubmit(onSubmit)}>
-          <FieldGroup className="gap-6 py-2">
-            <Controller
-              name="name"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={`${formId}-name`}>
-                    Vehicle Number
-                  </FieldLabel>
-                  <Input
-                    {...field}
-                    id={`${formId}-name`}
-                    aria-invalid={fieldState.invalid}
-                    placeholder="e.g. LB-1234"
-                    autoComplete="off"
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              name="description"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={`${formId}-description`}>
-                    Description
-                  </FieldLabel>
-                  <Textarea
-                    {...field}
-                    id={`${formId}-description`}
-                    aria-invalid={fieldState.invalid}
-                    placeholder="e.g. 20ft lorry, Isuzu Elf"
-                    rows={3}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+          <FieldGroup className="gap-0">
+            <RuledDialogSection label="01 / Identification">
+              <Controller
+                name="name"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field
+                    data-invalid={fieldState.invalid}
+                    className="sm:col-span-2"
+                  >
+                    <FieldLabel htmlFor={`${formId}-name`}>
+                      Vehicle number
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id={`${formId}-name`}
+                      aria-invalid={fieldState.invalid}
+                      placeholder="e.g. LB-1234"
+                      autoComplete="off"
+                      className="font-mono"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="description"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field
+                    data-invalid={fieldState.invalid}
+                    className="sm:col-span-2"
+                  >
+                    <FieldLabel htmlFor={`${formId}-description`}>
+                      Description
+                    </FieldLabel>
+                    <Textarea
+                      {...field}
+                      id={`${formId}-description`}
+                      aria-invalid={fieldState.invalid}
+                      placeholder="e.g. 20ft lorry, Isuzu Elf"
+                      rows={3}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </RuledDialogSection>
           </FieldGroup>
         </form>
-        <DialogFooter className="pt-4 border-t">
+        <RuledDialogFooter
+          summary={
+            watchedName
+              ? `${isEdit ? "Saves" : "Adds"} ${watchedName} to the fleet`
+              : "Enter a vehicle number"
+          }
+        >
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmitting}>
+            <Button type="button" variant="ghost" disabled={isSubmitting}>
               Cancel
             </Button>
           </DialogClose>
           <Button type="submit" form={formId} disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : isEdit ? "Save Changes" : "Add"}
+            {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Add vehicle"}
           </Button>
-        </DialogFooter>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -8,6 +8,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "../ui/alert-dialog";
 import { buttonVariants } from "../ui/button";
 
@@ -26,6 +27,17 @@ type ConfirmationDialogProps = {
   /** Styles the confirm action as destructive (delete, discard). */
   destructive?: boolean;
   pending?: boolean;
+  /** Optional trigger element (rendered via AlertDialogTrigger asChild). */
+  trigger?: React.ReactNode;
+  /** Optional body between the header and footer (details, fields). */
+  children?: React.ReactNode;
+  /**
+   * Keep the dialog open after confirm so the caller can close it when an
+   * async action finishes.
+   */
+  keepOpen?: boolean;
+  /** Disables only the confirm action (e.g. preconditions not met). */
+  confirmDisabled?: boolean;
 };
 
 export default function ConfirmationDialog({
@@ -40,9 +52,14 @@ export default function ConfirmationDialog({
   cancelLabel = "Keep editing",
   destructive = true,
   pending = false,
+  trigger,
+  children,
+  keepOpen = false,
+  confirmDisabled = false,
 }: ConfirmationDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
       <AlertDialogContent className="gap-0 p-0 sm:max-w-md">
         <AlertDialogHeader className="gap-3 px-6 pt-6 pb-5 text-left">
           <span className="eyebrow">{eyebrow}</span>
@@ -52,6 +69,8 @@ export default function ConfirmationDialog({
           </AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+
+        {children && <div className="border-t px-6 py-5">{children}</div>}
 
         <AlertDialogFooter className="border-t bg-surface-muted px-6 py-4">
           <AlertDialogCancel
@@ -64,8 +83,11 @@ export default function ConfirmationDialog({
             className={buttonVariants({
               variant: destructive ? "destructive" : "default",
             })}
-            disabled={pending}
-            onClick={onConfirm}
+            disabled={pending || confirmDisabled}
+            onClick={(event) => {
+              if (keepOpen) event.preventDefault();
+              onConfirm();
+            }}
           >
             {confirmLabel}
           </AlertDialogAction>

@@ -2,39 +2,27 @@
 
 import {
   type ColumnDef,
-  type ColumnFiltersState,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { useState } from "react";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TruncatedText } from "@/components/shared/truncated-text";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import CreateModal from "./modals/create-modal";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   entityLabel: string;
-  onCreate?: (data: { name: string; shortForm?: string }) => Promise<void>;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   entityLabel,
-  onCreate,
 }: DataTableProps<TData, TValue>) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
 
   const table = useReactTable({
     defaultColumn: {
@@ -45,85 +33,35 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
-    state: {
-      columnFilters,
-    },
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
+    state: { globalFilter },
   });
 
+  const lower = entityLabel.toLowerCase();
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-between items-center gap-12">
-        <Input
-          placeholder="Search..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <TableCaption
+          label={`${entityLabel}s`}
+          count={table.getFilteredRowModel().rows.length}
         />
-
-        <CreateModal entityLabel={entityLabel} onCreate={onCreate} />
+        <Input
+          placeholder="Search by name or short form"
+          value={globalFilter}
+          onChange={(event) => setGlobalFilter(event.target.value)}
+        />
       </div>
-
-      <div className="overflow-hidden rounded-md border">
-        <Table style={{ tableLayout: "fixed", width: "100%" }}>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead
-                      key={header.id}
-                      className="overflow-hidden"
-                      style={{ width: header.getSize() }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className="overflow-hidden"
-                      style={{ width: cell.column.getSize() }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <RuledTable
+        table={table}
+        emptyMessage={
+          globalFilter
+            ? "Nothing matches this search."
+            : `No ${lower}s yet. Add the first one from the header.`
+        }
+      />
     </div>
   );
 }

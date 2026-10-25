@@ -25,12 +25,12 @@ export default function TransactionsDepartmentFilter<TData>({
           ?.setFilterValue(value === "all" ? undefined : value);
       }}
     >
-      <SelectTrigger className="bg-white">
+      <SelectTrigger className="w-full bg-card sm:w-44" aria-label="Department">
         <SelectValue placeholder="Department" />
       </SelectTrigger>
 
       <SelectContent position="popper" side="bottom">
-        <SelectItem value="all">All Departments</SelectItem>
+        <SelectItem value="all">All departments</SelectItem>
 
         {departments.map((department) => (
           <SelectItem key={department.id} value={department.name}>

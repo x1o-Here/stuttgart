@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { ReportPanel, reportTd, reportTh } from "./report-panel";
 
 export default function DepartmentActivityTable() {
   const { accounts, loading } = useAccountsContext();
@@ -36,10 +37,7 @@ export default function DepartmentActivityTable() {
     for (const account of scoped) {
       for (const tx of account.transactions) {
         const txDate = new Date(tx.date);
-        if (
-          txDate.getMonth() !== monthIndex ||
-          txDate.getFullYear() !== year
-        ) {
+        if (txDate.getMonth() !== monthIndex || txDate.getFullYear() !== year) {
           continue;
         }
         const department = tx.department?.trim() || "Unassigned";
@@ -66,68 +64,87 @@ export default function DepartmentActivityTable() {
       .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
   }, [accounts, selectedAccountId, selectedMonthYear]);
 
-  if (loading) {
-    return (
-      <div className="flex h-full flex-col rounded-xl bg-white p-6">
-        <LoadingState message="Loading departments..." variant="compact" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full min-h-72 flex-col rounded-xl bg-white p-6">
-      <div className="mb-4 border-b border-zinc-100 pb-3">
-        <h3 className="font-semibold text-zinc-800">Department Activity</h3>
-        <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Department</TableHead>
-              <TableHead className="text-right">Txns</TableHead>
-              <TableHead className="text-right">Debits</TableHead>
-              <TableHead className="text-right">Credits</TableHead>
-              <TableHead className="text-right">Net</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length ? (
-              rows.map((row) => (
-                <TableRow key={row.department}>
-                  <TableCell className="font-medium">
-                    <TruncatedText className="max-w-[180px]">
-                      {row.department}
-                    </TruncatedText>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {row.count}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-red-600 tabular-nums">
-                    {row.debits > 0 ? `-${row.debits.toLocaleString()}` : "0"}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-emerald-600 tabular-nums">
-                    {row.credits > 0 ? `+${row.credits.toLocaleString()}` : "0"}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {`${row.net >= 0 ? "+" : ""}${row.net.toLocaleString()}`}
+    <ReportPanel
+      className="min-h-80"
+      label="08 / Department activity"
+      caption={selectedMonthYear}
+      bodyClassName="p-0"
+    >
+      {loading ? (
+        <LoadingState
+          message="Loading departments..."
+          variant="compact"
+          className="flex-1"
+        />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto border-t">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-surface-muted">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={reportTh}>Department</TableHead>
+                <TableHead className={`text-right ${reportTh}`}>Txns</TableHead>
+                <TableHead className={`text-right ${reportTh}`}>
+                  Debits
+                </TableHead>
+                <TableHead className={`text-right ${reportTh}`}>
+                  Credits
+                </TableHead>
+                <TableHead className={`text-right ${reportTh}`}>Net</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length ? (
+                rows.map((row) => (
+                  <TableRow
+                    key={row.department}
+                    className="hover:bg-surface-muted"
+                  >
+                    <TableCell
+                      className={`font-medium text-foreground ${reportTd}`}
+                    >
+                      <TruncatedText className="max-w-[180px]">
+                        {row.department}
+                      </TruncatedText>
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums ${reportTd}`}
+                    >
+                      {row.count}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums ${reportTd} ${row.debits > 0 ? "text-destructive" : "text-muted-foreground"}`}
+                    >
+                      {row.debits > 0 ? `−${row.debits.toLocaleString()}` : "0"}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums ${reportTd} ${row.credits > 0 ? "text-success" : "text-muted-foreground"}`}
+                    >
+                      {row.credits > 0
+                        ? `+${row.credits.toLocaleString()}`
+                        : "0"}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums text-foreground ${reportTd}`}
+                    >
+                      {`${row.net >= 0 ? "+" : "−"}${Math.abs(row.net).toLocaleString()}`}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={5}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    No department activity for this period.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="h-24 text-center text-zinc-500"
-                >
-                  No department activity for this period.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </ReportPanel>
   );
 }

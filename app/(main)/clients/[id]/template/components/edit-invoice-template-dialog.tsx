@@ -8,16 +8,15 @@ import {
 } from "firebase/firestore";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  ruledDialogContentClass,
+  SectionLabel,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -214,151 +213,170 @@ export default function EditInvoiceTemplateDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Pencil className="mr-2 h-4 w-4" />
-          Manage Template
+          <Pencil />
+          Manage template
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Manage Invoice Template</DialogTitle>
-        </DialogHeader>
+      <DialogContent className={`${ruledDialogContentClass} sm:max-w-4xl`}>
+        <RuledDialogHeader
+          eyebrow={`( Invoice template · ${clientName} )`}
+          lead="Manage"
+          title="invoice template."
+          description="Applies to new invoices for this client. Issued invoices keep the template they were created with."
+        />
 
-        <div className="space-y-6">
-          <section className="space-y-3">
-            <h3 className="font-semibold">Supplier information</h3>
+        <div className="flex flex-col">
+          <section className="flex flex-col gap-3 border-b px-6 py-5">
+            <SectionLabel>01 / Supplier</SectionLabel>
             <p className="text-sm text-muted-foreground">
               Pulled from the active company. Update company details under Users
               → Companies.
             </p>
-            <div className="grid gap-3 rounded-md border bg-zinc-50 p-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Company name</p>
-                <p>{company?.name || "—"}</p>
+            <dl className="grid gap-px overflow-hidden rounded-md border bg-border text-sm sm:grid-cols-2">
+              <div className="flex flex-col gap-1 bg-surface-muted px-3 py-2">
+                <dt className="eyebrow">Company name</dt>
+                <dd>{company?.name || "–"}</dd>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">TIN</p>
-                <p>{company?.tin || "—"}</p>
+              <div className="flex flex-col gap-1 bg-surface-muted px-3 py-2">
+                <dt className="eyebrow">TIN</dt>
+                <dd className="font-mono">{company?.tin || "–"}</dd>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Address</p>
-                <p className="whitespace-pre-wrap">{company?.address || "—"}</p>
+              <div className="flex flex-col gap-1 bg-surface-muted px-3 py-2">
+                <dt className="eyebrow">Address</dt>
+                <dd className="whitespace-pre-wrap">
+                  {company?.address || "–"}
+                </dd>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Telephone no</p>
-                <p>{company?.telephoneNo || "—"}</p>
+              <div className="flex flex-col gap-1 bg-surface-muted px-3 py-2">
+                <dt className="eyebrow">Telephone no</dt>
+                <dd className="font-mono">{company?.telephoneNo || "–"}</dd>
               </div>
-            </div>
+            </dl>
           </section>
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="font-semibold">Cost breakdown columns</h3>
+          <section className="flex flex-col gap-3 border-b px-6 py-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex max-w-xl flex-col gap-1">
+                <SectionLabel>02 / Cost breakdown columns</SectionLabel>
                 <p className="text-sm text-muted-foreground">
                   Base columns stay fixed: No, Date, and Vehicle No first; Rate
                   and Amount last. Additional columns you add appear between
                   those groups.
                 </p>
               </div>
-              <Button type="button" variant="outline" onClick={addColumn}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Column
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addColumn}
+              >
+                <Plus />
+                Add column
               </Button>
             </div>
 
-            <div className="rounded-md border">
-              <div className="grid grid-cols-[1fr_180px_100px_140px] gap-2 border-b bg-muted/40 p-3 text-sm font-medium">
-                <span>Column</span>
-                <span>Type</span>
-                <span>Required</span>
-                <span>Actions</span>
-              </div>
-              {draft.columns.map((column) => (
-                <div
-                  key={column.id}
-                  className="grid grid-cols-[1fr_180px_100px_140px] items-center gap-2 border-b p-3 last:border-b-0"
-                >
-                  {column.system ? (
-                    <Input value={column.label} disabled />
-                  ) : (
-                    <Input
-                      value={column.label}
-                      onChange={(event) =>
-                        updateCustomColumn(column.id, {
-                          label: event.target.value,
-                        })
-                      }
-                    />
-                  )}
-                  <Select
-                    value={column.type}
-                    disabled={column.system}
-                    onValueChange={(value: TemplateColumnType) =>
-                      updateCustomColumn(column.id, { type: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COLUMN_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex justify-center">
-                    <Checkbox
-                      checked={column.required}
-                      disabled={column.system}
-                      onCheckedChange={(checked) =>
-                        updateCustomColumn(column.id, {
-                          required: checked === true,
-                        })
-                      }
-                    />
-                  </div>
-                  {column.system ? (
-                    <span className="text-xs text-muted-foreground">Fixed</span>
-                  ) : (
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => moveColumn(column.id, -1)}
-                      >
-                        <ArrowUp />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => moveColumn(column.id, 1)}
-                      >
-                        <ArrowDown />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeColumn(column.id)}
-                      >
-                        <Trash2 className="text-destructive" />
-                      </Button>
-                    </div>
-                  )}
+            <div className="overflow-x-auto rounded-md border">
+              <div className="min-w-[36rem]">
+                <div className="grid grid-cols-[1fr_180px_90px_120px] gap-2 border-b bg-surface-muted px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                  <span>Column</span>
+                  <span>Type</span>
+                  <span className="text-center">Required</span>
+                  <span className="text-right">Order</span>
                 </div>
-              ))}
+                {draft.columns.map((column) => (
+                  <div
+                    key={column.id}
+                    className="grid grid-cols-[1fr_180px_90px_120px] items-center gap-2 border-b px-3 py-2 last:border-b-0"
+                  >
+                    {column.system ? (
+                      <Input value={column.label} disabled />
+                    ) : (
+                      <Input
+                        value={column.label}
+                        onChange={(event) =>
+                          updateCustomColumn(column.id, {
+                            label: event.target.value,
+                          })
+                        }
+                      />
+                    )}
+                    <Select
+                      value={column.type}
+                      disabled={column.system}
+                      onValueChange={(value: TemplateColumnType) =>
+                        updateCustomColumn(column.id, { type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COLUMN_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex justify-center">
+                      <Checkbox
+                        checked={column.required}
+                        disabled={column.system}
+                        onCheckedChange={(checked) =>
+                          updateCustomColumn(column.id, {
+                            required: checked === true,
+                          })
+                        }
+                      />
+                    </div>
+                    {column.system ? (
+                      <span className="text-right font-mono text-xs text-muted-foreground">
+                        Fixed
+                      </span>
+                    ) : (
+                      <div className="flex justify-end gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Move column up"
+                          onClick={() => moveColumn(column.id, -1)}
+                        >
+                          <ArrowUp />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Move column down"
+                          onClick={() => moveColumn(column.id, 1)}
+                        >
+                          <ArrowDown />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Remove column"
+                          className="text-muted-foreground hover:bg-danger-soft hover:text-destructive"
+                          onClick={() => removeColumn(column.id)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
 
-          <section className="space-y-3">
-            <h3 className="font-semibold">Signing section</h3>
+          <section className="flex flex-col gap-3 px-6 py-5">
+            <SectionLabel>03 / Signing section</SectionLabel>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 placeholder="Left label"
+                aria-label="Left label"
                 value={draft.signing.leftLabel}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -372,6 +390,7 @@ export default function EditInvoiceTemplateDialog({
               />
               <Input
                 placeholder="Left name"
+                aria-label="Left name"
                 value={draft.signing.leftName}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -385,6 +404,7 @@ export default function EditInvoiceTemplateDialog({
               />
               <Input
                 placeholder="Right label"
+                aria-label="Right label"
                 value={draft.signing.rightLabel}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -398,6 +418,7 @@ export default function EditInvoiceTemplateDialog({
               />
               <Input
                 placeholder="Right name"
+                aria-label="Right name"
                 value={draft.signing.rightName}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -412,21 +433,29 @@ export default function EditInvoiceTemplateDialog({
             </div>
           </section>
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p className="mx-6 mb-5 rounded-md bg-danger-soft px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
         </div>
 
-        <DialogFooter>
+        <RuledDialogFooter
+          summary={`${draft.columns.length} columns · ${
+            draft.columns.filter((column) => !column.system).length
+          } custom`}
+        >
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => setOpen(false)}
             disabled={saving}
           >
             Cancel
           </Button>
           <Button onClick={() => void saveTemplate()} disabled={saving}>
-            {saving ? "Saving..." : "Save Template"}
+            {saving ? "Saving…" : "Save template"}
           </Button>
-        </DialogFooter>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

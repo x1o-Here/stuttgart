@@ -7,14 +7,20 @@ import {
   orderBy,
   query,
 } from "firebase/firestore";
-import { ChevronLeft, FileText, Pencil } from "lucide-react";
+import { FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
+import {
+  invoiceStatusLabel,
+  invoiceStatusVariant,
+} from "../../components/invoices-columns";
 import {
   type ClientInvoiceDocument,
   type InvoicePayment,
@@ -123,79 +129,92 @@ export default function ClientInvoiceDetailPage() {
     [payments],
   );
 
-  const locked =
-    invoice?.status === "paid" || invoice?.status === "cancelled";
+  const locked = invoice?.status === "paid" || invoice?.status === "cancelled";
+
+  if (loading) {
+    return (
+      <div className="h-full bg-card p-4 font-sans md:p-6">
+        <LoadingState
+          message="Loading invoice..."
+          variant="skeleton"
+          rows={6}
+        />
+      </div>
+    );
+  }
+
+  if (notFound || !invoice || !clientId) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-card p-6 text-center font-sans">
+        <span className="eyebrow">( Not found )</span>
+        <p className="heading text-2xl">
+          <span className="text-muted-foreground">This invoice</span> doesn’t
+          exist.
+        </p>
+        <Link
+          href={clientId ? `/clients/${clientId}` : "/clients"}
+          className="font-mono text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Back to client
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen h-full p-4 font-sans">
-      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-50 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="w-fit px-1"
-            onClick={() =>
-              router.push(clientId ? `/clients/${clientId}` : "/clients")
-            }
-          >
-            <ChevronLeft />
-            Back
-          </Button>
-
-          {!loading && invoice && clientId ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                disabled={locked}
-                onClick={() =>
-                  router.push(
-                    `/clients/${clientId}/invoices/${invoice.id}/edit`,
-                  )
-                }
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
-              <DeleteInvoiceDialog
-                clientId={clientId}
-                invoiceId={invoice.id}
-                taxInvoiceNo={invoice.taxInvoiceNo}
-                disabled={locked}
-              />
-              <Button asChild>
-                <Link
-                  href={`/clients/${clientId}/invoices/${invoice.id}/document`}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Invoice
-                </Link>
-              </Button>
-            </div>
-          ) : null}
-        </div>
-
-        {loading ? (
-          <LoadingState
-            message="Loading invoice..."
-            variant="skeleton"
-            rows={6}
-          />
-        ) : notFound || !invoice || !clientId ? (
-          <div className="rounded-lg bg-white p-6">
-            <h1 className="text-xl font-semibold">Invoice not found</h1>
-          </div>
-        ) : (
+    <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
+      <PageHeader
+        back={{
+          href: `/clients/${clientId}`,
+          label: invoice.client.name || "Client",
+        }}
+        eyebrow={`( ${invoice.client.name || "Client"} · Invoices )`}
+        lead="Tax invoice"
+        title={invoice.taxInvoiceNo || "Untitled"}
+        description={
+          invoice.date.getTime()
+            ? `Dated ${invoice.date.toLocaleDateString()}`
+            : undefined
+        }
+        actions={
           <>
-            <InvoiceSummaryCard invoice={invoice} paidAmount={paidAmount} />
-            <InvoicePaymentsSection
+            <Badge variant={invoiceStatusVariant(invoice.status)}>
+              {invoiceStatusLabel(invoice.status)}
+            </Badge>
+            <Button
+              variant="outline"
+              disabled={locked}
+              onClick={() =>
+                router.push(`/clients/${clientId}/invoices/${invoice.id}/edit`)
+              }
+            >
+              <Pencil />
+              Edit
+            </Button>
+            <DeleteInvoiceDialog
               clientId={clientId}
-              invoice={invoice}
-              payments={payments}
-              loading={paymentsLoading}
+              invoiceId={invoice.id}
+              taxInvoiceNo={invoice.taxInvoiceNo}
+              disabled={locked}
             />
+            <Button asChild>
+              <Link
+                href={`/clients/${clientId}/invoices/${invoice.id}/document`}
+              >
+                <FileText />
+                View document
+              </Link>
+            </Button>
           </>
-        )}
-      </div>
+        }
+      />
+      <InvoiceSummaryCard invoice={invoice} paidAmount={paidAmount} />
+      <InvoicePaymentsSection
+        clientId={clientId}
+        invoice={invoice}
+        payments={payments}
+        loading={paymentsLoading}
+      />
     </div>
   );
 }

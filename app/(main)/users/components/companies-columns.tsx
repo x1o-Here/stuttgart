@@ -13,41 +13,50 @@ export function getCompaniesColumns(
 ): ColumnDef<CompanyRecord>[] {
   return [
     {
-      accessorKey: "name",
-      header: "Company name",
+      id: "name",
+      // Searchable text covers both the name and the TIN shown beneath it.
+      accessorFn: (row) => `${row.name} ${row.tin ?? ""}`,
+      header: "Company",
       cell: ({ row }) => (
-        <TruncatedText className="max-w-[220px]">
-          {row.original.name}
-        </TruncatedText>
+        <div className="flex min-w-0 flex-col">
+          <TruncatedText className="font-medium text-foreground">
+            {row.original.name}
+          </TruncatedText>
+          {row.original.tin ? (
+            <TruncatedText className="font-mono text-xs text-muted-foreground">
+              TIN {row.original.tin}
+            </TruncatedText>
+          ) : null}
+        </div>
       ),
     },
     {
       accessorKey: "address",
       header: "Address",
       cell: ({ row }) => (
-        <span className="line-clamp-2 whitespace-normal">
-          {row.original.address || "—"}
+        <span className="line-clamp-2 whitespace-normal text-muted-foreground">
+          {row.original.address || "–"}
         </span>
       ),
     },
     {
       accessorKey: "telephoneNo",
       header: "Telephone",
-      cell: ({ row }) => row.original.telephoneNo || "—",
-    },
-    {
-      accessorKey: "tin",
-      header: "TIN",
-      cell: ({ row }) => row.original.tin || "—",
+      size: 150,
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">
+          {row.original.telephoneNo || "–"}
+        </span>
+      ),
     },
     {
       accessorKey: "entityStatus",
       header: "Status",
-      size: 110,
+      size: 100,
       cell: ({ row }) => {
         const active = row.original.entityStatus;
         return (
-          <Badge variant={active ? "default" : "secondary"}>
+          <Badge variant={active ? "success" : "neutral"}>
             {active ? "Active" : "Inactive"}
           </Badge>
         );
@@ -55,10 +64,12 @@ export function getCompaniesColumns(
     },
     {
       id: "actions",
-      header: "Actions",
-      size: 80,
+      header: () => <span className="sr-only">Actions</span>,
+      size: 56,
       cell: ({ row }) => (
-        <CompanyActions company={row.original} onChanged={onChanged} />
+        <div className="flex justify-end">
+          <CompanyActions company={row.original} onChanged={onChanged} />
+        </div>
       ),
     },
   ];

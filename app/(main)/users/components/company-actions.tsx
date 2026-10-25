@@ -8,16 +8,7 @@ import {
 } from "firebase/firestore";
 import { MoreHorizontal, Pencil, Power } from "lucide-react";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -82,24 +73,24 @@ export function CompanyActions({ company, onChanged }: CompanyActionsProps) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Actions for ${company.name}`}
+          >
+            <MoreHorizontal />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onClick={() => setEditOpen(true)}
-            className="cursor-pointer"
-          >
-            <Pencil className="mr-2 h-4 w-4 text-zinc-500" />
-            Edit
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <Pencil />
+            Edit details
           </DropdownMenuItem>
           <DropdownMenuItem
+            variant={company.entityStatus ? "destructive" : "default"}
             onClick={() => setStatusOpen(true)}
-            className="cursor-pointer"
           >
-            <Power className="mr-2 h-4 w-4 text-zinc-500" />
+            <Power />
             {company.entityStatus ? "Deactivate" : "Activate"}
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -114,34 +105,32 @@ export function CompanyActions({ company, onChanged }: CompanyActionsProps) {
         hideTrigger
       />
 
-      <AlertDialog open={statusOpen} onOpenChange={setStatusOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {company.entityStatus
-                ? "Deactivate this company?"
-                : "Activate this company?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {company.entityStatus
-                ? `${company.name} will be marked inactive and hidden from assignment until activated again.`
-                : `${company.name} will be marked active again.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleToggleStatus();
-              }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Updating..." : "Confirm"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        open={statusOpen}
+        onOpenChange={(next) => {
+          if (!isSubmitting) setStatusOpen(next);
+        }}
+        eyebrow={`( Company status · ${company.entityStatus ? "Active" : "Inactive"} )`}
+        lead={company.entityStatus ? "Deactivate" : "Activate"}
+        title={`${company.name}?`}
+        description={
+          company.entityStatus
+            ? "The company is marked inactive and can’t be assigned to users until it’s activated again. Its data stays as it is."
+            : "The company is marked active again and can be assigned to users."
+        }
+        confirmLabel={
+          isSubmitting
+            ? "Updating…"
+            : company.entityStatus
+              ? "Deactivate company"
+              : "Activate company"
+        }
+        cancelLabel="Cancel"
+        destructive={company.entityStatus}
+        pending={isSubmitting}
+        keepOpen
+        onConfirm={() => void handleToggleStatus()}
+      />
     </>
   );
 }

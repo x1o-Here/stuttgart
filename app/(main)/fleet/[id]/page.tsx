@@ -1,26 +1,18 @@
 "use client";
 
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TruncatedText } from "@/components/shared/truncated-text";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   AccountsLedgerProvider,
   useAccountsContext,
@@ -48,24 +40,11 @@ const vehicleTransactionColumns = transactionsColumns.filter(
     VEHICLE_TX_COLUMN_KEYS.includes(column.accessorKey as string),
 );
 
-function formatLkr(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "LKR",
-  }).format(amount);
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg bg-white p-4">
-      <TruncatedText className="text-sm text-muted-foreground">
-        {label}
-      </TruncatedText>
-      <TruncatedText className="mt-1 text-xl font-semibold tabular-nums">
-        {value}
-      </TruncatedText>
-    </div>
-  );
+function formatAmount(amount: number) {
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function VehicleDetailContent() {
@@ -107,21 +86,9 @@ function VehicleDetailContent() {
     state: { globalFilter },
   });
 
-  const backButton = (
-    <Button
-      size="sm"
-      variant="ghost"
-      className="cursor-pointer hover:bg-gray-100 w-fit px-1"
-      onClick={() => router.push("/fleet")}
-    >
-      <ChevronLeft />
-      Back
-    </Button>
-  );
-
   if (vehiclesLoading) {
     return (
-      <div className="bg-white rounded-lg p-6">
+      <div className="p-4 md:p-6">
         <LoadingState message="Loading vehicle..." variant="skeleton" />
       </div>
     );
@@ -129,39 +96,79 @@ function VehicleDetailContent() {
 
   if (!vehicle) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24">
-        <p className="text-lg font-semibold">Vehicle not found</p>
-        <Button onClick={() => router.push("/fleet")}>Back to fleet</Button>
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+        <span className="eyebrow">( Not found )</span>
+        <p className="heading text-2xl">
+          <span className="text-muted-foreground">This vehicle</span> isn’t in
+          the fleet.
+        </p>
+        <Link
+          href="/fleet"
+          className="font-mono text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Back to fleet
+        </Link>
       </div>
     );
   }
 
+  const facts = [
+    {
+      label: "01 / Description",
+      value: vehicle.description?.trim() ? (
+        <span className="whitespace-pre-wrap break-words">
+          {vehicle.description}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">No description</span>
+      ),
+    },
+    {
+      label: "02 / Transactions",
+      value: (
+        <span className="font-mono text-2xl font-light tabular-nums">
+          {ledgerLoading ? "–" : transactions.length}
+        </span>
+      ),
+    },
+    {
+      label: "03 / Total moved",
+      value: (
+        <span className="flex items-baseline gap-2">
+          <span className="font-mono text-xs text-muted-foreground">LKR</span>
+          <span className="font-mono text-2xl font-light tabular-nums">
+            {ledgerLoading ? "–" : formatAmount(totalAmount)}
+          </span>
+        </span>
+      ),
+    },
+    {
+      label: "04 / Last activity",
+      value: (
+        <span className="font-mono tabular-nums">
+          {ledgerLoading || !lastActivity
+            ? "–"
+            : lastActivity.toLocaleDateString()}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <>
-      <div className="p-4 bg-white rounded-lg flex flex-col gap-4">
-        {backButton}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 className="min-w-0 text-2xl font-bold">
-              <TruncatedText>{vehicle.name}</TruncatedText>
-            </h1>
-            {vehicle.description?.trim() ? (
-              <p className="text-sm text-zinc-600 whitespace-pre-wrap break-words">
-                {vehicle.description}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">
-                No description
-              </p>
-            )}
-            {vehicle.createdAt && (
-              <p className="text-xs text-muted-foreground">
-                Added {vehicle.createdAt.toLocaleDateString()}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
+      <PageHeader
+        back={{ href: "/fleet", label: "Fleet" }}
+        eyebrow="( Fleet · Vehicle )"
+        title={<span className="font-mono">{vehicle.name}</span>}
+        description={
+          vehicle.createdAt
+            ? `Added ${vehicle.createdAt.toLocaleDateString()}`
+            : undefined
+        }
+        actions={
+          <>
             <VehicleFormDialog
+              triggerVariant="button"
               vehicle={{
                 id: vehicle.id,
                 name: vehicle.name,
@@ -169,105 +176,59 @@ function VehicleDetailContent() {
               }}
             />
             <DeleteModal
+              triggerVariant="button"
               entityLabel="Vehicle"
               itemId={vehicle.id}
               itemName={vehicle.name}
               onDeleted={() => router.push("/fleet")}
             />
+          </>
+        }
+      />
+
+      <dl className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-4">
+        {facts.map((fact) => (
+          <div
+            key={fact.label}
+            className="flex min-w-0 flex-col gap-2 bg-card px-5 py-4"
+          >
+            <dt className="eyebrow normal-case tracking-normal">
+              {fact.label}
+            </dt>
+            <dd className="min-w-0 text-sm text-foreground">{fact.value}</dd>
           </div>
-        </div>
-      </div>
+        ))}
+      </dl>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
-          label="Transactions"
-          value={ledgerLoading ? "—" : String(transactions.length)}
-        />
-        <MetricCard
-          label="Total amount"
-          value={ledgerLoading ? "—" : formatLkr(totalAmount)}
-        />
-        <MetricCard
-          label="Last activity"
-          value={
-            ledgerLoading || !lastActivity
-              ? "—"
-              : lastActivity.toLocaleDateString()
-          }
-        />
-      </div>
-
-      <div className="p-4 bg-white rounded-lg flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold">Transactions</h2>
+      <div className="flex min-h-[20rem] flex-1 flex-col">
+        <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+          <TableCaption
+            label="Transactions"
+            count={
+              ledgerLoading
+                ? undefined
+                : table.getFilteredRowModel().rows.length
+            }
+          />
           <Input
-            placeholder="Search transactions"
+            placeholder="Search by description, account or amount"
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="max-w-sm"
           />
         </div>
-
         {ledgerLoading ? (
-          <LoadingState
-            message="Loading transactions..."
-            variant="skeleton"
-            rows={5}
-          />
-        ) : (
-          <div className="overflow-hidden rounded-md border">
-            <Table className="table-fixed w-full">
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className="overflow-hidden"
-                        style={{ width: header.getSize() }}
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id} className="text-gray-600">
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className="overflow-hidden"
-                          style={{ width: cell.column.getSize() }}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={vehicleTransactionColumns.length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      No transactions for this vehicle.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <div className="p-4">
+            <LoadingState
+              message="Loading transactions..."
+              variant="skeleton"
+              rows={5}
+            />
           </div>
+        ) : (
+          <RuledTable
+            table={table}
+            emptyMessage="No transactions recorded for this vehicle yet."
+          />
         )}
       </div>
     </>
@@ -277,10 +238,8 @@ function VehicleDetailContent() {
 export default function VehicleDetailPage() {
   return (
     <AccountsLedgerProvider mode="all">
-      <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
-        <div className="w-full h-full flex flex-col gap-4 p-4 bg-zinc-100 rounded-lg overflow-y-auto">
-          <VehicleDetailContent />
-        </div>
+      <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
+        <VehicleDetailContent />
       </div>
     </AccountsLedgerProvider>
   );

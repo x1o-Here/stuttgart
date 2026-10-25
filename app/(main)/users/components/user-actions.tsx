@@ -3,6 +3,7 @@
 import axios from "axios";
 import { KeyRound, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,12 +19,13 @@ interface UserActionsProps {
 
 export function UserActions({ user }: UserActionsProps) {
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [result, setResult] = useState<
+    { ok: true } | { ok: false; message: string } | null
+  >(null);
 
   async function handleResetPassword() {
-    if (!window.confirm(`Reset password for ${user.email}?`)) {
-      return;
-    }
-
+    setResult(null);
     setLoading(true);
     try {
       const resetTemplate = `
@@ -44,33 +46,79 @@ export function UserActions({ user }: UserActionsProps) {
         subject: "Password Reset Request",
         htmlTemplate: resetTemplate,
       });
-      alert("Password reset email sent successfully!");
+      setResult({ ok: true });
     } catch (error: any) {
       console.error("Error sending reset email:", error);
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      setResult({
+        ok: false,
+        message: error.response?.data?.error || error.message,
+      });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
-          <span className="sr-only">Open menu</span>
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          onClick={handleResetPassword}
-          disabled={loading}
-          className="cursor-pointer"
-        >
-          <KeyRound className="mr-2 h-4 w-4 text-zinc-500" />
-          Reset Password
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Actions for ${user.username}`}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => {
+              setResult(null);
+              setConfirmOpen(true);
+            }}
+          >
+            <KeyRound />
+            Send password reset
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ConfirmationDialog
+        open={confirmOpen}
+        onOpenChange={(next) => {
+          if (!loading) setConfirmOpen(next);
+        }}
+        eyebrow={`( Access · ${user.username} )`}
+        lead="Send a"
+        title="password reset?"
+        description={`A reset link is emailed to ${user.email}. Their current password keeps working until they set a new one.`}
+        confirmLabel={
+          loading ? "Sending…" : result?.ok ? "Done" : "Send reset link"
+        }
+        cancelLabel={result?.ok ? "Close" : "Cancel"}
+        destructive={false}
+        pending={loading}
+        keepOpen
+        onConfirm={() => {
+          if (result?.ok) {
+            setConfirmOpen(false);
+            return;
+          }
+          void handleResetPassword();
+        }}
+      >
+        {result ? (
+          result.ok ? (
+            <p className="rounded-md bg-success-soft px-3 py-2 text-sm text-success">
+              Reset link sent to {user.email}.
+            </p>
+          ) : (
+            <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-destructive">
+              Couldn’t send the email: {result.message}
+            </p>
+          )
+        ) : null}
+      </ConfirmationDialog>
+    </>
   );
 }

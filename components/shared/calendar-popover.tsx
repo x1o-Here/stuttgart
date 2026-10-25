@@ -51,7 +51,7 @@ export default function CalendarPopover({
         <Input
           value={inputValue}
           placeholder="June 01, 2025"
-          className="bg-background text-black pr-10"
+          className="bg-card pr-10 text-foreground"
           disabled={disabled}
           onChange={(e) => {
             const parsed = new Date(e.target.value);

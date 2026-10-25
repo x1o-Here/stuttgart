@@ -11,21 +11,13 @@ import { auth } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarContent, SidebarHeader } from "../custom/ui/sidebar";
 import { Avatar, AvatarFallback } from "../ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
 
 export default function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const activeRoute = getActiveSidebarRoute(pathname);
-  const { username, role, companies, activeCompany, setActiveCompany } =
-    useAuth();
+  const { username, role } = useAuth();
 
   async function handleLogout() {
     try {
@@ -43,27 +35,13 @@ export default function AppSidebar() {
 
   return (
     <Sidebar collapsible="none" className="h-full flex flex-col bg-canvas">
-      <SidebarHeader className="flex-col gap-3 border-b px-4 py-0">
+      <SidebarHeader className="border-b px-4 py-0">
         <div className="flex h-14 items-center gap-2">
           <Regex className="size-6 text-destructive" strokeWidth={1.5} />
           <span className="font-bodoni text-2xl font-light text-foreground/80">
             Stuttgart
           </span>
         </div>
-        {companies.length > 0 && (
-          <Select value={activeCompany} onValueChange={setActiveCompany}>
-            <SelectTrigger className="-mt-2 mb-3 h-8 w-full bg-card">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {companies.map((company) => (
-                <SelectItem key={company.id} value={company.id}>
-                  {company.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="flex-1 gap-0 px-2 py-3">

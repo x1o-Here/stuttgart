@@ -2,7 +2,6 @@
 
 import {
   type ColumnDef,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
@@ -10,19 +9,12 @@ import {
 } from "@tanstack/react-table";
 import { CircleX } from "lucide-react";
 import { useState } from "react";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
 import { TruncatedText } from "@/components/shared/truncated-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { TransactionsTagFilter } from "../../../components/logistics/transactions-tag-filter";
 
 interface DataTableProps<TData, TValue> {
@@ -105,12 +97,10 @@ export function TransactionsDataTable<TData, TValue>({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
-        <div className="flex items-baseline gap-3">
-          <span className="eyebrow normal-case tracking-normal">Ledger</span>
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {table.getFilteredRowModel().rows.length}
-          </span>
-        </div>
+        <TableCaption
+          label="Ledger"
+          count={table.getFilteredRowModel().rows.length}
+        />
         <div className="flex w-full flex-wrap items-center gap-2">
           <TransactionsSortPopover
             onSortChange={(column, direction) => {
@@ -122,7 +112,7 @@ export function TransactionsDataTable<TData, TValue>({
           />
 
           <Input
-            placeholder="Search by Description or Amount..."
+            placeholder="Search by description or amount"
             className="min-w-48 flex-1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -144,77 +134,17 @@ export function TransactionsDataTable<TData, TValue>({
 
           <TransactionsTagFilter table={table as unknown as any} />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Clear filters"
-            onClick={() => setColumnFilters([])}
-          >
+          <Button variant="ghost" onClick={() => setColumnFilters([])}>
             <CircleX />
+            Clear
           </Button>
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-auto border-t">
-        <Table className="table-fixed w-full border-separate border-spacing-0">
-          <TableHeader className="sticky top-0 z-10 bg-surface-muted">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow
-                key={headerGroup.id}
-                className="bg-surface-muted hover:bg-surface-muted"
-              >
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="overflow-hidden border-b font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
-                    style={{ width: `${header.getSize()}px` }}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="text-foreground/80 hover:bg-surface-muted"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className="overflow-hidden border-b py-3"
-                      style={{ width: `${cell.column.getSize()}px` }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <RuledTable
+        table={table}
+        emptyMessage="No transactions match these filters."
+      />
     </div>
   );
 }

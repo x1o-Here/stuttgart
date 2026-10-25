@@ -13,16 +13,15 @@ import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import CalendarPopover from "@/components/shared/calendar-popover";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -136,27 +135,40 @@ export default function AddCustomReportDialog() {
     }
   }
 
+  const selectedCount = form.watch("accountIds")?.length ?? 0;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setOpen(true);
+          return;
+        }
+        handleCancel();
+      }}
+    >
       <Form {...form}>
         <DialogTrigger asChild>
-          <Button size="sm">
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add
+          <Button size="sm" variant="outline">
+            <Plus />
+            New report
           </Button>
         </DialogTrigger>
-        <DialogContent className="min-w-2xl max-h-[90vh] overflow-y-auto">
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>Add Custom Report</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
+        <DialogContent className={ruledDialogContentClass}>
+          <RuledDialogHeader
+            eyebrow="( Reports · Custom )"
+            lead="Build a"
+            title="custom report."
+            description="Saves a date range and a set of accounts you can reopen, share and export."
+          />
+          <form id="add-report-form" onSubmit={form.handleSubmit(onSubmit)}>
+            <RuledDialogSection label="01 / Details">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="sm:col-span-2">
                     <FormLabel>Report name</FormLabel>
                     <FormControl>
                       <Input
@@ -173,10 +185,11 @@ export default function AddCustomReportDialog() {
                 control={form.control}
                 name="description"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="sm:col-span-2">
                     <FormLabel>Description</FormLabel>
                     <FormControl>
                       <Textarea
+                        rows={2}
                         placeholder="Optional notes about this report"
                         {...field}
                       />
@@ -185,55 +198,57 @@ export default function AddCustomReportDialog() {
                   </FormItem>
                 )}
               />
+            </RuledDialogSection>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="fromDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>From</FormLabel>
-                      <FormControl>
-                        <CalendarPopover
-                          value={field.value}
-                          onChange={(date) => {
-                            if (date) field.onChange(date);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <RuledDialogSection label="02 / Period">
+              <FormField
+                control={form.control}
+                name="fromDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>From</FormLabel>
+                    <FormControl>
+                      <CalendarPopover
+                        value={field.value}
+                        onChange={(date) => {
+                          if (date) field.onChange(date);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="toDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>To</FormLabel>
-                      <FormControl>
-                        <CalendarPopover
-                          value={field.value}
-                          onChange={(date) => {
-                            if (date) field.onChange(date);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="toDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>To</FormLabel>
+                    <FormControl>
+                      <CalendarPopover
+                        value={field.value}
+                        onChange={(date) => {
+                          if (date) field.onChange(date);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </RuledDialogSection>
 
+            <RuledDialogSection label="03 / Accounts">
               <FormField
                 control={form.control}
                 name="accountIds"
                 render={() => (
-                  <FormItem>
+                  <FormItem className="sm:col-span-2">
                     <div className="flex items-center justify-between gap-3">
                       <FormLabel>Accounts included</FormLabel>
-                      <label className="flex items-center gap-2 text-sm text-zinc-600 cursor-pointer">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
                         <Checkbox
                           checked={allSelected}
                           onCheckedChange={(checked) =>
@@ -244,9 +259,9 @@ export default function AddCustomReportDialog() {
                       </label>
                     </div>
 
-                    <div className="mt-2 max-h-48 overflow-y-auto rounded-md border border-zinc-200 divide-y divide-zinc-100">
+                    <div className="mt-2 max-h-48 divide-y overflow-y-auto rounded-md border">
                       {accounts.length === 0 ? (
-                        <p className="px-3 py-4 text-sm text-zinc-500 text-center">
+                        <p className="px-3 py-4 text-center text-sm text-muted-foreground">
                           No accounts available
                         </p>
                       ) : (
@@ -258,7 +273,7 @@ export default function AddCustomReportDialog() {
                             render={({ field }) => {
                               const checked = field.value.includes(account.id);
                               return (
-                                <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-zinc-50">
+                                <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-muted">
                                   <Checkbox
                                     checked={checked}
                                     onCheckedChange={(isChecked) => {
@@ -271,7 +286,7 @@ export default function AddCustomReportDialog() {
                                       );
                                     }}
                                   />
-                                  <span className="text-sm text-zinc-700">
+                                  <span className="text-sm text-foreground">
                                     {account.name}
                                   </span>
                                 </label>
@@ -285,22 +300,27 @@ export default function AddCustomReportDialog() {
                   </FormItem>
                 )}
               />
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Report"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-            </DialogFooter>
+            </RuledDialogSection>
           </form>
+          <RuledDialogFooter
+            summary={`${selectedCount} of ${accounts.length} accounts selected`}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="add-report-form"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating…" : "Create report"}
+            </Button>
+          </RuledDialogFooter>
         </DialogContent>
       </Form>
 

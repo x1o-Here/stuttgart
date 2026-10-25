@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
@@ -95,15 +94,8 @@ function AccountPageContent({ accountId }: { accountId: string }) {
   return (
     <div className="flex h-full flex-col divide-y bg-card font-sans">
       <PageHeader
-        eyebrow={
-          <Link
-            href="/accounts"
-            className="inline-flex items-center gap-1 hover:text-foreground"
-          >
-            <ArrowLeft className="size-3" />
-            Accounts · {account.accountType || "Unassigned"}
-          </Link>
-        }
+        back={{ href: "/accounts", label: "Accounts" }}
+        eyebrow={`( Accounts · ${account.accountType || "Unassigned"} )`}
         title={account.name}
         description={`${credits} credits · ${debits} debits`}
         actions={

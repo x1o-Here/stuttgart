@@ -2,25 +2,19 @@
 
 import {
   type ColumnDef,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TruncatedText } from "@/components/shared/truncated-text";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import DeleteModal from "../settings/[...setting]/components/modals/delete-modal";
 import VehicleFormDialog, {
@@ -30,42 +24,71 @@ import VehicleFormDialog, {
 const columns: ColumnDef<VehicleRow>[] = [
   {
     id: "index",
-    header: "#",
-    size: 50,
-    cell: ({ row }) => row.index + 1,
+    header: "No",
+    size: 56,
+    cell: ({ row }) => (
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        {String(row.index + 1).padStart(2, "0")}
+      </span>
+    ),
   },
   {
     accessorKey: "name",
-    header: "Vehicle Number",
-    size: 200,
+    header: "Vehicle number",
+    size: 180,
     meta: { globalFilter: true },
+    cell: ({ row }) => (
+      <TruncatedText className="font-mono font-medium text-foreground">
+        {row.original.name}
+      </TruncatedText>
+    ),
   },
   {
     accessorKey: "description",
     header: "Description",
     size: 400,
+    cell: ({ row }) => (
+      <TruncatedText
+        className={
+          row.original.description ? undefined : "text-muted-foreground"
+        }
+      >
+        {row.original.description || "–"}
+      </TruncatedText>
+    ),
   },
   {
     id: "actions",
-    header: "Actions",
-    size: 170,
+    header: () => <span className="sr-only">Actions</span>,
+    size: 120,
     cell: ({ row }) => (
-      <div className="flex gap-2 items-center">
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/fleet/${row.original.id}`}>View</Link>
-        </Button>
+      // Dialogs portal out but React events still bubble: keep row clicks out.
+      // biome-ignore lint/a11y/noStaticElementInteractions: event boundary only
+      // biome-ignore lint/a11y/useKeyWithClickEvents: event boundary only
+      <div
+        className="flex items-center justify-end gap-0.5"
+        onClick={(event) => event.stopPropagation()}
+      >
         <VehicleFormDialog vehicle={row.original} />
         <DeleteModal
           entityLabel="Vehicle"
           itemId={row.original.id}
           itemName={row.original.name}
         />
+        <Link
+          href={`/fleet/${row.original.id}`}
+          aria-label={`Open ${row.original.name}`}
+          className="flex size-8 items-center justify-center text-muted-foreground hover:text-foreground"
+        >
+          <ArrowUpRight className="size-4" />
+        </Link>
       </div>
     ),
   },
 ];
 
 export default function FleetPage() {
+  const router = useRouter();
   const vehicles = useLookupStore((s) => s.vehicles);
   const isLoading = useLookupStore((s) => s.loading.vehicles);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -96,84 +119,51 @@ export default function FleetPage() {
   });
 
   return (
-    <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
-      <div className="w-full h-full flex flex-col gap-4 p-4 bg-zinc-100 rounded-lg overflow-y-auto">
-        <h1 className="text-2xl font-bold mb-4">Fleet</h1>
+    <div className="flex h-full flex-col divide-y bg-card font-sans">
+      <PageHeader
+        eyebrow="( Operations · Fleet )"
+        lead="Fleet"
+        title="register."
+        description={
+          isLoading
+            ? "Loading vehicles…"
+            : `${data.length} ${data.length === 1 ? "vehicle" : "vehicles"}`
+        }
+        actions={<VehicleFormDialog />}
+      />
 
-        <div className="w-full p-4 rounded-md bg-white flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
+      {isLoading ? (
+        <div className="p-4">
+          <LoadingState
+            message="Loading vehicles..."
+            variant="skeleton"
+            rows={5}
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+            <TableCaption
+              label="Vehicles"
+              count={table.getFilteredRowModel().rows.length}
+            />
             <Input
               placeholder="Search by vehicle number or description"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="max-w-sm"
             />
-            <VehicleFormDialog />
           </div>
-
-          {isLoading ? (
-            <LoadingState
-              message="Loading vehicles..."
-              variant="skeleton"
-              rows={5}
-            />
-          ) : (
-            <div className="overflow-hidden rounded-md border">
-              <Table className="table-fixed w-full">
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead
-                          key={header.id}
-                          className="overflow-hidden"
-                          style={{ width: header.getSize() }}
-                        >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {table.getRowModel().rows.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className="overflow-hidden"
-                            style={{ width: cell.column.getSize() }}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        No vehicles found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <RuledTable
+            table={table}
+            emptyMessage={
+              data.length
+                ? "No vehicles match this search."
+                : "No vehicles yet. Add the first one from the header."
+            }
+            onRowClick={(vehicle) => router.push(`/fleet/${vehicle.id}`)}
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 }

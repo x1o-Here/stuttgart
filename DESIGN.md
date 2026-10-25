@@ -99,14 +99,69 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 **Page header strip** (`components/shared/page-header.tsx`)
 - `PageHeader` takes `eyebrow`, `lead` (the muted half of the two-tone title), `title`, `description` (a mono line) and `actions`.
+- On detail and sub pages pass `back={{ href, label }}`. It renders a text link above the eyebrow that names the destination. It changes color on hover (muted to ink) with no background, e.g. **← Clients**, **← Acme Ltd** or **← Invoice 0412** (aria-label "Back to {label}"). Use the page’s real name, not the word "Back". Keep the eyebrow for context, e.g. `( Acme Ltd · Invoices )`, and never put the back link inside it.
 - `HeaderFigure` is the mono-captioned figure on the right, e.g. `( Current balance )` LKR 1,240,000.00. Pass `tone="negative"` for red.
 - Every list or detail page is `flex h-full flex-col divide-y bg-card`, built as PageHeader, then a toolbar row (`px-4 py-3`), then content that fills the remaining height edge to edge.
 
 **Record grid** (accounts list)
 - Tiles are `Link`s in `grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4`. Each has `border-b sm:border-r px-5 py-4` and a `hover:bg-surface-muted`.
+- The same tile pattern serves the settings overview: caption `01 / Departments`, icon + name + one-line description, and an entry count.
 - Each tile shows a mono caption `01 / {type}`, the name, and the figure in mono `text-2xl font-light`, red when negative. A hover arrow marks it as a link.
 
-**Ruled dialogs** (`components/shared/ruled-dialog.tsx`)
+**Ruled table** (`components/shared/ruled-table.tsx`)
+- `RuledTable table={tanstackTable} onRowClick? emptyMessage?` gives the edge-to-edge scroll area: sticky mono header on `surface-muted`, hairline rows, `first:pl-4 last:pr-4`.
+- `TableCaption label count` sits in the toolbar above it.
+- Paginated tables end with `TablePager table`, a `border-t` row with "Page 2 of 5 · 48 rows" in mono and outline Previous / Next buttons.
+- New tables use this. The dashboard and account tables follow the same spec inline.
+
+**Toolbar controls** (one row above a table, `flex flex-wrap gap-2`)
+- Search: `Input` with `min-w-48 flex-1` and sentence-case placeholder ("Search by description or amount").
+- **Sort:** `SortPopover` from `components/shared/transactions-sort-popover.tsx` is an outline button with a "( Sort by )" list that checks the active option. Pass `options` for other tables (e.g. invoices).
+- **Selects:** `bg-card w-full sm:w-36` to `sm:w-44`, each with an `aria-label`. Type filters prefix options with a status dot.
+- **Multi-select filters:** an outline button that reads its state ("Active", "2 statuses"), with a "( Show )" label in the menu.
+- **Clear:** ghost button with icon and text.
+- **Loading:** `LoadingState` labels are mono `eyebrow`. Skeleton rows are `h-9 rounded-md`, and the bar is a 2px brand line.
+- **Floating layers:** popovers, selects, menus and sheets use `shadow-card`. Overlays are `bg-foreground/20 backdrop-blur-[2px]`.
+
+**Company chips** (`components/shared/company-chips.tsx`)
+- Wherever a list of companies shows (profile, users table), use `CompanyChips`: 2px-corner `surface-muted` chips with a hairline ring, and the active company `brand-soft` with a dot.
+- Pass `max` in tables to collapse the rest into "+N" (hover shows the names). Always show names, never raw ids.
+- The company switcher lives on the profile page (`05 / Active company`), not in the sidebar.
+
+**Settings rows** (profile)
+- `section grid md:grid-cols-[18rem_minmax(0,32rem)] px-6 py-6` holds a numbered caption with a one-line description on the left and the form on the right.
+- Results show as a `success-soft` `<output>` or a `danger-soft` `role="alert"` note above the submit button.
+
+**Row actions** (clickable rows that also have edit/delete)
+- Wrap the actions cell in an element that calls `stopPropagation()`. Dialogs portal out, but React events still bubble to the row.
+- Row actions are ghost `icon-sm` buttons (edit, delete with a `danger-soft` hover) followed by an `ArrowUpRight` open link.
+- On detail pages the same dialogs take `triggerVariant="button"` for outline **Edit details** / **Delete** buttons.
+
+**Report panels** (`app/(main)/reports/components/report-panel.tsx`)
+- `ReportPanel label="02 / Month-end balances" caption actions bodyClassName` is a ruled cell with a caption row and a body. It has no card chrome, and `bodyClassName="p-0"` makes tables run edge to edge.
+- Lay panels out in `grid gap-px bg-border` and number them continuously down the page.
+- Page-wide filters (month, account) live in the page header's actions, never inside one widget.
+
+**Chart colour** (`app/(main)/reports/components/report-colors.ts`)
+- Series use `SERIES_COLORS`, eight validated hues led by brand indigo, through `seriesColor(stableIndex)`.
+- The index is the entity's position in the full list, never its rank in a filtered view, so an account keeps its colour across charts and tables.
+- Past slot 8 a series is drawn `--muted-foreground`, never a reused hue.
+- Credit / debit / net use `FLOW_COLORS`: indigo, amber, slate. Not red/green in charts. Tables keep `text-success` / `text-destructive` plus +/− signs.
+- Single-measure bars use one colour (`--chart-1`). The axis names the categories.
+- Every multi-series chart has a legend and a table view, because slots 3–5 are below 3:1 on the surface.
+- Up to 4 series use the inline legend. Charts with many series (e.g. account balance trends) use `ChartLegendPopover`, an outline **Legend** button in the panel actions that opens a scrollable list of colour, name and check mark. Picking an item focuses that series and "All accounts" resets.
+
+**Tabs on ruled pages**: an underline style. `TabsList` is a `border-b` row. Triggers are `border-b-2` with transparent bg, the active one gets `border-foreground`, and labels are numbered (`01 / Account summary`).
+
+**Facts grid** (client and invoice detail)
+- A `dl` in `grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-4` with `bg-card px-5 py-4` cells.
+- Each cell has an `eyebrow normal-case` caption (`01 / VAT No`) and a `text-sm` value. Money uses a mono `LKR` unit with a mono value, and the key figure gets `text-2xl font-light`.
+
+**Document pages** (invoice document, template preview)
+- The printed document sits on `bg-canvas` inside `rounded-md border bg-white shadow-card`, centred.
+- The document itself keeps its own print styling and is not themed.
+
+
 - `ruledDialogContentClass` goes on `DialogContent`. `RuledDialogHeader` takes `eyebrow`, `lead`, `title` and `description`.
 - Content is split into `RuledDialogSection label="01 / …"` blocks, a two-column grid on `sm+`.
 - `RuledDialogFooter summary=…` holds the live mono summary, with a ghost Cancel and an ink Submit.
@@ -114,7 +169,8 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 **Confirmations** (`components/custom/confirmation-dialog.tsx`)
 - Same header and footer recipe. It takes `eyebrow`, `lead`, `title`, `description`, `confirmLabel`, `cancelLabel`, `destructive` and `pending`, and defaults to "Discard your changes?".
-- Use it instead of `window.confirm`.
+- It also takes `trigger` (renders its own trigger button), `children` (body content), `keepOpen` (stay open while an async confirm runs) and `confirmDisabled`.
+- Use it instead of `window.confirm` or a bare `AlertDialog`. Show outcomes such as "Reset link sent" inside its `children` with a `success-soft` / `danger-soft` note, never with `alert()`.
 
 **Buttons**
 - `default` is the square ink block: the one primary action per view, e.g. **Record transaction**.
@@ -140,7 +196,7 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 **App shell** (`app/(main)/layout.tsx`, `components/layout/sidebar.tsx`)
 - The sidebar is a ruled column on `bg-canvas`, divided by `border-b`/`border-t`. From top to bottom:
-  - brand block: the Bodoni wordmark (`h-14`), with the company select always directly beneath it in the same block
+  - brand block: the Bodoni wordmark (`h-14`) only
   - `( Modules )` nav
   - Settings and Log out
   - a profile row with a square ink monogram
@@ -172,5 +228,5 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 ## Rollout status
 
-- Done: tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
-- Follow-up: sweep the remaining pages (clients, fleet, reports, users, settings) to remove raw `zinc-*`, `gray-*` and `bg-white` classes and the `bg-zinc-100` panel wrappers, adopt the ruled frame and `PageHeader`, and move the other dialogs (client, vehicle, user, company, report forms) onto `ruled-dialog`.
+- Done: tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
+- Follow-up: none of the app pages are on the old styling. The printed invoice and export documents keep their own print styles on purpose.

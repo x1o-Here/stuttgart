@@ -3,7 +3,6 @@
 import {
   type ColumnDef,
   type ColumnFiltersState,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
@@ -11,21 +10,11 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
-import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TruncatedText } from "@/components/shared/truncated-text";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { ClientSnapshot } from "../invoice-model";
 import type { ClientInvoice } from "./invoices-columns";
 import { InvoicesSortPopover } from "./invoices-sort-popover";
 import InvoicesStatusFilter from "./invoices-status-filter";
@@ -33,7 +22,6 @@ import InvoicesStatusFilter from "./invoices-status-filter";
 interface InvoicesTableProps {
   columns: ColumnDef<ClientInvoice>[];
   data: ClientInvoice[];
-  client: ClientSnapshot;
 }
 
 const fuzzyFilter = (
@@ -66,11 +54,9 @@ const fuzzyFilter = (
   });
 };
 
-export default function InvoicesTable({
-  columns,
-  data,
-  client,
-}: InvoicesTableProps) {
+export default function InvoicesTable({ columns, data }: InvoicesTableProps) {
+  const router = useRouter();
+  const { id: clientId } = useParams<{ id: string }>();
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([
     { id: "isActive", desc: true },
@@ -103,94 +89,52 @@ export default function InvoicesTable({
     globalFilterFn: fuzzyFilter,
   });
 
+  const outstanding = data.reduce(
+    (sum, invoice) => sum + (invoice.outstandingAmount || 0),
+    0,
+  );
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="w-full flex items-center justify-between gap-6 shrink-0">
-        <div className="w-full flex items-center gap-2 min-w-0">
+    <div className="flex min-h-[24rem] flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <TableCaption
+            label="Invoices"
+            count={table.getFilteredRowModel().rows.length}
+          />
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            Outstanding LKR{" "}
+            <span className="text-foreground">
+              {outstanding.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <InvoicesSortPopover
             onSortChange={(column, direction) => {
               setSorting([{ id: column, desc: direction === "desc" }]);
             }}
           />
-
           <Input
-            placeholder="Search by invoice no or amount..."
-            className="w-full min-w-0"
+            placeholder="Search by invoice no or amount"
+            className="min-w-48 flex-1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-
           <InvoicesStatusFilter table={table} />
         </div>
-
-        <Button asChild className="shrink-0">
-          <Link href={`/clients/${client.id}/invoices/new`}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Invoice
-          </Link>
-        </Button>
       </div>
 
-      <div className="rounded-md border overflow-auto">
-        <Table className="table-fixed w-full border-separate border-spacing-0">
-          <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow
-                key={headerGroup.id}
-                className="bg-white hover:bg-white"
-              >
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="overflow-hidden border-l border-gray-100 first:border-l-0"
-                    style={{ width: `${header.getSize()}px` }}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="text-gray-600"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className="overflow-hidden border-l border-b border-gray-100 first:border-l-0"
-                      style={{ width: `${cell.column.getSize()}px` }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-gray-600"
-                >
-                  No invoices yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <RuledTable
+        table={table}
+        emptyMessage="No invoices yet. Create the first one from the header."
+        onRowClick={(invoice) =>
+          router.push(`/clients/${clientId}/invoices/${invoice.id}`)
+        }
+      />
     </div>
   );
 }

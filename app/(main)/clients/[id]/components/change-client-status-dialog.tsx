@@ -6,18 +6,9 @@ import {
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
+import { Power } from "lucide-react";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
@@ -79,39 +70,40 @@ export default function ChangeClientStatusDialog({
     }
   }
 
+  const deactivating = currentStatus === "active";
+
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button variant={currentStatus === "active" ? "default" : "outline"}>
-          {currentStatus === "active" ? "Deactivate Client" : "Activate Client"}
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!isSubmitting) setOpen(next);
+      }}
+      trigger={
+        <Button variant="outline">
+          <Power />
+          {deactivating ? "Deactivate" : "Activate"}
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {currentStatus === "active"
-              ? "Deactivate this client?"
-              : "Activate this client?"}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {currentStatus === "active"
-              ? `${clientName} will be marked as inactive.`
-              : `${clientName} will be marked as active.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(event) => {
-              event.preventDefault();
-              void handleConfirm();
-            }}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Updating..." : "Confirm"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      }
+      eyebrow={`( Client status · ${deactivating ? "Active" : "Inactive"} )`}
+      lead={deactivating ? "Deactivate" : "Activate"}
+      title={`${clientName}?`}
+      description={
+        deactivating
+          ? "The client is marked inactive. Existing invoices and its account stay as they are."
+          : "The client is marked active again and appears in the active register."
+      }
+      confirmLabel={
+        isSubmitting
+          ? "Updating…"
+          : deactivating
+            ? "Deactivate client"
+            : "Activate client"
+      }
+      cancelLabel="Cancel"
+      destructive={deactivating}
+      pending={isSubmitting}
+      keepOpen
+      onConfirm={() => void handleConfirm()}
+    />
   );
 }

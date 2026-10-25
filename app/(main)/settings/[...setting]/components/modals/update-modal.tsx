@@ -3,27 +3,23 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
 import { type CollectionKey, useLookupStore } from "@/stores/use-lookup-store";
 import { type FormSchema, formSchema } from "./create-modal";
+import { LookupFormFields } from "./lookup-form-fields";
 
 interface UpdateModalProps {
   entityLabel: string;
@@ -39,14 +35,9 @@ export default function UpdateModal({
   const { user, activeCompany } = useAuth();
   const updateItem = useLookupStore((s) => s.updateItem);
 
-  const isVehicle = entityLabel.toLowerCase() === "vehicle";
   const label = entityLabel.toLowerCase();
   const collectionKey: CollectionKey =
-    label === "vehicle"
-      ? "vehicles"
-      : label === "account type"
-        ? "account-types"
-        : "departments";
+    label === "account type" ? "account-types" : "departments";
 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
@@ -68,7 +59,7 @@ export default function UpdateModal({
   async function onSubmit(data: FormSchema) {
     if (!activeCompany || !user || isSubmitting) return;
 
-    const nextShortForm = isVehicle ? "" : (data.shortForm ?? "");
+    const nextShortForm = data.shortForm ?? "";
     if (
       data.name === initialData.name &&
       nextShortForm === (initialData.shortForm ?? "")
@@ -92,86 +83,60 @@ export default function UpdateModal({
     }
   }
 
+  const lower = entityLabel.toLowerCase();
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!isSubmitting) setOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         <Button
-          variant="outline"
-          size="icon"
-          className="cursor-pointer w-8 h-8"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Edit ${initialData.name}`}
+          className="text-muted-foreground hover:text-foreground"
         >
           <Pencil />
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-full min-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit {entityLabel}</DialogTitle>
-        </DialogHeader>
-        <div className="py-4">
-          <form id="update-form" onSubmit={form.handleSubmit(onSubmit)}>
-            <FieldGroup className="grid grid-cols-5 gap-6">
-              <Controller
-                name="name"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    data-invalid={fieldState.invalid}
-                    className={isVehicle ? "col-span-5" : "col-span-4"}
-                  >
-                    <FieldLabel htmlFor="name">
-                      {isVehicle ? "Vehicle Number" : "Name"}
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="name"
-                      aria-invalid={fieldState.invalid}
-                      placeholder={
-                        isVehicle
-                          ? "e.g. MH-12-XX-1234"
-                          : `Enter ${entityLabel.toLowerCase()} name`
-                      }
-                      autoComplete="off"
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              {!isVehicle && (
-                <Controller
-                  name="shortForm"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="shortForm">Short Form</FieldLabel>
-                      <Input
-                        {...field}
-                        id="shortForm"
-                        aria-invalid={fieldState.invalid}
-                        placeholder="AST"
-                        autoComplete="off"
-                      />
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
-              )}
-            </FieldGroup>
-          </form>
-        </div>
-        <DialogFooter className="pt-4 border-t">
+      <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+        <RuledDialogHeader
+          eyebrow={`( Settings · ${initialData.name} )`}
+          lead="Edit"
+          title={`${lower}.`}
+          description="Existing transactions keep the name they were recorded with."
+        />
+        <form
+          id={`update-form-${initialData.id}`}
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          <LookupFormFields
+            form={form}
+            entityLabel={entityLabel}
+            idPrefix={`update-${initialData.id}`}
+          />
+        </form>
+        <RuledDialogFooter
+          summary={
+            form.formState.isDirty ? "Unsaved changes" : "No changes yet"
+          }
+        >
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmitting}>
+            <Button type="button" variant="ghost" disabled={isSubmitting}>
               Cancel
             </Button>
           </DialogClose>
-          <Button type="submit" form="update-form" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save Changes"}
+          <Button
+            type="submit"
+            form={`update-form-${initialData.id}`}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving…" : "Save changes"}
           </Button>
-        </DialogFooter>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

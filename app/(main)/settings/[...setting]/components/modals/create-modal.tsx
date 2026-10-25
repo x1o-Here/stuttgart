@@ -3,29 +3,25 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import z from "zod";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
   CLIENT_ACCOUNT_TYPE_NAME,
   isClientAccountTypeName,
 } from "@/lib/constants/client-account";
+import { LookupFormFields } from "./lookup-form-fields";
 
 export const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -46,7 +42,6 @@ export default function CreateModal({
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const isVehicle = entityLabel.toLowerCase() === "vehicle";
   const isAccountType = entityLabel.toLowerCase() === "account type";
 
   const form = useForm<FormSchema>({
@@ -70,7 +65,7 @@ export default function CreateModal({
       setFormError("");
       await onCreate?.({
         name: data.name,
-        shortForm: isVehicle ? "" : data.shortForm,
+        shortForm: data.shortForm,
       });
       form.reset();
       setOpen(false);
@@ -86,90 +81,57 @@ export default function CreateModal({
     }
   }
 
+  const lower = entityLabel.toLowerCase();
+  const watchedName = form.watch("name")?.trim();
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (isSubmitting) return;
+        setOpen(next);
+        if (!next) {
+          form.reset();
+          setFormError("");
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus />
-          <span>Add</span>
+          New {lower}
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-full min-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Add {entityLabel}</DialogTitle>
-        </DialogHeader>
-        <div className="py-4">
-          <form id="create-form" onSubmit={form.handleSubmit(onSubmit)}>
-            <FieldGroup className="grid grid-cols-5 gap-6">
-              <Controller
-                name="name"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field
-                    data-invalid={fieldState.invalid}
-                    className={isVehicle ? "col-span-5" : "col-span-4"}
-                  >
-                    <FieldLabel htmlFor="name">
-                      {isVehicle ? "Vehicle Number" : entityLabel}
-                    </FieldLabel>
-                    <Input
-                      {...field}
-                      id="name"
-                      aria-invalid={fieldState.invalid}
-                      placeholder={
-                        isVehicle
-                          ? "e.g. MH-12-XX-1234"
-                          : `Enter ${entityLabel.toLowerCase()} name`
-                      }
-                      autoComplete="off"
-                      onChange={(event) => {
-                        field.onChange(event);
-                        if (formError) setFormError("");
-                      }}
-                    />
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              {!isVehicle && (
-                <Controller
-                  name="shortForm"
-                  control={form.control}
-                  render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="shortForm">Short Form</FieldLabel>
-                      <Input
-                        {...field}
-                        id="shortForm"
-                        aria-invalid={fieldState.invalid}
-                        placeholder="AST"
-                        autoComplete="off"
-                      />
-                      {fieldState.invalid && (
-                        <FieldError errors={[fieldState.error]} />
-                      )}
-                    </Field>
-                  )}
-                />
-              )}
-            </FieldGroup>
-            {formError ? (
-              <p className="mt-3 text-sm text-destructive">{formError}</p>
-            ) : null}
-          </form>
-        </div>
-        <DialogFooter className="pt-4 border-t">
+      <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+        <RuledDialogHeader
+          eyebrow={`( Settings · ${entityLabel}s )`}
+          lead="Add a"
+          title={`${lower}.`}
+          description={`New ${lower}s appear in the pickers across the app straight away.`}
+        />
+        <form id="create-form" onSubmit={form.handleSubmit(onSubmit)}>
+          <LookupFormFields
+            form={form}
+            entityLabel={entityLabel}
+            idPrefix="create"
+            formError={formError}
+            onEdit={() => {
+              if (formError) setFormError("");
+            }}
+          />
+        </form>
+        <RuledDialogFooter
+          summary={watchedName ? `Adds “${watchedName}”` : `Name the ${lower}`}
+        >
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmitting}>
+            <Button type="button" variant="ghost" disabled={isSubmitting}>
               Cancel
             </Button>
           </DialogClose>
           <Button type="submit" form="create-form" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create"}
+            {isSubmitting ? "Adding…" : `Add ${lower}`}
           </Button>
-        </DialogFooter>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

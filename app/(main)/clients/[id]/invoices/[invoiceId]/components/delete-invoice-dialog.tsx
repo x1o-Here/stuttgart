@@ -9,17 +9,7 @@ import {
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
@@ -86,34 +76,26 @@ export default function DeleteInvoiceDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!deleting) setOpen(next);
+      }}
+      trigger={
         <Button variant="outline" disabled={disabled}>
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 />
           Delete
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete invoice?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Invoice <strong>{taxInvoiceNo || invoiceId}</strong> will be
-            removed. This cannot be undone from the invoices list.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={deleting}
-            onClick={(event) => {
-              event.preventDefault();
-              void handleDelete();
-            }}
-          >
-            {deleting ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      }
+      eyebrow={`( Delete · ${taxInvoiceNo || invoiceId} )`}
+      lead="Delete"
+      title="this invoice?"
+      description="It is cancelled and removed from the client’s invoice list. This can’t be undone from the list."
+      confirmLabel={deleting ? "Deleting…" : "Delete invoice"}
+      cancelLabel="Keep it"
+      pending={deleting}
+      keepOpen
+      onConfirm={() => void handleDelete()}
+    />
   );
 }

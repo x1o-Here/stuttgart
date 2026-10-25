@@ -134,7 +134,7 @@ export function DashboardTransactionsTable<TData, TValue>({
             />
 
             <Input
-              placeholder="Search by Description or Amount..."
+              placeholder="Search by description or amount"
               className="min-w-48 flex-1"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

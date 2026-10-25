@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import {
   Table,
   TableBody,
@@ -11,9 +13,8 @@ import {
 } from "@/components/ui/table";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { LoadingState } from "@/components/shared/loading-state";
-import { TruncatedText } from "@/components/shared/truncated-text";
-import { LINE_COLORS } from "./chart-component";
+import { seriesColor } from "./report-colors";
+import { ReportPanel, reportTd, reportTh } from "./report-panel";
 
 export default function CashFlowTable() {
   const { accounts, loading } = useAccountsContext();
@@ -49,72 +50,86 @@ export default function CashFlowTable() {
     });
   }, [accounts, selectedMonthYear]);
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-        <div className="border-b border-zinc-100 pb-4 shrink-0">
-          <h3 className="font-semibold text-zinc-800">Monthly Cash Flow</h3>
-          <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
-        </div>
+  return (
+    <ReportPanel
+      label="03 / Monthly cash flow"
+      caption={selectedMonthYear}
+      bodyClassName="p-0"
+    >
+      {loading ? (
         <LoadingState
           message="Loading cash flow..."
           variant="compact"
           className="flex-1"
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-      <div className="border-b border-zinc-100 pb-4 shrink-0">
-        <h3 className="font-semibold text-zinc-800">Monthly Cash Flow</h3>
-        <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
-      </div>
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="shrink-0">
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto border-t">
           <Table className="table-fixed">
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-surface-muted">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-8"></TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead className="w-24 text-right">Debits</TableHead>
-                <TableHead className="w-24 text-right">Credits</TableHead>
+                <TableHead className={`w-8 ${reportTh}`} />
+                <TableHead className={reportTh}>Account</TableHead>
+                <TableHead className={`w-28 text-right ${reportTh}`}>
+                  Debits
+                </TableHead>
+                <TableHead className={`w-28 text-right ${reportTh}`}>
+                  Credits
+                </TableHead>
               </TableRow>
             </TableHeader>
-          </Table>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <Table className="table-fixed">
             <TableBody>
               {cashFlows.map((item, index) => {
                 const isSelected =
                   selectedAccountId === "all" || selectedAccountId === item.id;
+                const select = () =>
+                  setSelectedAccountId(
+                    selectedAccountId === item.id ? "all" : item.id,
+                  );
                 return (
                   <TableRow
                     key={item.id}
-                    className={`${!isSelected ? "opacity-40 grayscale" : "hover:bg-zinc-50"} transition-all`}
-                    onClick={() => setSelectedAccountId(item.id)}
-                    style={{ cursor: "pointer" }}
+                    tabIndex={0}
+                    aria-selected={selectedAccountId === item.id}
+                    className={`cursor-pointer transition-opacity hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none ${
+                      isSelected ? "" : "opacity-40"
+                    }`}
+                    onClick={select}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        select();
+                      }
+                    }}
                   >
-                    <TableCell className="w-8">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{
-                          backgroundColor:
-                            LINE_COLORS[index % LINE_COLORS.length],
-                        }}
+                    <TableCell className={`w-8 ${reportTd}`}>
+                      <span
+                        className="block size-2.5 rounded-full"
+                        style={{ backgroundColor: seriesColor(index) }}
                       />
                     </TableCell>
-                    <TableCell className="overflow-hidden font-medium text-zinc-700">
+                    <TableCell
+                      className={`overflow-hidden font-medium text-foreground ${reportTd}`}
+                    >
                       <TruncatedText>{item.name}</TruncatedText>
                     </TableCell>
-                    <TableCell className="w-24 text-right font-mono text-red-600">
+                    <TableCell
+                      className={`w-28 text-right font-mono tabular-nums ${reportTd} ${
+                        item.debits > 0
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                      }`}
+                    >
                       {item.debits > 0
-                        ? `-${item.debits.toLocaleString()}`
+                        ? `−${item.debits.toLocaleString()}`
                         : "0"}
                     </TableCell>
-                    <TableCell className="w-24 text-right font-mono text-emerald-600">
+                    <TableCell
+                      className={`w-28 text-right font-mono tabular-nums ${reportTd} ${
+                        item.credits > 0
+                          ? "text-success"
+                          : "text-muted-foreground"
+                      }`}
+                    >
                       {item.credits > 0
                         ? `+${item.credits.toLocaleString()}`
                         : "0"}
@@ -125,7 +140,7 @@ export default function CashFlowTable() {
             </TableBody>
           </Table>
         </div>
-      </div>
-    </div>
+      )}
+    </ReportPanel>
   );
 }
