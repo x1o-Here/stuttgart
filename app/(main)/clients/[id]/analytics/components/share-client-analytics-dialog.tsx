@@ -1,14 +1,15 @@
 "use client";
 
-import { Check, Copy, Link2, Share2 } from "lucide-react";
+import { Check, Copy, Link2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 type ShareClientAnalyticsDialogProps = {
@@ -45,39 +46,36 @@ export default function ShareClientAnalyticsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="h-4 w-4" />
-            Share analytics
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            Anyone with this link can open analytics for{" "}
-            <strong>{clientName}</strong> (with access to this workspace).
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Link2 className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input readOnly value={pageUrl} className="pl-8" />
+      <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+        <RuledDialogHeader
+          eyebrow={`( Share · ${clientName} )`}
+          lead="Share"
+          title="analytics."
+          description="Anyone with access to this workspace can open the link."
+        />
+        <RuledDialogSection label="01 / Link">
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <div className="relative min-w-0 flex-1">
+              <Link2 className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                readOnly
+                value={pageUrl}
+                aria-label="Analytics link"
+                className="pl-8 font-mono text-xs"
+                onFocus={(event) => event.currentTarget.select()}
+              />
             </div>
             <Button type="button" variant="outline" onClick={handleCopy}>
-              {copied ? (
-                <>
-                  <Check className="mr-1.5 h-4 w-4" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="mr-1.5 h-4 w-4" />
-                  Copy
-                </>
-              )}
+              {copied ? <Check /> : <Copy />}
+              {copied ? "Copied" : "Copy"}
             </Button>
           </div>
-        </div>
+        </RuledDialogSection>
+        <RuledDialogFooter summary="Read-only view of this client’s figures">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

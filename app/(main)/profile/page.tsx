@@ -12,11 +12,14 @@ import {
   serverTimestamp,
   writeBatch,
 } from "firebase/firestore";
-import { ChevronLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
+import { CompanyChips } from "@/components/shared/company-chips";
+import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -27,7 +30,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
+import { roleLabel } from "@/lib/auth/roles";
 import { auth, db } from "@/lib/firebase/firebase-client";
 
 const usernameSchema = z.object({
@@ -55,8 +67,16 @@ type UsernameForm = z.infer<typeof usernameSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const { user, username, role, refreshProfile, loading } = useAuth();
+  const {
+    user,
+    username,
+    role,
+    companies,
+    activeCompany,
+    setActiveCompany,
+    refreshProfile,
+    loading,
+  } = useAuth();
   const [usernameMessage, setUsernameMessage] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
@@ -186,110 +206,174 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen h-full p-4 font-sans">
-        <div className="h-full rounded-lg bg-zinc-100 p-4">Loading profile...</div>
+      <div className="h-full bg-card p-4 font-sans md:p-6">
+        <LoadingState
+          message="Loading profile..."
+          variant="skeleton"
+          rows={4}
+        />
       </div>
     );
   }
 
+  const roleText = roleLabel(role);
+  const facts = [
+    { label: "01 / Username", value: username || "–" },
+    {
+      label: "02 / Email",
+      value: <span className="font-mono">{user?.email || "–"}</span>,
+    },
+    {
+      label: "03 / Role",
+      value: (
+        <Badge
+          variant={
+            role === "admin"
+              ? "brand"
+              : role === "manager"
+                ? "warning"
+                : "neutral"
+          }
+        >
+          {roleText}
+        </Badge>
+      ),
+    },
+    {
+      label: "04 / Companies",
+      value: <CompanyChips companies={companies} activeId={activeCompany} />,
+    },
+  ];
+
   return (
-    <div className="min-h-screen h-full p-4 font-sans">
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-4 overflow-y-auto rounded-lg bg-zinc-100 p-4">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="w-fit px-1"
-            onClick={() => router.back()}
+    <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
+      <PageHeader
+        eyebrow={`( Account · ${roleText} )`}
+        lead="Your"
+        title="profile."
+        description={
+          canChangePassword
+            ? "Signs in with email and password"
+            : "Signs in with Google"
+        }
+      />
+
+      <dl className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-4">
+        {facts.map((fact) => (
+          <div
+            key={fact.label}
+            className="flex min-w-0 flex-col gap-2 bg-card px-5 py-4"
           >
-            <ChevronLeft />
-            Back
-          </Button>
-        </div>
+            <dt className="eyebrow normal-case tracking-normal">
+              {fact.label}
+            </dt>
+            <dd className="min-w-0 text-sm text-foreground">{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
 
-        <div className="rounded-lg bg-white p-6">
-          <h1 className="text-2xl font-bold">Profile</h1>
-          <p className="mt-1 text-sm text-muted-foreground capitalize">
-            {role || "User"}
-            {user?.email ? ` · ${user.email}` : ""}
+      <ProfileSection
+        label="05 / Active company"
+        description="Switches which company’s accounts, clients, fleet and reports you’re working in."
+      >
+        {companies.length === 0 ? (
+          <p className="rounded-md border bg-surface-muted px-3 py-2.5 text-sm text-muted-foreground">
+            You aren’t assigned to a company yet. Ask an admin to add you to
+            one.
           </p>
-        </div>
-
-        <div className="rounded-lg bg-white p-6 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Username</h2>
-            <p className="text-sm text-muted-foreground">
-              This name appears in the sidebar and across the app.
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="active-company">Company</Label>
+            <Select value={activeCompany} onValueChange={setActiveCompany}>
+              <SelectTrigger id="active-company" className="w-full bg-card">
+                <SelectValue placeholder="Select a company" />
+              </SelectTrigger>
+              <SelectContent position="popper" side="bottom">
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {companies.length === 1
+                ? "You belong to one company."
+                : `You belong to ${companies.length} companies. The switch applies straight away.`}
             </p>
           </div>
+        )}
+      </ProfileSection>
 
-          <Form {...usernameForm}>
+      <ProfileSection
+        label="06 / Username"
+        description="This name appears in the sidebar, on audit entries and across the app."
+      >
+        <Form {...usernameForm}>
+          <form
+            onSubmit={usernameForm.handleSubmit(onSaveUsername)}
+            className="flex flex-col gap-4"
+          >
+            <FormField
+              control={usernameForm.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Your username"
+                      autoComplete="username"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <StatusNote error={usernameError} message={usernameMessage} />
+            <div>
+              <Button type="submit" disabled={savingUsername}>
+                {savingUsername ? "Saving…" : "Save username"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </ProfileSection>
+
+      <ProfileSection
+        label="07 / Password"
+        description="Confirm your current password, then choose a new one of at least 6 characters."
+      >
+        {!canChangePassword ? (
+          <p className="rounded-md border bg-surface-muted px-3 py-2.5 text-sm text-muted-foreground">
+            Your account signs in with Google, so there’s no password to change
+            here.
+          </p>
+        ) : (
+          <Form {...passwordForm}>
             <form
-              onSubmit={usernameForm.handleSubmit(onSaveUsername)}
-              className="space-y-4"
+              onSubmit={passwordForm.handleSubmit(onChangePassword)}
+              className="flex flex-col gap-4"
             >
               <FormField
-                control={usernameForm.control}
-                name="username"
+                control={passwordForm.control}
+                name="currentPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Current password</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your username" {...field} />
+                      <Input
+                        type="password"
+                        autoComplete="current-password"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              {usernameError ? (
-                <p className="text-sm text-destructive">{usernameError}</p>
-              ) : null}
-              {usernameMessage ? (
-                <p className="text-sm text-emerald-600">{usernameMessage}</p>
-              ) : null}
-              <Button type="submit" disabled={savingUsername}>
-                {savingUsername ? "Saving..." : "Save username"}
-              </Button>
-            </form>
-          </Form>
-        </div>
-
-        <div className="rounded-lg bg-white p-6 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Change password</h2>
-            <p className="text-sm text-muted-foreground">
-              Confirm your current password, then set a new one.
-            </p>
-          </div>
-
-          {!canChangePassword ? (
-            <p className="text-sm text-muted-foreground">
-              Password change is only available for accounts that sign in with
-              email and password.
-            </p>
-          ) : (
-            <Form {...passwordForm}>
-              <form
-                onSubmit={passwordForm.handleSubmit(onChangePassword)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={passwordForm.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Current password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          autoComplete="current-password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={passwordForm.control}
                   name="newPassword"
@@ -324,20 +408,65 @@ export default function ProfilePage() {
                     </FormItem>
                   )}
                 />
-                {passwordError ? (
-                  <p className="text-sm text-destructive">{passwordError}</p>
-                ) : null}
-                {passwordMessage ? (
-                  <p className="text-sm text-emerald-600">{passwordMessage}</p>
-                ) : null}
+              </div>
+              <StatusNote error={passwordError} message={passwordMessage} />
+              <div>
                 <Button type="submit" disabled={savingPassword}>
-                  {savingPassword ? "Updating..." : "Update password"}
+                  {savingPassword ? "Updating…" : "Update password"}
                 </Button>
-              </form>
-            </Form>
-          )}
-        </div>
-      </div>
+              </div>
+            </form>
+          </Form>
+        )}
+      </ProfileSection>
     </div>
   );
+}
+
+/** Ruled settings row: caption + description on the left, form on the right. */
+function ProfileSection({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 px-4 py-6 md:grid-cols-[18rem_minmax(0,32rem)] md:gap-10 md:px-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="eyebrow normal-case tracking-normal">{label}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
+}
+
+function StatusNote({
+  error,
+  message,
+}: {
+  error: string | null;
+  message: string | null;
+}) {
+  if (error) {
+    return (
+      <p
+        role="alert"
+        className="rounded-md bg-danger-soft px-3 py-2 text-sm text-destructive"
+      >
+        {error}
+      </p>
+    );
+  }
+  if (message) {
+    return (
+      <output className="block rounded-md bg-success-soft px-3 py-2 text-sm text-success">
+        {message}
+      </output>
+    );
+  }
+  return null;
 }

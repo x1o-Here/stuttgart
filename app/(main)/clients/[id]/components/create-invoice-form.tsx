@@ -8,9 +8,12 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
+import { PageHeader } from "@/components/shared/page-header";
+import { SectionLabel } from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,9 +30,9 @@ import { db } from "@/lib/firebase/firebase-client";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import {
   amountInWords,
-  calculateInvoiceTotals,
   type ClientInvoiceDocument,
   type ClientSnapshot,
+  calculateInvoiceTotals,
   deriveStatusFromBalances,
   type InvoiceTemplate,
   orderedTemplateColumns,
@@ -480,24 +483,41 @@ export default function CreateInvoiceForm({
     }
   }
 
-  return (
-    <div className="space-y-6 rounded-lg bg-white p-4 sm:p-6">
-      <div>
-        <h1 className="text-xl font-semibold">
-          {isEditing ? "Edit Invoice" : "Create Invoice"}
-        </h1>
-        <p className="text-sm text-muted-foreground">{client.name}</p>
-      </div>
+  const backHref = isEditing
+    ? `/clients/${client.id}/invoices/${invoice.id}`
+    : `/clients/${client.id}`;
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label>Tax invoice no</Label>
+  return (
+    <div className="flex min-h-full flex-col divide-y">
+      <PageHeader
+        back={{
+          href: backHref,
+          label: isEditing
+            ? `Invoice ${invoice.taxInvoiceNo || ""}`.trim()
+            : client.name,
+        }}
+        eyebrow={`( ${client.name} )`}
+        lead={isEditing ? "Edit" : "New"}
+        title={isEditing ? "tax invoice." : "tax invoice."}
+        description={
+          taxInvoiceNo.trim() ? `No ${taxInvoiceNo.trim()}` : "Not numbered yet"
+        }
+      />
+
+      <section className="grid gap-4 px-4 py-5 md:grid-cols-3 md:px-6">
+        <div className="md:col-span-3">
+          <SectionLabel>01 / Invoice details</SectionLabel>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invoice-no">Tax invoice no</Label>
           <Input
+            id="invoice-no"
+            className="font-mono"
             value={taxInvoiceNo}
             onChange={(event) => setTaxInvoiceNo(event.target.value)}
           />
         </div>
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label>Date of invoice</Label>
           <CalendarPopover
             value={parseDateInput(invoiceDate)}
@@ -506,7 +526,7 @@ export default function CreateInvoiceForm({
             }}
           />
         </div>
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <Label>Date of delivery</Label>
           <CalendarPopover
             value={parseDateInput(deliveryDate)}
@@ -515,68 +535,80 @@ export default function CreateInvoiceForm({
             }}
           />
         </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label>Place of supply</Label>
+        <div className="flex flex-col gap-2 md:col-span-2">
+          <Label htmlFor="invoice-place">Place of supply</Label>
           <Textarea
+            id="invoice-place"
+            rows={2}
             value={placeOfSupply}
             onChange={(event) => setPlaceOfSupply(event.target.value)}
           />
         </div>
-        <div className="space-y-2">
-          <Label>Additional information if any</Label>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invoice-info">Additional information</Label>
           <Input
+            id="invoice-info"
+            placeholder="Optional"
             value={additionalInfo}
             onChange={(event) => setAdditionalInfo(event.target.value)}
           />
         </div>
-      </div>
+      </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Cost breakdown</h3>
+      <section className="flex flex-col">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
+          <SectionLabel>02 / Cost breakdown</SectionLabel>
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={() =>
               setLines((current) => [...current, newLine(template.columns)])
             }
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Row
+            <Plus />
+            Add row
           </Button>
         </div>
 
-        <div className="overflow-auto rounded-md border">
+        <div className="overflow-auto border-t">
           <table className="w-full min-w-max text-sm">
-            <thead className="bg-muted/40">
+            <thead className="bg-surface-muted">
               <tr>
                 {orderedColumns.map((column) => (
-                  <th key={column.id} className="p-2 text-left font-medium">
+                  <th
+                    key={column.id}
+                    className="border-b px-2 py-2 text-left font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground first:pl-4 md:first:pl-6"
+                  >
                     {column.label}
                     {column.required ? " *" : ""}
                   </th>
                 ))}
-                <th className="w-12 p-2" />
+                <th className="w-12 border-b pr-4 md:pr-6" />
               </tr>
             </thead>
             <tbody>
               {lines.map((line, index) => (
-                <tr key={line.id} className="border-t align-top">
+                <tr key={line.id} className="border-b align-top">
                   {orderedColumns.map((column) => (
                     <td
                       key={column.id}
-                      className={column.key === "no" ? "p-2" : "min-w-32 p-2"}
+                      className={`px-2 py-2 first:pl-4 md:first:pl-6 ${
+                        column.key === "no" ? "" : "min-w-32"
+                      }`}
                     >
                       {column.system
                         ? renderSystemCell(column, line, index)
                         : dynamicInput(column, line)}
                     </td>
                   ))}
-                  <td className="p-2">
+                  <td className="py-2 pr-4 md:pr-6">
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
+                      size="icon-sm"
+                      aria-label="Remove row"
+                      className="text-muted-foreground hover:bg-danger-soft hover:text-destructive"
                       disabled={lines.length === 1}
                       onClick={() =>
                         setLines((current) =>
@@ -584,7 +616,7 @@ export default function CreateInvoiceForm({
                         )
                       }
                     >
-                      <Trash2 className="text-destructive" />
+                      <Trash2 />
                     </Button>
                   </td>
                 </tr>
@@ -594,60 +626,70 @@ export default function CreateInvoiceForm({
         </div>
       </section>
 
-      <div className="ml-auto w-full max-w-md space-y-1.5 rounded-md bg-muted/40 px-4 py-3 text-sm">
-        <div className="flex justify-between gap-4">
-          <span>Total Value of Supply</span>
-          <span className="font-medium tabular-nums">
-            {formatMoney(totals.supplyValue)}
-          </span>
-        </div>
-        <div className="flex justify-between gap-4">
-          <span>VAT Amount (18%)</span>
-          <span className="font-medium tabular-nums">
-            {formatMoney(totals.vatAmount)}
-          </span>
-        </div>
-        <div className="flex justify-between gap-4 border-t pt-2 text-base font-bold">
-          <span>Total including VAT</span>
-          <span className="tabular-nums">
+      <section className="flex flex-col gap-4 px-4 py-5 md:flex-row md:items-start md:justify-between md:px-6">
+        <SectionLabel>03 / Totals</SectionLabel>
+        <dl className="w-full max-w-md divide-y rounded-md border text-sm md:ml-auto">
+          <div className="flex justify-between gap-4 px-4 py-2">
+            <dt className="text-muted-foreground">Total value of supply</dt>
+            <dd className="font-mono tabular-nums">
+              {formatMoney(totals.supplyValue)}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4 px-4 py-2">
+            <dt className="text-muted-foreground">VAT (18%)</dt>
+            <dd className="font-mono tabular-nums">
+              {formatMoney(totals.vatAmount)}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 bg-surface-muted px-4 py-3">
+            <dt className="font-medium">Total including VAT</dt>
+            <dd className="flex items-baseline gap-2">
+              <span className="font-mono text-xs text-muted-foreground">
+                LKR
+              </span>
+              <span className="font-mono text-2xl font-light tabular-nums">
+                {formatMoney(totals.totalIncludingVat)}
+              </span>
+            </dd>
+          </div>
+          <p className="px-4 py-2 text-xs text-muted-foreground">
+            {amountInWords(totals.totalIncludingVat)}
+          </p>
+        </dl>
+      </section>
+
+      <div className="sticky bottom-0 mt-auto flex flex-col gap-3 bg-surface-muted px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
+        {error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : (
+          <p className="font-mono text-xs tabular-nums text-muted-foreground">
+            {lines.length} {lines.length === 1 ? "line" : "lines"} · LKR{" "}
             {formatMoney(totals.totalIncludingVat)}
-          </span>
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => router.push(backHref)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={() => void createInvoice()}
+          >
+            {saving
+              ? isEditing
+                ? "Saving…"
+                : "Creating…"
+              : isEditing
+                ? "Save changes"
+                : "Create invoice"}
+          </Button>
         </div>
-        <p className="pt-1 text-xs text-muted-foreground">
-          {amountInWords(totals.totalIncludingVat)}
-        </p>
-      </div>
-
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={saving}
-          onClick={() =>
-            router.push(
-              isEditing
-                ? `/clients/${client.id}/invoices/${invoice.id}`
-                : `/clients/${client.id}`,
-            )
-          }
-        >
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          disabled={saving}
-          onClick={() => void createInvoice()}
-        >
-          {saving
-            ? isEditing
-              ? "Saving..."
-              : "Creating..."
-            : isEditing
-              ? "Save Changes"
-              : "Create Invoice"}
-        </Button>
       </div>
     </div>
   );

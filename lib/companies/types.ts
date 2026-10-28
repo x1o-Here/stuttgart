@@ -15,8 +15,7 @@ export function mapCompanyDoc(
     id,
     name: typeof data.name === "string" ? data.name : "",
     address: typeof data.address === "string" ? data.address : "",
-    telephoneNo:
-      typeof data.telephoneNo === "string" ? data.telephoneNo : "",
+    telephoneNo: typeof data.telephoneNo === "string" ? data.telephoneNo : "",
     tin: typeof data.tin === "string" ? data.tin : "",
     entityStatus: data.entityStatus !== false,
   };

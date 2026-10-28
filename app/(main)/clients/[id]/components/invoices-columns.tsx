@@ -1,9 +1,10 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { toDate } from "@/lib/helpers/to-date";
 
 export type InvoiceStatus =
@@ -30,25 +31,28 @@ export function isActiveInvoiceStatus(status: InvoiceStatus): boolean {
 }
 
 function formatAmount(amount: number) {
-  return amount.toLocaleString(undefined, {
+  return amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
-function statusVariant(status: InvoiceStatus) {
+export function invoiceStatusVariant(status: InvoiceStatus) {
   switch (status) {
     case "paid":
-      return "default" as const;
+      return "success" as const;
+    case "partial":
+      return "warning" as const;
     case "overdue":
-    case "cancelled":
-      return "destructive" as const;
+      return "danger" as const;
+    case "issued":
+      return "brand" as const;
     default:
-      return "secondary" as const;
+      return "neutral" as const;
   }
 }
 
-function statusLabel(status: InvoiceStatus) {
+export function invoiceStatusLabel(status: InvoiceStatus) {
   if (status === "paid") return "Complete";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -65,44 +69,73 @@ export function getInvoicesColumns(
     {
       accessorKey: "date",
       header: "Date",
+      size: 110,
       cell: ({ row }) => {
         const date = toDate(row.original.date);
-        return date ? date.toLocaleDateString() : "—";
+        return (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {date ? date.toLocaleDateString() : "–"}
+          </span>
+        );
       },
     },
     {
       accessorKey: "taxInvoiceNo",
-      header: "Tax Invoice No",
-    },
-    {
-      accessorKey: "totalAmount",
-      header: "Total Amount",
-      cell: ({ row }) => formatAmount(row.original.totalAmount || 0),
-    },
-    {
-      accessorKey: "outstandingAmount",
-      header: "Outstanding Amount",
-      cell: ({ row }) => formatAmount(row.original.outstandingAmount || 0),
+      header: "Tax invoice no",
+      cell: ({ row }) => (
+        <TruncatedText className="font-mono text-foreground">
+          {row.original.taxInvoiceNo}
+        </TruncatedText>
+      ),
     },
     {
       accessorKey: "status",
-      header: "Invoice Status",
+      header: "Status",
+      size: 110,
       cell: ({ row }) => (
-        <Badge variant={statusVariant(row.original.status)}>
-          {statusLabel(row.original.status)}
+        <Badge variant={invoiceStatusVariant(row.original.status)}>
+          {invoiceStatusLabel(row.original.status)}
         </Badge>
       ),
     },
     {
-      id: "actions",
-      header: "Actions",
-      size: 100,
+      accessorKey: "totalAmount",
+      header: () => <div className="text-right">Total (LKR)</div>,
       cell: ({ row }) => (
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/clients/${clientId}/invoices/${row.original.id}`}>
-            View
-          </Link>
-        </Button>
+        <TruncatedText className="block text-right font-mono tabular-nums">
+          {formatAmount(row.original.totalAmount || 0)}
+        </TruncatedText>
+      ),
+    },
+    {
+      accessorKey: "outstandingAmount",
+      header: () => <div className="text-right">Outstanding (LKR)</div>,
+      cell: ({ row }) => {
+        const amount = row.original.outstandingAmount || 0;
+        return (
+          <TruncatedText
+            className={`block text-right font-mono tabular-nums ${
+              amount > 0 ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {formatAmount(amount)}
+          </TruncatedText>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Open</span>,
+      size: 48,
+      cell: ({ row }) => (
+        <Link
+          href={`/clients/${clientId}/invoices/${row.original.id}`}
+          aria-label={`Open invoice ${row.original.taxInvoiceNo}`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex justify-end text-muted-foreground hover:text-foreground"
+        >
+          <ArrowUpRight className="size-4" />
+        </Link>
       ),
     },
   ];

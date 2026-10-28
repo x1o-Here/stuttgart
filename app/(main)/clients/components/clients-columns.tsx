@@ -1,10 +1,10 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-
 export type ClientStatus = "active" | "inactive";
 
 export type Client = {
@@ -22,45 +22,82 @@ export const clientsColumns: ColumnDef<Client>[] = [
   {
     accessorKey: "name",
     header: "Name",
-    size: 300,
+    size: 280,
+    cell: ({ row }) => (
+      <div className="flex min-w-0 flex-col">
+        <TruncatedText className="font-medium text-foreground">
+          {row.original.name}
+        </TruncatedText>
+        {row.original.vatNo && (
+          <TruncatedText className="font-mono text-xs text-muted-foreground">
+            VAT {row.original.vatNo}
+          </TruncatedText>
+        )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "contactNo",
+    header: "Contact",
+    size: 140,
+    cell: ({ row }) => (
+      <TruncatedText className="font-mono text-xs tabular-nums">
+        {row.original.contactNo || "–"}
+      </TruncatedText>
+    ),
   },
   {
     accessorKey: "status",
     header: "Status",
-    size: 110,
+    size: 100,
     cell: ({ row }) => {
-      const status = row.original.status;
+      const active = row.original.status === "active";
       return (
-        <Badge variant={status === "active" ? "default" : "secondary"}>
-          {status === "active" ? "Active" : "Inactive"}
+        <Badge variant={active ? "success" : "neutral"}>
+          {active ? "Active" : "Inactive"}
         </Badge>
       );
     },
   },
   {
     accessorKey: "activeInvoiceCount",
-    header: "Active Invoices",
+    header: () => <div className="text-right">Open invoices</div>,
     size: 120,
+    cell: ({ row }) => (
+      <div className="text-right font-mono tabular-nums">
+        {row.original.activeInvoiceCount}
+      </div>
+    ),
   },
   {
     accessorKey: "outstandingInvoiceAmount",
-    header: "Outstanding",
+    header: () => <div className="text-right">Outstanding (LKR)</div>,
+    size: 160,
     cell: ({ row }) => {
       const amount = row.original.outstandingInvoiceAmount || 0;
-      return amount.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      return (
+        <TruncatedText className="block text-right font-mono tabular-nums text-foreground">
+          {amount.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </TruncatedText>
+      );
     },
   },
   {
     id: "actions",
-    header: "Actions",
-    size: 100,
+    header: () => <span className="sr-only">Open</span>,
+    size: 48,
     cell: ({ row }) => (
-      <Button asChild variant="outline" size="sm">
-        <Link href={`/clients/${row.original.id}`}>View</Link>
-      </Button>
+      <Link
+        href={`/clients/${row.original.id}`}
+        aria-label={`Open ${row.original.name}`}
+        onClick={(e) => e.stopPropagation()}
+        className="flex justify-end text-muted-foreground hover:text-foreground"
+      >
+        <ArrowUpRight className="size-4" />
+      </Link>
     ),
   },
 ];

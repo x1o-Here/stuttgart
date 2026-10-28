@@ -4,20 +4,22 @@ import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { LoadingState } from "@/components/shared/loading-state";
 import {
+  type ChartConfig,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
+import { FLOW_COLORS } from "./report-colors";
+import { ReportPanel } from "./report-panel";
 
 const chartConfig = {
-  credits: { label: "Credits", color: "#10b981" },
-  debits: { label: "Debits", color: "#f43f5e" },
-  net: { label: "Net", color: "#6366f1" },
+  credits: { label: "Credits", color: FLOW_COLORS.credits },
+  debits: { label: "Debits", color: FLOW_COLORS.debits },
+  net: { label: "Net", color: FLOW_COLORS.net },
 } satisfies ChartConfig;
 
 function monthKey(date: Date) {
@@ -76,48 +78,45 @@ export default function TwelveMonthTrendChart() {
     });
   }, [accounts, selectedAccountId]);
 
-  if (loading) {
-    return (
-      <div className="flex h-full flex-col rounded-xl bg-white p-6">
-        <LoadingState message="Loading trend..." variant="compact" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full min-h-72 flex-col rounded-xl bg-white p-6">
-      <div className="mb-4 border-b border-zinc-100 pb-3">
-        <h3 className="font-semibold text-zinc-800">12-Month Cash Flow</h3>
-        <p className="text-xs text-zinc-500">
-          Credits, debits, and net by month
-        </p>
-      </div>
-
-      <ChartContainer config={chartConfig} className="min-h-0 flex-1 w-full">
-        <BarChart data={data}>
-          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis dataKey="label" tickLine={false} axisLine={false} />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            width={56}
-            tickFormatter={(value) => `${Number(value).toLocaleString()}`}
-          />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <ChartLegend content={<ChartLegendContent />} />
-          <Bar
-            dataKey="credits"
-            fill="var(--color-credits)"
-            radius={[3, 3, 0, 0]}
-          />
-          <Bar
-            dataKey="debits"
-            fill="var(--color-debits)"
-            radius={[3, 3, 0, 0]}
-          />
-          <Bar dataKey="net" fill="var(--color-net)" radius={[3, 3, 0, 0]} />
-        </BarChart>
-      </ChartContainer>
-    </div>
+    <ReportPanel
+      className="min-h-80"
+      label="07 / 12-month cash flow"
+      caption={"Credits, debits and net by month"}
+    >
+      {loading ? (
+        <LoadingState
+          message="Loading trend..."
+          variant="compact"
+          className="flex-1"
+        />
+      ) : (
+        <ChartContainer config={chartConfig} className="min-h-56 w-full flex-1">
+          <BarChart data={data} barGap={2}>
+            <CartesianGrid vertical={false} strokeDasharray="2 4" />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              width={64}
+              tickFormatter={(value) => Number(value).toLocaleString()}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar
+              dataKey="credits"
+              fill="var(--color-credits)"
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar
+              dataKey="debits"
+              fill="var(--color-debits)"
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar dataKey="net" fill="var(--color-net)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ChartContainer>
+      )}
+    </ReportPanel>
   );
 }

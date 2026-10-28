@@ -20,6 +20,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,14 +35,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -62,10 +61,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 
-import {
-  getAllCompanies,
-  type CompanyOption,
-} from "./companies-cache";
+import { type CompanyOption, getAllCompanies } from "./companies-cache";
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -114,7 +110,7 @@ function CompanyMultiSelect({
           aria-expanded={open}
           disabled={loading}
           className={cn(
-            "w-full min-w-72 justify-between font-normal",
+            "w-full justify-between font-normal",
             value.length === 0 && "text-muted-foreground",
           )}
         >
@@ -124,7 +120,7 @@ function CompanyMultiSelect({
               : value.length === 0
                 ? "Select companies"
                 : value.map((companyId) => (
-                    <Badge key={companyId} variant="secondary">
+                    <Badge key={companyId} variant="neutral">
                       {getCompanyName(options, companyId)}
                     </Badge>
                   ))}
@@ -185,7 +181,7 @@ export default function AddUserDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role: currentRole } = useAuth();
 
   useEffect(() => {
     if (!open) return;
@@ -337,122 +333,151 @@ export default function AddUserDialog({
     }
   }
 
+  const rootError = form.formState.errors.root?.message;
+  const watchedEmail = form.watch("email")?.trim();
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setOpen(true);
+          return;
+        }
+        handleCancel();
+      }}
+    >
       <Form {...form}>
         <DialogTrigger asChild>
           <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
+            <Plus />
+            Invite user
           </Button>
         </DialogTrigger>
-        <DialogContent className="w-[500px]">
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader className="pb-4">
-              <DialogTitle>Add a New User</DialogTitle>
-            </DialogHeader>
-            <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
-              <div className="flex flex-col gap-4">
-                <div className="grid gap-4">
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem className="grid grid-cols-3 gap-x-4">
-                        <FormLabel>Username</FormLabel>
-                        <FormControl className="col-span-2">
-                          <Input
-                            type="text"
-                            placeholder="johndoe"
-                            className="w-full  px-3 py-2 border border-gray-300 rounded-md"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+        <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+          <RuledDialogHeader
+            eyebrow="( Administration · New user )"
+            lead="Invite a"
+            title="team member."
+            description="They get an email with a link to set their own password."
+          />
+          <form id="add-user-form" onSubmit={form.handleSubmit(onSubmit)}>
+            <RuledDialogSection label="01 / Person">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="johndoe"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="user@company.com"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </RuledDialogSection>
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem className="grid grid-cols-3 gap-x-4">
-                        <FormLabel>Email</FormLabel>
-                        <FormControl className="col-span-2">
-                          <Input
-                            type="email"
-                            placeholder="user@example.com"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="companies"
-                    render={({ field }) => (
-                      <FormItem className="grid grid-cols-3 gap-x-4">
-                        <FormLabel>Companies</FormLabel>
-                        <FormControl className="col-span-2">
-                          <CompanyMultiSelect
-                            value={field.value}
-                            onChange={field.onChange}
-                            options={companyOptions}
-                            loading={companiesLoading}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem className="grid grid-cols-3 gap-x-4">
-                        <FormLabel>Role</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl className="col-span-2">
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a role" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="user">User</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="submit" disabled={isSubmitting || companiesLoading}>
-                {isSubmitting ? "Creating..." : "Submit"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-            </DialogFooter>
+            <RuledDialogSection label="02 / Access">
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Role</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        {/* Firestore rules: only admins may create admins. */}
+                        {currentRole === "admin" && (
+                          <SelectItem value="admin">Admin</SelectItem>
+                        )}
+                        <SelectItem value="mechanic">Mechanic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="companies"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Companies</FormLabel>
+                    <FormControl>
+                      <CompanyMultiSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={companyOptions}
+                        loading={companiesLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </RuledDialogSection>
           </form>
+          <RuledDialogFooter
+            summary={
+              rootError ? (
+                <span className="text-destructive">{rootError}</span>
+              ) : watchedEmail ? (
+                `Sends an invite to ${watchedEmail}`
+              ) : (
+                "Enter an email to send the invite"
+              )
+            }
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="add-user-form"
+              disabled={isSubmitting || companiesLoading}
+            >
+              {isSubmitting ? "Inviting…" : "Send invite"}
+            </Button>
+          </RuledDialogFooter>
         </DialogContent>
 
         <ConfirmationDialog

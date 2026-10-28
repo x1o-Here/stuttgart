@@ -2,31 +2,36 @@
 
 import {
   type ColumnDef,
-  flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  RuledTable,
+  TableCaption,
+  TablePager,
+} from "@/components/shared/ruled-table";
+import { Input } from "@/components/ui/input";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  caption: string;
+  searchPlaceholder: string;
+  emptyMessage?: string;
 }
 
+/** Searchable, paginated ruled table used by the users and companies tabs. */
 export function DataTable<TData, TValue>({
   columns,
   data,
+  caption,
+  searchPlaceholder,
+  emptyMessage = "No results.",
 }: DataTableProps<TData, TValue>) {
+  const [globalFilter, setGlobalFilter] = useState("");
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
@@ -36,83 +41,40 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
+    globalFilterFn: "includesString",
     state: {
+      globalFilter,
       pagination,
     },
   });
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border bg-white overflow-hidden">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <TableCaption
+          label={caption}
+          count={table.getFilteredRowModel().rows.length}
+        />
+        <Input
+          placeholder={searchPlaceholder}
+          value={globalFilter}
+          onChange={(event) => {
+            setGlobalFilter(event.target.value);
+            table.setPageIndex(0);
+          }}
+        />
       </div>
-      <div className="flex items-center justify-end space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
+      <RuledTable
+        table={table}
+        emptyMessage={
+          globalFilter ? "Nothing matches this search." : emptyMessage
+        }
+      />
+      <TablePager table={table} />
     </div>
   );
 }

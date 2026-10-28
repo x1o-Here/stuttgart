@@ -2,7 +2,6 @@
 
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import {
-  ArrowLeft,
   CircleX,
   Download,
   Filter,
@@ -13,8 +12,9 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -301,356 +301,351 @@ function CustomReportPageContent() {
     tagButtonLabel = "Displaying";
   }
 
-  return (
-    <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
-      <div className="w-full h-full p-4 bg-zinc-100 rounded-lg overflow-y-auto">
-        <div className="mb-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/reports">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to reports
-            </Link>
-          </Button>
-        </div>
-
-        {loading ? (
-          <div className="bg-white rounded-xl p-8">
-            <LoadingState message="Loading report..." variant="bar" />
-          </div>
-        ) : error || !report ? (
-          <div className="bg-white rounded-xl p-8 text-center text-red-500">
-            {error || "Report not found"}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6">
-              <h1 className="text-2xl font-bold text-zinc-800">
-                {report.name}
-              </h1>
-              {report.description ? (
-                <p className="text-zinc-500 mt-2">{report.description}</p>
-              ) : null}
-              <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-600">
-                {report.fromDate && report.toDate ? (
-                  <span>
-                    Period:{" "}
-                    <strong>
-                      {report.fromDate.toLocaleDateString()} –{" "}
-                      {report.toDate.toLocaleDateString()}
-                    </strong>
-                  </span>
-                ) : null}
-                <span>
-                  Accounts: <strong>{report.accountIds?.length || 0}</strong>
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-6">
-              <Tabs defaultValue="accounts">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <TabsList className="gap-1 p-0 bg-transparent">
-                    <TabsTrigger
-                      value="accounts"
-                      className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer"
-                    >
-                      Account summary
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="transactions"
-                      className="data-[state=active]:bg-zinc-100 data-[state=active]:shadow-none data-[state=active]:font-medium font-normal cursor-pointer"
-                    >
-                      Transaction summary
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSaveFilters}
-                      disabled={saving}
-                    >
-                      <Save className="mr-1.5 h-4 w-4" />
-                      {saving ? "Saving..." : "Save"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShareOpen(true)}
-                    >
-                      <Share2 className="mr-1.5 h-4 w-4" />
-                      Share
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExportOpen(true)}
-                    >
-                      <Download className="mr-1.5 h-4 w-4" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-
-                <TabsContent value="accounts" className="mt-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Account</TableHead>
-                        <TableHead className="text-right">Debits</TableHead>
-                        <TableHead className="text-right">Credits</TableHead>
-                        <TableHead className="text-right">Net</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {accountSummaries.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={4}
-                            className="text-center text-zinc-500 py-8"
-                          >
-                            No accounts in this report
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        accountSummaries.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.name}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-red-600">
-                              {item.debits > 0
-                                ? `-${item.debits.toLocaleString()}`
-                                : "0"}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-emerald-600">
-                              {item.credits > 0
-                                ? `+${item.credits.toLocaleString()}`
-                                : "0"}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-zinc-700">
-                              {item.net.toLocaleString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TabsContent>
-
-                <TabsContent value="transactions" className="mt-4 space-y-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative min-w-[220px] flex-1 max-w-sm">
-                      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                      <Input
-                        value={transactionSearch}
-                        onChange={(event) =>
-                          setTransactionSearch(event.target.value)
-                        }
-                        placeholder="Search by date or description..."
-                        className="pl-8"
-                      />
-                    </div>
-
-                    <Select
-                      value={accountFilter}
-                      onValueChange={setAccountFilter}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Accounts</SelectItem>
-                        {selectedAccounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <TransactionTypeFilterSelect
-                      value={typeFilter}
-                      onChange={setTypeFilter}
-                    />
-
-                    <Select
-                      value={departmentFilter}
-                      onValueChange={setDepartmentFilter}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Departments</SelectItem>
-                        {departmentOptions.map((department) => (
-                          <SelectItem key={department} value={department}>
-                            {department}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Select
-                      value={vehicleFilter}
-                      onValueChange={setVehicleFilter}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Vehicle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Vehicles</SelectItem>
-                        {vehicleOptions.map((vehicle) => (
-                          <SelectItem key={vehicle} value={vehicle}>
-                            {vehicle}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="items-center gap-2"
-                        >
-                          <Filter className="h-4 w-4" />
-                          {tagButtonLabel}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        {TAG_OPTIONS.map((status) => {
-                          const isSelected = tagFilter.includes(status);
-
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={status}
-                              checked={isSelected}
-                              onSelect={(e) => e.preventDefault()}
-                              onCheckedChange={(checked) => {
-                                setTagFilter((current) => {
-                                  if (checked) return [...current, status];
-                                  return current.filter(
-                                    (value) => value !== status,
-                                  );
-                                });
-                              }}
-                            >
-                              {status.charAt(0).toUpperCase() + status.slice(1)}
-                            </DropdownMenuCheckboxItem>
-                          );
-                        })}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    {hasActiveFilters ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={clearFilters}
-                        title="Clear filters"
-                      >
-                        <CircleX className="h-4 w-4" />
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Account</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Dept</TableHead>
-                        <TableHead>Vehicle</TableHead>
-                        <TableHead>Voucher</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTransactions.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={8}
-                            className="text-center text-zinc-500 py-8"
-                          >
-                            No transactions match the current filters
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredTransactions.map((tx) => (
-                          <TableRow key={tx.id}>
-                            <TableCell>
-                              {tx.date.toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {tx.accountName}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {tx.description || "-"}
-                            </TableCell>
-                            <TableCell>{tx.department || "-"}</TableCell>
-                            <TableCell>{tx.vehicle || "-"}</TableCell>
-                            <TableCell>{tx.voucher || "-"}</TableCell>
-                            <TableCell>
-                              <span
-                                className={
-                                  tx.type === "debit"
-                                    ? "text-red-600"
-                                    : "text-emerald-600"
-                                }
-                              >
-                                {tx.type === "debit" ? "Debit" : "Credit"}
-                              </span>
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-mono ${
-                                tx.type === "debit"
-                                  ? "text-red-600"
-                                  : "text-emerald-600"
-                              }`}
-                            >
-                              {tx.type === "debit" ? "-" : "+"}
-                              {tx.amount.toLocaleString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            <ShareReportDialog
-              open={shareOpen}
-              onOpenChange={setShareOpen}
-              reportName={report.name}
-            />
-            <ExportReportDialog
-              open={exportOpen}
-              onOpenChange={setExportOpen}
-              reportName={report.name}
-              periodLabel={
-                report.fromDate && report.toDate
-                  ? `${report.fromDate.toLocaleDateString()} – ${report.toDate.toLocaleDateString()}`
-                  : "-"
-              }
-              fromDate={report.fromDate}
-              toDate={report.toDate}
-              accountNames={selectedAccounts.map((account) => account.name)}
-              accountSummaries={accountSummaries}
-              transactions={filteredTransactions}
-            />
-          </div>
-        )}
+  if (loading) {
+    return (
+      <div className="h-full bg-card p-4 font-sans md:p-6">
+        <LoadingState message="Loading report..." variant="bar" />
       </div>
+    );
+  }
+
+  if (error || !report) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-card p-6 text-center font-sans">
+        <span className="eyebrow">( Not found )</span>
+        <p className="heading text-2xl">
+          <span className="text-muted-foreground">This report</span>{" "}
+          {error ? "could not be loaded." : "doesn’t exist."}
+        </p>
+        <Link
+          href="/reports"
+          className="font-mono text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Back to reports
+        </Link>
+      </div>
+    );
+  }
+
+  const period =
+    report.fromDate && report.toDate
+      ? `${report.fromDate.toLocaleDateString()} – ${report.toDate.toLocaleDateString()}`
+      : "No period set";
+  const accountCount = report.accountIds?.length || 0;
+  const tabTrigger =
+    "h-10 flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 font-normal text-muted-foreground shadow-none data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
+  const th =
+    "font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground first:pl-4 last:pr-4 md:first:pl-6 md:last:pr-6";
+  const td = "py-2.5 first:pl-4 last:pr-4 md:first:pl-6 md:last:pr-6";
+  const signed = (value: number) =>
+    `${value >= 0 ? "+" : "−"}${Math.abs(value).toLocaleString()}`;
+
+  return (
+    <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
+      <PageHeader
+        back={{ href: "/reports", label: "Reports" }}
+        eyebrow="( Reports · Custom )"
+        title={report.name}
+        description={`${period} · ${accountCount} account${accountCount === 1 ? "" : "s"}`}
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSaveFilters}
+              disabled={saving}
+            >
+              <Save />
+              {saving ? "Saving…" : "Save filters"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShareOpen(true)}
+            >
+              <Share2 />
+              Share
+            </Button>
+            <Button type="button" onClick={() => setExportOpen(true)}>
+              <Download />
+              Export
+            </Button>
+          </>
+        }
+      />
+
+      {report.description ? (
+        <p className="max-w-3xl px-4 py-3 text-sm text-muted-foreground md:px-6">
+          {report.description}
+        </p>
+      ) : null}
+
+      <Tabs
+        defaultValue="accounts"
+        className="flex min-h-[24rem] flex-1 flex-col gap-0"
+      >
+        <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-0 border-b bg-transparent p-0 px-4 md:px-6">
+          <TabsTrigger value="accounts" className={tabTrigger}>
+            01 / Account summary
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className={tabTrigger}>
+            02 / Transactions
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="accounts" className="mt-0 overflow-auto">
+          <Table>
+            <TableHeader className="bg-surface-muted">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={th}>Account</TableHead>
+                <TableHead className={`text-right ${th}`}>Debits</TableHead>
+                <TableHead className={`text-right ${th}`}>Credits</TableHead>
+                <TableHead className={`text-right ${th}`}>Net</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {accountSummaries.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={4}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    No accounts in this report.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                accountSummaries.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-surface-muted">
+                    <TableCell className={`font-medium text-foreground ${td}`}>
+                      {item.name}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums ${td} ${item.debits > 0 ? "text-destructive" : "text-muted-foreground"}`}
+                    >
+                      {item.debits > 0
+                        ? `−${item.debits.toLocaleString()}`
+                        : "0"}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums ${td} ${item.credits > 0 ? "text-success" : "text-muted-foreground"}`}
+                    >
+                      {item.credits > 0
+                        ? `+${item.credits.toLocaleString()}`
+                        : "0"}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono tabular-nums text-foreground ${td}`}
+                    >
+                      {signed(item.net)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TabsContent>
+
+        <TabsContent value="transactions" className="mt-0 flex flex-col">
+          <div className="flex flex-col gap-3 px-4 py-3 md:px-6">
+            <div className="flex items-baseline gap-3">
+              <span className="eyebrow normal-case tracking-normal">
+                Transactions
+              </span>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {filteredTransactions.length}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-48 flex-1">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={transactionSearch}
+                  onChange={(event) => setTransactionSearch(event.target.value)}
+                  placeholder="Search by date or description"
+                  className="pl-8"
+                />
+              </div>
+
+              <Select value={accountFilter} onValueChange={setAccountFilter}>
+                <SelectTrigger className="w-full bg-card sm:w-44">
+                  <SelectValue placeholder="Account" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All accounts</SelectItem>
+                  {selectedAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <TransactionTypeFilterSelect
+                value={typeFilter}
+                onChange={setTypeFilter}
+              />
+
+              <Select
+                value={departmentFilter}
+                onValueChange={setDepartmentFilter}
+              >
+                <SelectTrigger className="w-full bg-card sm:w-44">
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All departments</SelectItem>
+                  {departmentOptions.map((department) => (
+                    <SelectItem key={department} value={department}>
+                      {department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={vehicleFilter} onValueChange={setVehicleFilter}>
+                <SelectTrigger className="w-full bg-card sm:w-44">
+                  <SelectValue placeholder="Vehicle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All vehicles</SelectItem>
+                  {vehicleOptions.map((vehicle) => (
+                    <SelectItem key={vehicle} value={vehicle}>
+                      {vehicle}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <Filter />
+                    {tagButtonLabel}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {TAG_OPTIONS.map((status) => {
+                    const isSelected = tagFilter.includes(status);
+
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={status}
+                        checked={isSelected}
+                        onSelect={(e) => e.preventDefault()}
+                        onCheckedChange={(checked) => {
+                          setTagFilter((current) => {
+                            if (checked) return [...current, status];
+                            return current.filter((value) => value !== status);
+                          });
+                        }}
+                      >
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {hasActiveFilters ? (
+                <Button type="button" variant="ghost" onClick={clearFilters}>
+                  <CircleX />
+                  Clear
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="overflow-auto border-t">
+            <Table>
+              <TableHeader className="bg-surface-muted">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={th}>Date</TableHead>
+                  <TableHead className={th}>Account</TableHead>
+                  <TableHead className={th}>Description</TableHead>
+                  <TableHead className={th}>Dept</TableHead>
+                  <TableHead className={th}>Vehicle</TableHead>
+                  <TableHead className={th}>V/No</TableHead>
+                  <TableHead className={`text-right ${th}`}>Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={7}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      No transactions match these filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredTransactions.map((tx) => (
+                    <TableRow
+                      key={tx.id}
+                      className="text-foreground/80 hover:bg-surface-muted"
+                    >
+                      <TableCell
+                        className={`font-mono text-xs tabular-nums text-muted-foreground ${td}`}
+                      >
+                        {tx.date.toLocaleDateString()}
+                      </TableCell>
+                      <TableCell
+                        className={`font-medium text-foreground ${td}`}
+                      >
+                        {tx.accountName}
+                      </TableCell>
+                      <TableCell className={`max-w-xs truncate ${td}`}>
+                        {tx.description || "–"}
+                      </TableCell>
+                      <TableCell className={td}>
+                        {tx.department || "–"}
+                      </TableCell>
+                      <TableCell className={`font-mono ${td}`}>
+                        {tx.vehicle || "–"}
+                      </TableCell>
+                      <TableCell className={`font-mono ${td}`}>
+                        {tx.voucher || "–"}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-mono tabular-nums ${td} ${
+                          tx.type === "debit"
+                            ? "text-destructive"
+                            : "text-success"
+                        }`}
+                        title={tx.type === "debit" ? "Debit" : "Credit"}
+                      >
+                        {tx.type === "debit" ? "−" : "+"}
+                        {tx.amount.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <ShareReportDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        reportName={report.name}
+      />
+      <ExportReportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        reportName={report.name}
+        periodLabel={
+          report.fromDate && report.toDate
+            ? `${report.fromDate.toLocaleDateString()} – ${report.toDate.toLocaleDateString()}`
+            : "-"
+        }
+        fromDate={report.fromDate}
+        toDate={report.toDate}
+        accountNames={selectedAccounts.map((account) => account.name)}
+        accountSummaries={accountSummaries}
+        transactions={filteredTransactions}
+      />
     </div>
   );
 }

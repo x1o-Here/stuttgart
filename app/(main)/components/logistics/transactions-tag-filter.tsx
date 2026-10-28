@@ -8,6 +8,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TAG_OPTIONS } from "@/lib/helpers/transaction-tags";
@@ -39,24 +41,28 @@ export function TransactionsTagFilter<TData>({
     setSelectedStatuses(filterValue);
   }, [tagsColumn]);
 
-  let buttonLabel = "All";
+  let buttonLabel = "All statuses";
   if (selectedStatuses.length === 1) {
     buttonLabel =
       selectedStatuses[0].charAt(0).toUpperCase() +
       selectedStatuses[0].slice(1);
   } else if (selectedStatuses.length > 1) {
-    buttonLabel = "Displaying";
+    buttonLabel = `${selectedStatuses.length} statuses`;
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="items-center gap-2">
-          <Filter className="h-4 w-4" />
+        <Button variant="outline" aria-label={`Status filter: ${buttonLabel}`}>
+          <Filter />
           {buttonLabel}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel className="eyebrow font-normal">
+          ( Show )
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
         {TAG_OPTIONS.map((status) => {
           const isSelected = selectedStatuses.includes(status);
 

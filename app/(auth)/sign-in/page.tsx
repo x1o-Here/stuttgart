@@ -12,21 +12,12 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
-import { Bodoni_Moda } from "next/font/google";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
+import { BlueprintLorry } from "@/components/shared/blueprint-lorry";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/auth-context";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
@@ -37,12 +28,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/auth-context";
 import { auth, db } from "@/lib/firebase/firebase-client";
-
-const bodoniModa = Bodoni_Moda({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
 
 const formSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -140,22 +127,29 @@ function SignInForm() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="flex gap-2 justify-center items-center text-4xl">
-            <Regex className="size-10 text-red-500" strokeWidth={1.5} />
-            <p className={`font-thin tracking-tight ${bodoniModa.className}`}>
-              Stuttgart
-            </p>
-          </CardTitle>
-          <CardDescription className="text-center">
-            Enter your email below to sign in to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 mt-4">
+    <div className="grid min-h-dvh bg-card lg:grid-cols-[minmax(0,30rem)_1fr]">
+      <div className="flex flex-col">
+        <header className="flex h-14 items-center gap-2 border-b px-6">
+          <Regex className="size-6 text-destructive" strokeWidth={1.5} />
+          <span className="font-bodoni text-2xl font-light text-foreground/80">
+            Stuttgart
+          </span>
+        </header>
+
+        <main className="flex flex-1 flex-col justify-center gap-8 px-6 py-10 sm:px-10">
+          <div className="flex flex-col gap-3">
+            <span className="eyebrow">( Sign in · Ledger access )</span>
+            <h1 className="heading text-3xl leading-tight">
+              <span className="text-muted-foreground">Welcome back.</span> Sign
+              in to continue.
+            </h1>
+          </div>
+
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="flex flex-col gap-4"
+            >
               <FormField
                 control={form.control}
                 name="email"
@@ -163,7 +157,12 @@ function SignInForm() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="name@example.com" {...field} />
+                      <Input
+                        type="email"
+                        autoComplete="email"
+                        placeholder="name@company.com"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -176,7 +175,11 @@ function SignInForm() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" {...field} />
+                      <Input
+                        type="password"
+                        autoComplete="current-password"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -186,54 +189,78 @@ function SignInForm() {
                 control={form.control}
                 name="rememberMe"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-1 space-y-0 text-sm">
+                  <FormItem className="flex flex-row items-center gap-2 space-y-0 text-sm">
                     <FormControl>
                       <Checkbox
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="font-normal">Remember me</FormLabel>
+                    <FormLabel className="font-normal">
+                      Keep me signed in on this device
+                    </FormLabel>
                   </FormItem>
                 )}
               />
               {form.formState.errors.root && (
-                <div className="text-sm font-medium text-destructive">
+                <div className="rounded-md bg-danger-soft px-3 py-2 text-sm font-medium text-destructive">
                   {form.formState.errors.root.message}
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
+              <Button
+                type="submit"
+                className="mt-2 h-10 w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in…" : "Sign in"}
               </Button>
             </form>
           </Form>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
+
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" />
+            <span className="eyebrow">Or</span>
+            <span className="h-px flex-1 bg-border" />
           </div>
+
           <Button
             variant="outline"
             type="button"
+            className="h-10"
             disabled={isLoading}
             onClick={handleGoogleSignIn}
           >
-            <Chrome className="mr-2 h-4 w-4" />
-            Google
+            <Chrome />
+            Continue with Google
           </Button>
-        </CardContent>
-        <CardFooter>
-          <p className="text-center text-sm text-gray-600 mt-2 w-full">
-            Don't have an account? Contact your administrator.
+        </main>
+
+        <footer className="border-t px-6 py-4">
+          <p className="font-mono text-xs text-muted-foreground">
+            Accounts are created by your administrator.
           </p>
-        </CardFooter>
-      </Card>
+        </footer>
+      </div>
+
+      <aside className="relative hidden flex-col justify-between overflow-hidden border-l bg-card lg:flex">
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-10 top-0 h-px w-[160%] origin-top-left rotate-[24deg] bg-border"
+        />
+        <div className="relative flex h-14 items-center justify-end border-b px-8">
+          <span className="eyebrow">( Finance · Fleet · Operations )</span>
+        </div>
+        <div className="relative flex flex-1 items-center justify-center px-12">
+          <BlueprintLorry className="h-auto w-full max-w-2xl" />
+        </div>
+        <div className="relative border-t px-8 py-8">
+          <p className="heading max-w-lg text-4xl leading-tight">
+            <span className="text-muted-foreground">Built like a ledger.</span>{" "}
+            Runs your fleet.
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

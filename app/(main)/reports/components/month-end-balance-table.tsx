@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import {
   Table,
   TableBody,
@@ -11,8 +13,8 @@ import {
 } from "@/components/ui/table";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { LoadingState } from "@/components/shared/loading-state";
-import { LINE_COLORS } from "./chart-component";
+import { seriesColor } from "./report-colors";
+import { ReportPanel, reportTd, reportTh } from "./report-panel";
 
 export default function MonthEndBalanceTable() {
   const { accounts, loading } = useAccountsContext();
@@ -41,67 +43,76 @@ export default function MonthEndBalanceTable() {
     });
   }, [accounts, selectedMonthYear]);
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-        <div className="border-b border-zinc-100 pb-4 shrink-0">
-          <h3 className="font-semibold text-zinc-800">Month-End Balances</h3>
-          <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
-        </div>
+  return (
+    <ReportPanel
+      label="02 / Month-end balances"
+      caption={`${selectedMonthYear} · click a row to focus the trend`}
+      bodyClassName="p-0"
+    >
+      {loading ? (
         <LoadingState
           message="Loading balances..."
           variant="compact"
           className="flex-1"
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full p-6">
-      <div className="border-b border-zinc-100 pb-4 shrink-0">
-        <h3 className="font-semibold text-zinc-800">Month-End Balances</h3>
-        <p className="text-xs text-zinc-500">{selectedMonthYear}</p>
-      </div>
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="shrink-0">
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto border-t">
           <Table className="table-fixed">
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-surface-muted">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-10"></TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead className="w-28 text-right">Balance</TableHead>
+                <TableHead className={`w-8 ${reportTh}`} />
+                <TableHead className={reportTh}>Account</TableHead>
+                <TableHead className={`w-32 text-right ${reportTh}`}>
+                  Balance (LKR)
+                </TableHead>
               </TableRow>
             </TableHeader>
-          </Table>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <Table className="table-fixed">
             <TableBody>
               {monthEndBalances.map((item, index) => {
                 const isSelected =
                   selectedAccountId === "all" || selectedAccountId === item.id;
+                const select = () =>
+                  setSelectedAccountId(
+                    selectedAccountId === item.id ? "all" : item.id,
+                  );
                 return (
                   <TableRow
                     key={item.id}
-                    className={`${!isSelected ? "opacity-40 grayscale" : "hover:bg-zinc-50"} transition-all`}
-                    onClick={() => setSelectedAccountId(item.id)}
-                    style={{ cursor: "pointer" }}
+                    tabIndex={0}
+                    aria-selected={selectedAccountId === item.id}
+                    className={`cursor-pointer transition-opacity hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none ${
+                      isSelected ? "" : "opacity-40"
+                    }`}
+                    onClick={select}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        select();
+                      }
+                    }}
                   >
-                    <TableCell className="w-10">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{
-                          backgroundColor:
-                            LINE_COLORS[index % LINE_COLORS.length],
-                        }}
+                    <TableCell className={`w-8 ${reportTd}`}>
+                      <span
+                        className="block size-2.5 rounded-full"
+                        style={{ backgroundColor: seriesColor(index) }}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-zinc-700">
-                      {item.name}
+                    <TableCell
+                      className={`overflow-hidden font-medium text-foreground ${reportTd}`}
+                    >
+                      <TruncatedText>{item.name}</TruncatedText>
                     </TableCell>
-                    <TableCell className="w-28 text-right font-mono text-zinc-600">
-                      {item.balance.toLocaleString()}
+                    <TableCell
+                      className={`w-32 text-right font-mono tabular-nums ${reportTd} ${
+                        item.balance < 0
+                          ? "text-destructive"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {item.balance.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
                   </TableRow>
                 );
@@ -109,7 +120,7 @@ export default function MonthEndBalanceTable() {
             </TableBody>
           </Table>
         </div>
-      </div>
-    </div>
+      )}
+    </ReportPanel>
   );
 }

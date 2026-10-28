@@ -7,23 +7,13 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
 import {
-  canCompleteInvoice,
   type ClientInvoiceDocument,
+  canCompleteInvoice,
   roundMoney,
 } from "../../../invoice-model";
 
@@ -91,38 +81,39 @@ export default function CompleteInvoiceDialog({
   if (invoice.status === "paid") {
     return (
       <Button disabled variant="outline">
-        Completed
+        Complete
       </Button>
     );
   }
 
+  const money = (value: number) =>
+    roundMoney(value).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button disabled={!canComplete}>Complete Invoice</Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Complete this invoice?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {canComplete
-              ? `Payments cover the full amount of ${roundMoney(invoice.totalIncludingVat).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Marking it complete will set outstanding to 0 and status to Complete.`
-              : `Payments must cover the full invoice amount before you can complete it. Outstanding: ${roundMoney(invoice.outstandingAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={completing}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={completing || !canComplete}
-            onClick={(event) => {
-              event.preventDefault();
-              void handleComplete();
-            }}
-          >
-            {completing ? "Completing..." : "Complete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!completing) setOpen(next);
+      }}
+      trigger={<Button disabled={!canComplete}>Complete invoice</Button>}
+      eyebrow={`( Complete · Invoice ${invoice.taxInvoiceNo || "–"} )`}
+      lead="Complete"
+      title="this invoice?"
+      description={
+        canComplete
+          ? `Payments cover the full LKR ${money(invoice.totalIncludingVat)}. Outstanding is set to 0 and the status to Complete.`
+          : `Payments must cover the full amount first. Outstanding: LKR ${money(invoice.outstandingAmount)}.`
+      }
+      confirmLabel={completing ? "Completing…" : "Complete invoice"}
+      cancelLabel="Cancel"
+      destructive={false}
+      pending={completing}
+      confirmDisabled={!canComplete}
+      keepOpen
+      onConfirm={() => void handleComplete()}
+    />
   );
 }

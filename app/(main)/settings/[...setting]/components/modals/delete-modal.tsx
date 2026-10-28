@@ -2,31 +2,27 @@
 
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { releaseAllForVehicle } from "@/lib/inventory/spare-parts";
 import { type CollectionKey, useLookupStore } from "@/stores/use-lookup-store";
 
 interface DeleteModalProps {
   entityLabel: string;
   itemId: string;
   itemName: string;
+  onDeleted?: () => void;
+  /** "icon" for table rows (default), "button" for page headers. */
+  triggerVariant?: "icon" | "button";
 }
 
 export default function DeleteModal({
   entityLabel,
   itemId,
   itemName,
+  onDeleted,
+  triggerVariant = "icon",
 }: DeleteModalProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -39,12 +35,21 @@ export default function DeleteModal({
       ? "vehicles"
       : label === "account type"
         ? "account-types"
-        : "departments";
+        : label === "supplier type"
+          ? "supplier-types"
+          : "departments";
 
   const handleDelete = async () => {
     if (!activeCompany || !user) return;
     try {
       setIsDeleting(true);
+      if (collectionKey === "vehicles") {
+        // No part may point at a deleted vehicle: return fitted parts first.
+        await releaseAllForVehicle(activeCompany, user.uid, {
+          id: itemId,
+          name: itemName,
+        });
+      }
       await deleteItem(
         activeCompany,
         user.uid,
@@ -53,6 +58,7 @@ export default function DeleteModal({
         itemName,
       );
       setOpen(false);
+      onDeleted?.();
     } catch (error) {
       console.error(`Failed to delete ${entityLabel.toLowerCase()}`, error);
     } finally {
@@ -61,35 +67,42 @@ export default function DeleteModal({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="cursor-pointer w-8 h-8 text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete {entityLabel}</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to delete the {entityLabel.toLowerCase()}{" "}
-            <strong>{itemName}</strong>? This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="bg-destructive hover:bg-destructive/90 text-white"
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!isDeleting) setOpen(next);
+      }}
+      trigger={
+        triggerVariant === "button" ? (
+          <Button variant="outline">
+            <Trash2 />
+            Delete
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Delete ${itemName}`}
+            className="text-muted-foreground hover:bg-danger-soft hover:text-destructive"
+            onClick={(event) => event.stopPropagation()}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            <Trash2 />
+          </Button>
+        )
+      }
+      eyebrow={`( Delete ${label} )`}
+      lead="Delete"
+      title={`${itemName}?`}
+      description={`This ${label} is removed from your lists. Existing transactions keep the name they were recorded with.${
+        collectionKey === "vehicles"
+          ? " Any spare parts fitted to it return to stock."
+          : ""
+      } This can’t be undone.`}
+      confirmLabel={isDeleting ? "Deleting…" : `Delete ${label}`}
+      cancelLabel="Keep it"
+      pending={isDeleting}
+      keepOpen
+      onConfirm={() => void handleDelete()}
+    />
   );
 }

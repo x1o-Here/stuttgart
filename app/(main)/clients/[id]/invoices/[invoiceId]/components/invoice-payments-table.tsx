@@ -3,7 +3,6 @@
 import {
   type ColumnDef,
   type ColumnFiltersState,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
@@ -13,6 +12,7 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -21,27 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type {
   ClientInvoiceDocument,
   InvoicePayment,
 } from "../../../invoice-model";
-import {
-  outstandingFromPayments,
-  roundMoney,
-} from "../../../invoice-model";
+import { outstandingFromPayments, roundMoney } from "../../../invoice-model";
 import DeleteInvoicePaymentDialog from "./delete-invoice-payment-dialog";
 import InvoicePaymentDialog from "./invoice-payment-dialog";
 
 function formatMoney(value: number) {
-  return roundMoney(value).toLocaleString(undefined, {
+  return roundMoney(value).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -102,18 +91,22 @@ export default function InvoicePaymentsTable({
         id: "date",
         accessorFn: (row) => row.date,
         header: "Date",
-        cell: ({ row }) =>
-          row.original.date.getTime()
-            ? row.original.date.toLocaleDateString()
-            : "—",
+        size: 110,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {row.original.date.getTime()
+              ? row.original.date.toLocaleDateString()
+              : "–"}
+          </span>
+        ),
       },
       {
         id: "description",
         accessorFn: (row) => row.description,
         header: "Description",
         cell: ({ row }) => (
-          <span className="block min-w-40 whitespace-normal">
-            {row.original.description?.trim() || "—"}
+          <span className="block whitespace-normal">
+            {row.original.description?.trim() || "–"}
           </span>
         ),
       },
@@ -121,29 +114,40 @@ export default function InvoicePaymentsTable({
         id: "chequeNo",
         accessorFn: (row) => row.chequeNo,
         header: "Cheque no",
-        cell: ({ row }) => row.original.chequeNo || "—",
+        size: 120,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {row.original.chequeNo || "–"}
+          </span>
+        ),
       },
       {
         id: "amount",
         accessorFn: (row) => row.amount,
-        header: "Amount",
-        cell: ({ row }) => formatMoney(row.original.amount),
+        header: () => <div className="text-right">Amount (LKR)</div>,
+        size: 150,
+        cell: ({ row }) => (
+          <div className="text-right font-mono tabular-nums text-success">
+            {formatMoney(row.original.amount)}
+          </div>
+        ),
       },
       {
         id: "creditingAccountName",
         accessorFn: (row) => row.creditingAccountName,
         header: "Crediting account",
         cell: ({ row }) => (
-          <span className="block min-w-32 whitespace-normal">
-            {row.original.creditingAccountName?.trim() || "—"}
+          <span className="block whitespace-normal">
+            {row.original.creditingAccountName?.trim() || "–"}
           </span>
         ),
       },
       {
         id: "actions",
-        header: "Actions",
+        header: () => <span className="sr-only">Actions</span>,
+        size: 96,
         cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center justify-end gap-1">
             <InvoicePaymentDialog
               clientId={clientId}
               invoice={invoice}
@@ -202,19 +206,37 @@ export default function InvoicePaymentsTable({
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+    <div className="flex min-h-[20rem] flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <TableCaption
+              label="Payments"
+              count={table.getFilteredRowModel().rows.length}
+            />
+            <p className="text-xs text-muted-foreground">
+              When payments cover the total, outstanding reaches 0 and the
+              invoice is marked complete.
+            </p>
+          </div>
+          <InvoicePaymentDialog
+            clientId={clientId}
+            invoice={invoice}
+            outstandingAmount={outstandingAmount}
+            disabled={locked || outstandingAmount <= 0}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder="Search description, cheque no, account..."
-            className="min-w-0 flex-1"
+            placeholder="Search description, cheque no or account"
+            className="min-w-48 flex-1"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <div className="w-44" aria-label="From date">
+          <div className="w-full sm:w-44">
             <CalendarPopover value={dateFrom} onChange={setDateFrom} />
           </div>
-          <div className="w-44" aria-label="To date">
+          <div className="w-full sm:w-44">
             <CalendarPopover value={dateTo} onChange={setDateTo} />
           </div>
           <Select
@@ -223,7 +245,7 @@ export default function InvoicePaymentsTable({
               setAmountFilter(value)
             }
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full bg-card sm:w-44">
               <SelectValue placeholder="Amount filter" />
             </SelectTrigger>
             <SelectContent>
@@ -233,59 +255,9 @@ export default function InvoicePaymentsTable({
             </SelectContent>
           </Select>
         </div>
-        <InvoicePaymentDialog
-          clientId={clientId}
-          invoice={invoice}
-          outstandingAmount={outstandingAmount}
-          disabled={locked || outstandingAmount <= 0}
-        />
       </div>
 
-      <div className="overflow-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  No payments recorded yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <RuledTable table={table} emptyMessage="No payments recorded yet." />
     </div>
   );
 }

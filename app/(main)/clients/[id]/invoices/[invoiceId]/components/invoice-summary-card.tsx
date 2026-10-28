@@ -1,34 +1,14 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import type * as React from "react";
 import type { ClientInvoiceDocument } from "../../../invoice-model";
-import {
-  outstandingFromPayments,
-  roundMoney,
-} from "../../../invoice-model";
+import { outstandingFromPayments, roundMoney } from "../../../invoice-model";
 
 function formatMoney(value: number) {
-  return roundMoney(value).toLocaleString(undefined, {
+  return roundMoney(value).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-function statusVariant(status: ClientInvoiceDocument["status"]) {
-  switch (status) {
-    case "paid":
-      return "default" as const;
-    case "overdue":
-    case "cancelled":
-      return "destructive" as const;
-    default:
-      return "secondary" as const;
-  }
-}
-
-function statusLabel(status: ClientInvoiceDocument["status"]) {
-  if (status === "paid") return "Complete";
-  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 type InvoiceSummaryCardProps = {
@@ -37,6 +17,22 @@ type InvoiceSummaryCardProps = {
   paidAmount?: number;
 };
 
+function Money({ value, strong }: { value: number; strong?: boolean }) {
+  return (
+    <span className="flex items-baseline gap-2">
+      <span className="font-mono text-xs text-muted-foreground">LKR</span>
+      <span
+        className={`font-mono tabular-nums ${
+          strong ? "text-2xl font-light text-foreground" : "text-base"
+        }`}
+      >
+        {formatMoney(value)}
+      </span>
+    </span>
+  );
+}
+
+/** Ruled facts grid summarising an invoice's figures. */
 export default function InvoiceSummaryCard({
   invoice,
   paidAmount = 0,
@@ -45,71 +41,39 @@ export default function InvoiceSummaryCard({
     invoice.status === "paid"
       ? 0
       : outstandingFromPayments(invoice.totalIncludingVat, paidAmount);
-  const isComplete = outstanding <= 0 && roundMoney(invoice.totalIncludingVat) > 0;
+
+  const facts: { label: string; value: React.ReactNode }[] = [
+    {
+      label: "01 / Purchaser",
+      value: <span>{invoice.client.name || "–"}</span>,
+    },
+    {
+      label: "02 / Value of supply",
+      value: <Money value={invoice.totalAmount} />,
+    },
+    { label: "03 / VAT", value: <Money value={invoice.vatAmount} /> },
+    {
+      label: "04 / Total incl. VAT",
+      value: <Money value={invoice.totalIncludingVat} />,
+    },
+    { label: "05 / Paid", value: <Money value={paidAmount} /> },
+    {
+      label: "06 / Outstanding",
+      value: <Money value={outstanding} strong />,
+    },
+  ];
 
   return (
-    <div className="rounded-lg bg-white p-4 sm:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Invoice</h1>
-          <p className="text-sm text-muted-foreground">
-            {invoice.taxInvoiceNo || "Untitled"}
-          </p>
+    <dl className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      {facts.map((fact) => (
+        <div
+          key={fact.label}
+          className="flex min-w-0 flex-col gap-2 bg-card px-5 py-4"
+        >
+          <dt className="eyebrow normal-case tracking-normal">{fact.label}</dt>
+          <dd className="min-w-0 text-sm text-foreground">{fact.value}</dd>
         </div>
-        <Badge variant={statusVariant(invoice.status)}>
-          {statusLabel(invoice.status)}
-        </Badge>
-      </div>
-
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <dt className="text-sm text-muted-foreground">Tax invoice no</dt>
-          <dd className="font-medium">{invoice.taxInvoiceNo || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">Date of invoice</dt>
-          <dd className="font-medium">
-            {invoice.date.getTime()
-              ? invoice.date.toLocaleDateString()
-              : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">Purchaser name</dt>
-          <dd className="font-medium">{invoice.client.name || "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">Total value of supply</dt>
-          <dd className="font-medium tabular-nums">
-            {formatMoney(invoice.totalAmount)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">VAT amount</dt>
-          <dd className="font-medium tabular-nums">
-            {formatMoney(invoice.vatAmount)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">
-            Total amount including VAT
-          </dt>
-          <dd className="font-medium tabular-nums">
-            {formatMoney(invoice.totalIncludingVat)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-sm text-muted-foreground">Outstanding amount</dt>
-          <dd className="font-medium tabular-nums">
-            {formatMoney(outstanding)}
-          </dd>
-          {isComplete ? (
-            <Badge className="mt-2" variant="default">
-              Complete
-            </Badge>
-          ) : null}
-        </div>
-      </dl>
-    </div>
+      ))}
+    </dl>
   );
 }

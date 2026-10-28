@@ -1,4 +1,5 @@
 import { type ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { toDate } from "@/lib/helpers/to-date";
 import { tagsColumnFilterFn } from "@/lib/helpers/transaction-tags";
@@ -30,7 +31,13 @@ function DepartmentBadge({ departmentName }: { departmentName: string }) {
     (d) => d.name.trim().toLowerCase() === name.toLowerCase(),
   );
   const label = dept?.shortForm?.trim() || name;
-  return <Badge variant="secondary">{label}</Badge>;
+  return (
+    <Badge variant="neutral" className="max-w-full">
+      <TruncatedText tooltip={dept?.name?.trim() || name}>
+        {label}
+      </TruncatedText>
+    </Badge>
+  );
 }
 
 export const transactionsColumns: ColumnDef<Transaction>[] = [
@@ -40,7 +47,11 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     size: 90,
     cell: ({ row }) => {
       const date = toDate(row.getValue("date"));
-      return date ? date.toLocaleDateString() : "-";
+      return (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {date ? date.toLocaleDateString() : "-"}
+        </span>
+      );
     },
   },
   {
@@ -94,7 +105,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Amount",
+    header: () => <div className="text-right">Amount</div>,
     size: 125,
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("amount"));
@@ -103,7 +114,11 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(amount);
 
-      return <span>{formatted}</span>;
+      return (
+        <TruncatedText className="block text-right font-mono tabular-nums text-foreground">
+          {formatted}
+        </TruncatedText>
+      );
     },
     meta: { globalFilter: true },
   },
