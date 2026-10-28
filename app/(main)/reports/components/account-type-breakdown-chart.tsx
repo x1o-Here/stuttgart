@@ -1,21 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { LoadingState } from "@/components/shared/loading-state";
 import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { LINE_COLORS } from "./chart-component";
+import { ReportPanel } from "./report-panel";
 
 const chartConfig = {
   balance: { label: "Balance" },
-  activity: { label: "Activity" },
+  activity: { label: "Volume (LKR)", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 export default function AccountTypeBreakdownChart() {
@@ -40,10 +40,7 @@ export default function AccountTypeBreakdownChart() {
 
       for (const tx of account.transactions) {
         const txDate = new Date(tx.date);
-        if (
-          txDate.getMonth() === monthIndex &&
-          txDate.getFullYear() === year
-        ) {
+        if (txDate.getMonth() === monthIndex && txDate.getFullYear() === year) {
           current.activity += tx.amount;
         }
       }
@@ -61,51 +58,53 @@ export default function AccountTypeBreakdownChart() {
       .sort((a, b) => b.activity - a.activity);
   }, [accounts, selectedMonthYear]);
 
-  if (loading) {
-    return (
-      <div className="flex h-full flex-col rounded-xl bg-white p-6">
-        <LoadingState message="Loading account types..." variant="compact" />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full min-h-72 flex-col rounded-xl bg-white p-6">
-      <div className="mb-4 border-b border-zinc-100 pb-3">
-        <h3 className="font-semibold text-zinc-800">By Account Type</h3>
-        <p className="text-xs text-zinc-500">
-          Balance and monthly activity · {selectedMonthYear}
-        </p>
-      </div>
-
-      {data.length ? (
-        <ChartContainer config={chartConfig} className="min-h-0 flex-1 w-full">
-          <BarChart data={data} layout="vertical" margin={{ left: 12 }}>
-            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-            <XAxis type="number" tickLine={false} axisLine={false} />
+    <ReportPanel
+      className="min-h-80"
+      label="06 / By account type"
+      caption={`Transaction volume this month · ${selectedMonthYear}`}
+    >
+      {loading ? (
+        <LoadingState
+          message="Loading account types..."
+          variant="compact"
+          className="flex-1"
+        />
+      ) : data.length ? (
+        <ChartContainer config={chartConfig} className="min-h-56 w-full flex-1">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ left: 12, right: 8 }}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="2 4" />
+            <XAxis
+              type="number"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => Number(value).toLocaleString()}
+            />
             <YAxis
               type="category"
               dataKey="type"
-              width={100}
+              width={110}
               tickLine={false}
               axisLine={false}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="activity" radius={[0, 4, 4, 0]}>
-              {data.map((entry, index) => (
-                <Cell
-                  key={entry.type}
-                  fill={LINE_COLORS[index % LINE_COLORS.length]}
-                />
-              ))}
-            </Bar>
+            <Bar
+              dataKey="activity"
+              fill="var(--color-activity)"
+              radius={[0, 4, 4, 0]}
+              maxBarSize={22}
+            />
           </BarChart>
         </ChartContainer>
       ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
+        <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           No account type data yet.
-        </div>
+        </p>
       )}
-    </div>
+    </ReportPanel>
   );
 }

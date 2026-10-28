@@ -2,69 +2,25 @@
 
 import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { LoadingState } from "@/components/shared/loading-state";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { LoadingState } from "@/components/shared/loading-state";
+import { ChartLegendPopover } from "./chart-legend-popover";
+import { SERIES_COLORS, seriesColor } from "./report-colors";
+import { ReportPanel } from "./report-panel";
 
-// indigo-500, emerald-500, rose-500, amber-500, sky-500, violet-500, pink-500, cyan-500
-export const LINE_COLORS = [
-  "#6366f1",
-  "#10b981",
-  "#f43f5e",
-  "#f59e0b",
-  "#0ea5e9",
-  "#8b5cf6",
-  "#ec4899",
-  "#06b6d4",
-];
+/** @deprecated use seriesColor() from ./report-colors */
+export const LINE_COLORS = SERIES_COLORS;
 
 export default function ChartComponent() {
   const { accounts, loading } = useAccountsContext();
-  const {
-    selectedMonthYear,
-    setSelectedMonthYear,
-    selectedAccountId,
-    setSelectedAccountId,
-  } = useReportFilter();
-
-  // Derive unique months from all transactions across all accounts
-  const monthOptions = useMemo(() => {
-    const months = new Set<string>();
-    accounts.forEach((acc) => {
-      acc.transactions.forEach((tx) => {
-        const date = new Date(tx.date);
-        months.add(
-          date.toLocaleString("default", { month: "short", year: "numeric" }),
-        );
-      });
-    });
-
-    // Ensure current month is always an option
-    const now = new Date();
-    months.add(
-      now.toLocaleString("default", { month: "short", year: "numeric" }),
-    );
-
-    return Array.from(months).sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
-      return dateB.getTime() - dateA.getTime();
-    });
-  }, [accounts]);
+  const { selectedMonthYear, selectedAccountId, setSelectedAccountId } =
+    useReportFilter();
 
   // Determine which accounts to display
   const activeAccounts = useMemo(() => {
@@ -75,14 +31,14 @@ export default function ChartComponent() {
   // Generate chart configuration dynamically for labels and colors
   const chartConfig = useMemo(() => {
     const config: any = {};
-    activeAccounts.forEach((acc, index) => {
+    activeAccounts.forEach((acc) => {
       config[acc.id] = {
         label: acc.name,
-        color: LINE_COLORS[index % LINE_COLORS.length],
+        color: seriesColor(accounts.indexOf(acc)),
       };
     });
     return config;
-  }, [activeAccounts]);
+  }, [activeAccounts, accounts]);
 
   // Calculate daily data with multiple account entries
   const chartData = useMemo(() => {
@@ -130,102 +86,75 @@ export default function ChartComponent() {
     return dailyData;
   }, [activeAccounts, selectedMonthYear]);
 
-  if (loading) {
-    return (
-      <div className="h-full w-full flex flex-col p-6">
+  const caption =
+    selectedAccountId === "all"
+      ? `Daily balance · ${selectedMonthYear}${
+          accounts.length > SERIES_COLORS.length
+            ? ` · accounts after the ${SERIES_COLORS.length}th in gray`
+            : ""
+        }`
+      : `Daily balance · ${selectedMonthYear}`;
+
+  return (
+    <ReportPanel
+      label="01 / Account balance trends"
+      caption={caption}
+      actions={
+        loading ? null : (
+          <ChartLegendPopover
+            items={accounts.map((acc, index) => ({
+              id: acc.id,
+              label: acc.name,
+              color: seriesColor(index),
+            }))}
+            selectedId={selectedAccountId}
+            onSelect={setSelectedAccountId}
+          />
+        )
+      }
+    >
+      {loading ? (
         <LoadingState
           message="Loading account trends..."
           variant="bar"
           className="my-auto"
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full w-full flex flex-col p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-xl font-bold text-zinc-800">
-          Account Balance Trends
-        </h2>
-        <div className="flex gap-3">
-          <Select
-            value={selectedMonthYear}
-            onValueChange={setSelectedMonthYear}
-          >
-            <SelectTrigger className="w-[140px] bg-white border-zinc-200">
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={selectedAccountId}
-            onValueChange={setSelectedAccountId}
-          >
-            <SelectTrigger className="w-[180px] bg-white border-zinc-200">
-              <SelectValue placeholder="Select account" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Accounts</SelectItem>
-              {accounts.map((acc) => (
-                <SelectItem key={acc.id} value={acc.id}>
-                  {acc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0">
-        <ChartContainer config={chartConfig} className="h-full w-full">
+      ) : (
+        <ChartContainer config={chartConfig} className="h-full min-h-64 w-full">
           <LineChart
             data={chartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+            margin={{ top: 8, right: 8, left: 8, bottom: 0 }}
           >
-            <CartesianGrid
-              vertical={false}
-              strokeDasharray="3 3"
-              stroke="#e5e7eb"
-            />
+            <CartesianGrid vertical={false} strokeDasharray="2 4" />
             <XAxis
               dataKey="date"
               tickLine={false}
               axisLine={false}
-              tickMargin={10}
-              tick={{ fill: "#6b7280", fontSize: 12 }}
+              tickMargin={8}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
-              tickMargin={10}
-              tick={{ fill: "#6b7280", fontSize: 12 }}
-              tickFormatter={(value) => `Rs ${value.toLocaleString()}`}
+              tickMargin={8}
+              width={72}
+              tickFormatter={(value) => Number(value).toLocaleString()}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <ChartLegend content={<ChartLegendContent />} />
-            {activeAccounts.map((acc, index) => (
+            {activeAccounts.map((acc) => (
               <Line
                 key={acc.id}
                 type="monotone"
                 dataKey={acc.id}
-                stroke={LINE_COLORS[index % LINE_COLORS.length]}
+                stroke={seriesColor(accounts.indexOf(acc))}
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 0 }}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }}
                 name={acc.name}
               />
             ))}
           </LineChart>
         </ChartContainer>
-      </div>
-    </div>
+      )}
+    </ReportPanel>
   );
 }

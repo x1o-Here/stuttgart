@@ -1,12 +1,13 @@
 "use client";
 
 import { doc, onSnapshot } from "firebase/firestore";
-import { ChevronLeft, Download, Printer } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
@@ -32,7 +33,6 @@ function waitForNextPaint() {
 
 export default function InvoiceDocumentPage() {
   const params = useParams();
-  const router = useRouter();
   const { activeCompany } = useAuth();
   const clientId = typeof params.id === "string" ? params.id : undefined;
   const invoiceId =
@@ -196,80 +196,80 @@ export default function InvoiceDocumentPage() {
     }
   }
 
+  const backHref =
+    clientId && invoiceId
+      ? `/clients/${clientId}/invoices/${invoiceId}`
+      : clientId
+        ? `/clients/${clientId}`
+        : "/clients";
+
   return (
-    <div className="min-h-screen h-full p-4 font-sans">
-      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-4 rounded-lg bg-zinc-50 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="w-fit px-1"
-            onClick={() =>
-              router.push(
-                clientId && invoiceId
-                  ? `/clients/${clientId}/invoices/${invoiceId}`
-                  : clientId
-                    ? `/clients/${clientId}`
-                    : "/clients",
-              )
-            }
-          >
-            <ChevronLeft />
-            Back
-          </Button>
-          {!loading && invoice && clientId ? (
-            <div className="flex flex-wrap items-center gap-2">
+    <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
+      <PageHeader
+        back={{
+          href: backHref,
+          label: invoice?.taxInvoiceNo
+            ? `Invoice ${invoice.taxInvoiceNo}`
+            : "Invoice details",
+        }}
+        eyebrow={"( Invoice details )"}
+        lead="Tax invoice"
+        title={invoice?.taxInvoiceNo || (loading ? "…" : "Not found")}
+        description={invoice ? invoice.client.name : undefined}
+        actions={
+          !loading && invoice && clientId ? (
+            <>
               {exportError ? (
                 <p className="text-sm text-destructive">{exportError}</p>
               ) : null}
               <Button
                 variant="outline"
                 disabled={exporting}
-                onClick={() => void handlePdfAction("download")}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {busyAction === "download" ? "Downloading..." : "Download PDF"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={exporting}
                 onClick={() => void handlePdfAction("print")}
               >
-                <Printer className="mr-2 h-4 w-4" />
-                {busyAction === "print" ? "Preparing..." : "Print PDF"}
+                <Printer />
+                {busyAction === "print" ? "Preparing…" : "Print"}
               </Button>
-              <Button asChild variant="outline">
-                <Link href={`/clients/${clientId}/invoices/${invoice.id}`}>
-                  Details
-                </Link>
+              <Button
+                disabled={exporting}
+                onClick={() => void handlePdfAction("download")}
+              >
+                <Download />
+                {busyAction === "download" ? "Downloading…" : "Download PDF"}
               </Button>
-            </div>
-          ) : null}
-        </div>
+            </>
+          ) : null
+        }
+      />
 
+      <div className="flex-1 bg-canvas px-4 py-6 md:px-8 md:py-10">
         {loading ? (
-          <LoadingState
-            message="Loading tax invoice..."
-            variant="skeleton"
-            rows={8}
-          />
-        ) : notFound || !invoice ? (
-          <div className="rounded-lg bg-white p-6">
-            <h1 className="text-xl font-semibold">Invoice not found</h1>
-          </div>
-        ) : (
-          <div ref={previewRef}>
-            <InvoicePreview
-              template={invoice.template}
-              client={invoice.client}
-              taxInvoiceNo={invoice.taxInvoiceNo}
-              invoiceDate={invoice.date}
-              delivery={invoice.delivery}
-              lineItems={invoice.lineItems}
-              totalAmount={invoice.totalAmount}
-              status={invoice.status}
-              exportTopGap={exporting}
+          <div className="rounded-md border bg-card p-6">
+            <LoadingState
+              message="Loading tax invoice..."
+              variant="skeleton"
+              rows={8}
             />
+          </div>
+        ) : notFound || !invoice ? (
+          <p className="py-16 text-center text-sm text-muted-foreground">
+            This invoice doesn’t exist.
+          </p>
+        ) : (
+          <div className="mx-auto w-fit max-w-full overflow-x-auto rounded-md border bg-white shadow-card">
+            <div ref={previewRef}>
+              <InvoicePreview
+                template={invoice.template}
+                client={invoice.client}
+                taxInvoiceNo={invoice.taxInvoiceNo}
+                invoiceDate={invoice.date}
+                delivery={invoice.delivery}
+                lineItems={invoice.lineItems}
+                totalAmount={invoice.totalAmount}
+                status={invoice.status}
+                exportTopGap={exporting}
+              />
+            </div>
           </div>
         )}
       </div>

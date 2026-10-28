@@ -41,7 +41,7 @@ export default function InvoicesStatusFilter({
         }
       }}
     >
-      <SelectTrigger className="w-40 shrink-0">
+      <SelectTrigger className="w-full shrink-0 bg-card sm:w-40">
         <SelectValue placeholder="Status" />
       </SelectTrigger>
       <SelectContent>

@@ -2,7 +2,6 @@
 
 import {
   type ColumnDef,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
@@ -10,18 +9,12 @@ import {
 } from "@tanstack/react-table";
 import { CircleX } from "lucide-react";
 import { useState } from "react";
+import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TransactionTypeFilterSelect } from "@/components/shared/transaction-type-filter-select";
 import { TransactionsSortPopover } from "@/components/shared/transactions-sort-popover";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { TransactionsTagFilter } from "../../../components/logistics/transactions-tag-filter";
 
 interface DataTableProps<TData, TValue> {
@@ -73,6 +66,11 @@ export function TransactionsDataTable<TData, TValue>({
   >([]);
 
   const table = useReactTable({
+    defaultColumn: {
+      cell: ({ getValue }) => (
+        <TruncatedText>{String(getValue() ?? "")}</TruncatedText>
+      ),
+    },
     data,
     columns,
     state: {
@@ -97,109 +95,56 @@ export function TransactionsDataTable<TData, TValue>({
   });
 
   return (
-    <div className="flex flex-col flex-1 gap-4 min-h-0">
-      <div className="w-full flex items-center justify-between gap-2 shrink-0">
-        <TransactionsSortPopover
-          onSortChange={(column, direction) => {
-            setSorting([
-              { id: column, desc: direction === "desc" },
-              { id: "createdAt", desc: true },
-            ]);
-          }}
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <TableCaption
+          label="Ledger"
+          count={table.getFilteredRowModel().rows.length}
         />
-
-        <Input
-          placeholder="Search by Description or Amount..."
-          className="w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <TransactionTypeFilterSelect
-          value={columnFilters.find((f) => f.id === "type")?.value ?? "all"}
-          onChange={(value) => {
-            if (value === "all") {
-              setColumnFilters((prev) => prev.filter((f) => f.id !== "type"));
-            } else {
-              setColumnFilters((prev) => [
-                ...prev.filter((f) => f.id !== "type"),
-                { id: "type", value },
+        <div className="flex w-full flex-wrap items-center gap-2">
+          <TransactionsSortPopover
+            onSortChange={(column, direction) => {
+              setSorting([
+                { id: column, desc: direction === "desc" },
+                { id: "createdAt", desc: true },
               ]);
-            }
-          }}
-        />
+            }}
+          />
 
-        <TransactionsTagFilter table={table as unknown as any} />
+          <Input
+            placeholder="Search by description or amount"
+            className="min-w-48 flex-1"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setColumnFilters([])}
-        >
-          <CircleX />
-        </Button>
+          <TransactionTypeFilterSelect
+            value={columnFilters.find((f) => f.id === "type")?.value ?? "all"}
+            onChange={(value) => {
+              if (value === "all") {
+                setColumnFilters((prev) => prev.filter((f) => f.id !== "type"));
+              } else {
+                setColumnFilters((prev) => [
+                  ...prev.filter((f) => f.id !== "type"),
+                  { id: "type", value },
+                ]);
+              }
+            }}
+          />
+
+          <TransactionsTagFilter table={table as unknown as any} />
+
+          <Button variant="ghost" onClick={() => setColumnFilters([])}>
+            <CircleX />
+            Clear
+          </Button>
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-md border overflow-auto relative">
-        <Table className="table-fixed w-full border-separate border-spacing-0">
-          <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow
-                key={headerGroup.id}
-                className="bg-white hover:bg-white"
-              >
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className="border-l border-gray-100 first:border-l-0"
-                    style={{ width: `${header.getSize()}px` }}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="text-gray-600"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className="border-l border-b border-gray-100 first:border-l-0"
-                      style={{ width: `${cell.column.getSize()}px` }}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-gray-600"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <RuledTable
+        table={table}
+        emptyMessage="No transactions match these filters."
+      />
     </div>
   );
 }

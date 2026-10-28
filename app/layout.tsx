@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Geist, Geist_Mono } from "next/font/google";
+import {
+  Bodoni_Moda,
+  Geist,
+  Geist_Mono,
+  Instrument_Sans,
+} from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
 import "./globals.css";
 
@@ -11,6 +16,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 const bodoniModa = Bodoni_Moda({
@@ -32,7 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${bodoniModa.variable} antialiased bg-white`}
+        className={`${geistSans.variable} ${geistMono.variable} ${bodoniModa.variable} ${instrumentSans.variable} antialiased bg-canvas text-foreground`}
       >
         <AuthProvider>{children}</AuthProvider>
       </body>

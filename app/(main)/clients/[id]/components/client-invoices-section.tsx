@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  collection,
-  onSnapshot,
-  orderBy,
-  query,
-} from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useAuth } from "@/contexts/auth-context";
@@ -141,17 +136,17 @@ export default function ClientInvoicesSection({
     return unsubscribe;
   }, [activeCompany, client.id]);
 
-  return (
-    <div className="p-4 bg-white rounded-lg flex flex-col gap-4">
-      {loading ? (
+  if (loading) {
+    return (
+      <div className="p-4">
         <LoadingState
           message="Loading invoices..."
           variant="skeleton"
           rows={4}
         />
-      ) : (
-        <InvoicesTable columns={columns} data={invoices} client={client} />
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return <InvoicesTable columns={columns} data={invoices} />;
 }

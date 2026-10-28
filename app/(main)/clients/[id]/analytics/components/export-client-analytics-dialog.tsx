@@ -4,15 +4,15 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { FileSpreadsheet, FileText, Printer } from "lucide-react";
 import { useState } from "react";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { ClientAnalyticsPayload } from "./client-analytics-types";
 
 type ExportClientAnalyticsDialogProps = {
@@ -69,11 +69,14 @@ function money(value: number) {
   });
 }
 
-function buildCsv(payload: ClientAnalyticsPayload, options: {
-  includeSummary: boolean;
-  includeInvoices: boolean;
-  includePayments: boolean;
-}) {
+function buildCsv(
+  payload: ClientAnalyticsPayload,
+  options: {
+    includeSummary: boolean;
+    includeInvoices: boolean;
+    includePayments: boolean;
+  },
+) {
   const lines: string[] = [];
   lines.push(csvLine(["Client Analytics", payload.clientName]));
   lines.push(csvLine(["Generated", new Date().toISOString()]));
@@ -146,11 +149,14 @@ function buildCsv(payload: ClientAnalyticsPayload, options: {
   return `\uFEFF${lines.join("\n")}`;
 }
 
-function buildPdf(payload: ClientAnalyticsPayload, options: {
-  includeSummary: boolean;
-  includeInvoices: boolean;
-  includePayments: boolean;
-}) {
+function buildPdf(
+  payload: ClientAnalyticsPayload,
+  options: {
+    includeSummary: boolean;
+    includeInvoices: boolean;
+    includePayments: boolean;
+  },
+) {
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   let cursorY = 14;
 
@@ -178,8 +184,9 @@ function buildPdf(payload: ClientAnalyticsPayload, options: {
       ],
       styles: { fontSize: 9 },
     });
-    cursorY = (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 8;
+    cursorY =
+      (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 8;
   }
 
   if (options.includeInvoices) {
@@ -202,8 +209,9 @@ function buildPdf(payload: ClientAnalyticsPayload, options: {
       ]),
       styles: { fontSize: 8 },
     });
-    cursorY = (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
-      .finalY + 8;
+    cursorY =
+      (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 8;
   }
 
   if (options.includePayments) {
@@ -255,9 +263,11 @@ export default function ExportClientAnalyticsDialog({
 
   function handleDownloadPdf() {
     if (!canExport) return;
-    buildPdf(payload, { includeSummary, includeInvoices, includePayments }).save(
-      `${safeName}-analytics.pdf`,
-    );
+    buildPdf(payload, {
+      includeSummary,
+      includeInvoices,
+      includePayments,
+    }).save(`${safeName}-analytics.pdf`);
     onOpenChange(false);
   }
 
@@ -273,61 +283,91 @@ export default function ExportClientAnalyticsDialog({
     onOpenChange(false);
   }
 
+  const included = [
+    includeSummary && "summary",
+    includeInvoices && "invoices",
+    includePayments && "payments",
+  ].filter(Boolean);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Export analytics</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            Choose what to include for {payload.clientName}.
-          </p>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={includeSummary}
-              onCheckedChange={(checked) => setIncludeSummary(checked === true)}
-            />
-            Summary metrics
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={includeInvoices}
-              onCheckedChange={(checked) => setIncludeInvoices(checked === true)}
-            />
-            Invoice list
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={includePayments}
-              onCheckedChange={(checked) => setIncludePayments(checked === true)}
-            />
-            Payment list
-          </label>
-        </div>
-
-        <DialogFooter className="flex-col gap-2 sm:flex-col">
-          <Button disabled={!canExport} onClick={handleDownloadPdf}>
-            <FileText className="mr-2 h-4 w-4" />
-            Download PDF
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!canExport}
-            onClick={handleDownloadCsv}
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Download CSV
-          </Button>
-          <Button variant="outline" disabled={!canExport} onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" />
-            Print
-          </Button>
+      <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+        <RuledDialogHeader
+          eyebrow={`( Export · ${payload.clientName} )`}
+          lead="Export"
+          title="analytics."
+          description="Choose what to include, then pick a format."
+        />
+        <RuledDialogSection label="01 / Include">
+          {[
+            {
+              id: "export-summary",
+              label: "Summary metrics",
+              checked: includeSummary,
+              set: setIncludeSummary,
+            },
+            {
+              id: "export-invoices",
+              label: "Invoice list",
+              checked: includeInvoices,
+              set: setIncludeInvoices,
+            },
+            {
+              id: "export-payments",
+              label: "Payment list",
+              checked: includePayments,
+              set: setIncludePayments,
+            },
+          ].map((option) => (
+            <label
+              key={option.id}
+              htmlFor={option.id}
+              className="flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 text-sm transition-colors hover:bg-surface-muted sm:col-span-2"
+            >
+              <Checkbox
+                id={option.id}
+                checked={option.checked}
+                onCheckedChange={(checked) => option.set(checked === true)}
+              />
+              {option.label}
+            </label>
+          ))}
+        </RuledDialogSection>
+        <RuledDialogSection label="02 / Format">
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <Button
+              variant="outline"
+              disabled={!canExport}
+              onClick={handleDownloadCsv}
+            >
+              <FileSpreadsheet />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!canExport}
+              onClick={handlePrint}
+            >
+              <Printer />
+              Print
+            </Button>
+          </div>
+        </RuledDialogSection>
+        <RuledDialogFooter
+          summary={
+            included.length
+              ? `Includes ${included.join(", ")}`
+              : "Select at least one section"
+          }
+        >
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-        </DialogFooter>
+          <Button disabled={!canExport} onClick={handleDownloadPdf}>
+            <FileText />
+            Download PDF
+          </Button>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

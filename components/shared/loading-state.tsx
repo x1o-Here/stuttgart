@@ -1,8 +1,8 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type LoadingStateProps = {
   message?: string;
@@ -21,28 +21,28 @@ export function LoadingState({
   if (variant === "bar") {
     return (
       <div className={cn("w-full space-y-2", className)}>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-1/3 animate-[loading-bar_1.1s_linear_infinite] rounded-full bg-primary" />
+        <div className="h-0.5 w-full overflow-hidden bg-border">
+          <div className="h-full w-1/3 animate-[loading-bar_1.1s_linear_infinite] bg-brand" />
         </div>
-        {message ? (
-          <p className="text-sm text-muted-foreground">{message}</p>
-        ) : null}
+        {message ? <p className="eyebrow">{message}</p> : null}
       </div>
     );
   }
 
   if (variant === "skeleton") {
     return (
-      <div className={cn("w-full space-y-3", className)}>
+      <div className={cn("flex w-full flex-col gap-2", className)}>
         {message ? (
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <p className="eyebrow mb-1 flex items-center gap-2">
+            <Loader2 className="size-3 animate-spin" />
             {message}
           </p>
         ) : null}
-        {Array.from({ length: rows }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
-        ))}
+        {Array.from({ length: rows }, (_, i) => `skeleton-row-${i}`).map(
+          (key) => (
+            <Skeleton key={key} className="h-9 w-full rounded-md" />
+          ),
+        )}
       </div>
     );
   }
@@ -55,8 +55,8 @@ export function LoadingState({
           className,
         )}
       >
-        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-        <span>{message}</span>
+        <Loader2 className="size-4 shrink-0 animate-spin" />
+        <span className="eyebrow">{message}</span>
       </div>
     );
   }
@@ -68,8 +68,8 @@ export function LoadingState({
         className,
       )}
     >
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-sm">{message}</p>
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <p className="eyebrow">{message}</p>
     </div>
   );
 }

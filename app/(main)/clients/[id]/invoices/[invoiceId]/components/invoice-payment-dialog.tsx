@@ -9,18 +9,17 @@ import {
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
-import { Pencil, Plus } from "lucide-react";
+import { ArrowRight, Pencil, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,8 +32,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { db } from "@/lib/firebase/firebase-client";
 import type { Account } from "@/hooks/use-accounts";
+import { db } from "@/lib/firebase/firebase-client";
 import {
   type ClientInvoiceDocument,
   defaultInvoicePaymentDescription,
@@ -73,7 +72,9 @@ function parseDateInput(value: string): Date | undefined {
 function findAccountByName(accounts: Account[], name: string) {
   const target = name.trim().toLowerCase();
   if (!target) return undefined;
-  return accounts.find((account) => account.name.trim().toLowerCase() === target);
+  return accounts.find(
+    (account) => account.name.trim().toLowerCase() === target,
+  );
 }
 
 function accountTxRef(
@@ -264,20 +265,30 @@ export default function InvoicePaymentDialog({
 
         // Reverse previous balances, then apply the new ones.
         if (previousCreditId) {
-          batch.update(doc(db, "companies", activeCompany, "accounts", previousCreditId), {
-            balance: increment(-previousAmount),
-          });
+          batch.update(
+            doc(db, "companies", activeCompany, "accounts", previousCreditId),
+            {
+              balance: increment(-previousAmount),
+            },
+          );
         }
         if (previousDebitId) {
-          batch.update(doc(db, "companies", activeCompany, "accounts", previousDebitId), {
-            balance: increment(previousAmount),
-          });
+          batch.update(
+            doc(db, "companies", activeCompany, "accounts", previousDebitId),
+            {
+              balance: increment(previousAmount),
+            },
+          );
         }
 
         // Remove old transaction docs if the account changed.
         if (previousCreditId && previousCreditId !== creditAccount.id) {
           batch.delete(
-            accountTxRef(activeCompany, previousCreditId, payment.transactionId),
+            accountTxRef(
+              activeCompany,
+              previousCreditId,
+              payment.transactionId,
+            ),
           );
         }
         if (previousDebitId && previousDebitId !== debitAccount.id) {
@@ -307,29 +318,44 @@ export default function InvoicePaymentDialog({
           { merge: true },
         );
 
-        batch.update(doc(db, "companies", activeCompany, "accounts", creditAccount.id), {
-          balance: increment(paymentAmount),
-        });
-        batch.update(doc(db, "companies", activeCompany, "accounts", debitAccount.id), {
-          balance: increment(-paymentAmount),
-        });
+        batch.update(
+          doc(db, "companies", activeCompany, "accounts", creditAccount.id),
+          {
+            balance: increment(paymentAmount),
+          },
+        );
+        batch.update(
+          doc(db, "companies", activeCompany, "accounts", debitAccount.id),
+          {
+            balance: increment(-paymentAmount),
+          },
+        );
       } else {
-        batch.set(accountTxRef(activeCompany, creditAccount.id, transactionId), {
-          ...txPayload,
-          type: "credit",
-          createdAt: serverTimestamp(),
-        });
+        batch.set(
+          accountTxRef(activeCompany, creditAccount.id, transactionId),
+          {
+            ...txPayload,
+            type: "credit",
+            createdAt: serverTimestamp(),
+          },
+        );
         batch.set(accountTxRef(activeCompany, debitAccount.id, transactionId), {
           ...txPayload,
           type: "debit",
           createdAt: serverTimestamp(),
         });
-        batch.update(doc(db, "companies", activeCompany, "accounts", creditAccount.id), {
-          balance: increment(paymentAmount),
-        });
-        batch.update(doc(db, "companies", activeCompany, "accounts", debitAccount.id), {
-          balance: increment(-paymentAmount),
-        });
+        batch.update(
+          doc(db, "companies", activeCompany, "accounts", creditAccount.id),
+          {
+            balance: increment(paymentAmount),
+          },
+        );
+        batch.update(
+          doc(db, "companies", activeCompany, "accounts", debitAccount.id),
+          {
+            balance: increment(-paymentAmount),
+          },
+        );
       }
 
       const payload = {
@@ -391,19 +417,39 @@ export default function InvoicePaymentDialog({
     }
   }
 
+  const money = (value: number) =>
+    value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  const amountValue = Number(amount);
+  const creditingName = activeAccounts.find(
+    (account) => account.id === creditingAccountId,
+  )?.name;
+  const summary =
+    amountValue > 0 && creditingName
+      ? `LKR ${money(amountValue)} · ${clientAccount?.name ?? invoice.client.name} → ${creditingName}`
+      : `Outstanding LKR ${money(outstanding)}`;
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        if (saving) return;
         setOpen(next);
-        if (!next && !saving && !isEditing) resetForm();
+        if (!next && !isEditing) resetForm();
       }}
     >
       {isEditing ? (
         <DialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm" disabled={disabled}>
-            <Pencil className="mr-1 h-3.5 w-3.5" />
-            Edit
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Edit payment"
+            disabled={disabled}
+          >
+            <Pencil />
           </Button>
         </DialogTrigger>
       ) : (
@@ -412,37 +458,21 @@ export default function InvoicePaymentDialog({
             className="shrink-0"
             disabled={disabled || outstanding <= 0 || invoice.status === "paid"}
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Payment
+            <Plus />
+            Record payment
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Edit invoice payment" : "Add invoice payment"}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className={ruledDialogContentClass}>
+        <RuledDialogHeader
+          eyebrow={`( Payment · Invoice ${invoice.taxInvoiceNo || "–"} )`}
+          lead={isEditing ? "Edit" : "Record a"}
+          title={isEditing ? "payment." : "payment."}
+          description={`Outstanding on this invoice: LKR ${money(outstanding)}.`}
+        />
 
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Outstanding:{" "}
-            <span className="font-medium text-foreground tabular-nums">
-              {outstanding.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Debiting account:{" "}
-            <span className="font-medium text-foreground">
-              {clientAccount?.name ||
-                `create an account named "${invoice.client.name}"`}
-            </span>
-          </p>
-
-          <div className="space-y-2">
+        <RuledDialogSection label="01 / Details">
+          <div className="flex flex-col gap-2">
             <Label>Date</Label>
             <CalendarPopover
               value={parseDateInput(date)}
@@ -451,94 +481,134 @@ export default function InvoicePaymentDialog({
               }}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Description</Label>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="payment-cheque">Cheque no</Label>
+            <Input
+              id="payment-cheque"
+              value={chequeNo}
+              placeholder="Optional"
+              className="font-mono"
+              onChange={(event) => setChequeNo(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Label htmlFor="payment-description">Description</Label>
             <Textarea
+              id="payment-description"
+              rows={2}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Cheque no</Label>
-            <Input
-              value={chequeNo}
-              placeholder="Optional"
-              onChange={(event) => setChequeNo(event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Amount</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0.01"
-              max={maxAmount}
-              value={amount}
-              onChange={(event) => {
-                const next = event.target.value;
-                if (next === "") {
-                  setAmount("");
-                  return;
-                }
-                const parsed = Number(next);
-                if (!Number.isFinite(parsed)) {
-                  setAmount(next);
-                  return;
-                }
-                if (parsed > maxAmount) {
-                  setAmount(String(maxAmount));
-                  setError(
-                    `Amount cannot exceed ${maxAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}.`,
-                  );
-                  return;
-                }
-                setAmount(next);
-                if (error.startsWith("Amount cannot exceed")) setError("");
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Crediting account</Label>
-            <Select
-              value={creditingAccountId}
-              onValueChange={setCreditingAccountId}
-              disabled={accountsLoading}
+        </RuledDialogSection>
+
+        <RuledDialogSection label="02 / Money flow">
+          <div className="grid items-end gap-3 sm:col-span-2 sm:grid-cols-[1fr_auto_1fr]">
+            <div className="flex min-w-0 flex-col gap-2">
+              <Label>From (client account)</Label>
+              <div className="flex h-9 items-center truncate rounded-md border bg-surface-muted px-3 text-sm">
+                {clientAccount?.name || (
+                  <span className="text-destructive">
+                    No account named “{invoice.client.name}”
+                  </span>
+                )}
+              </div>
+            </div>
+            <div
+              aria-hidden="true"
+              className="hidden size-9 items-center justify-center rounded-md border text-muted-foreground sm:flex"
             >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    accountsLoading ? "Loading accounts..." : "Select account"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {activeAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ArrowRight className="size-4" />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <Label>To (crediting)</Label>
+              <Select
+                value={creditingAccountId}
+                onValueChange={setCreditingAccountId}
+                disabled={accountsLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      accountsLoading ? "Loading accounts..." : "Select account"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Label htmlFor="payment-amount">Amount</Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-mono text-xs text-muted-foreground">
+                LKR
+              </span>
+              <Input
+                id="payment-amount"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                max={maxAmount}
+                placeholder="0.00"
+                className="h-12 pl-12 font-mono text-2xl font-light tabular-nums md:text-2xl"
+                value={amount}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (next === "") {
+                    setAmount("");
+                    return;
+                  }
+                  const parsed = Number(next);
+                  if (!Number.isFinite(parsed)) {
+                    setAmount(next);
+                    return;
+                  }
+                  if (parsed > maxAmount) {
+                    setAmount(String(maxAmount));
+                    setError(
+                      `Amount cannot exceed ${maxAmount.toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        },
+                      )}.`,
+                    );
+                    return;
+                  }
+                  setAmount(next);
+                  if (error.startsWith("Amount cannot exceed")) setError("");
+                }}
+              />
+            </div>
+          </div>
+          {error ? (
+            <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-destructive sm:col-span-2">
+              {error}
+            </p>
+          ) : null}
+        </RuledDialogSection>
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
-
-        <DialogFooter>
+        <RuledDialogFooter summary={summary}>
           <Button
-            variant="outline"
+            variant="ghost"
             disabled={saving}
             onClick={() => setOpen(false)}
           >
             Cancel
           </Button>
           <Button disabled={saving} onClick={() => void handleSave()}>
-            {saving ? "Saving..." : isEditing ? "Save Changes" : "Save Payment"}
+            {saving ? "Saving…" : isEditing ? "Save changes" : "Record payment"}
           </Button>
-        </DialogFooter>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );

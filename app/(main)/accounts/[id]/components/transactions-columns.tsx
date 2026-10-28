@@ -2,6 +2,7 @@
 
 import type { ColumnDef, FilterFnOption } from "@tanstack/react-table";
 import { MoveDownRight, MoveUpRight } from "lucide-react";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { toDate } from "@/lib/helpers/to-date";
 import { tagsColumnFilterFn } from "@/lib/helpers/transaction-tags";
 
@@ -24,12 +25,12 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     filterFn: "transactionType" as FilterFnOption<Transaction>,
     cell: ({ row }) =>
       row.getValue("type") === "debit" ? (
-        <span className="text-red-500">
-          <MoveUpRight size={18} strokeWidth={3} />
+        <span className="flex text-destructive" title="Debit">
+          <MoveUpRight size={16} strokeWidth={2.5} />
         </span>
       ) : (
-        <span className="text-green-500">
-          <MoveDownRight size={18} strokeWidth={3} />
+        <span className="flex text-success" title="Credit">
+          <MoveDownRight size={16} strokeWidth={2.5} />
         </span>
       ),
   },
@@ -44,7 +45,11 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
     },
     cell: ({ row }) => {
       const date = toDate(row.getValue("date"));
-      return date ? date.toLocaleDateString() : "-";
+      return (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {date ? date.toLocaleDateString() : "-"}
+        </span>
+      );
     },
   },
   {
@@ -70,7 +75,7 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Amount",
+    header: () => <div className="text-right">Amount</div>,
     size: 150,
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("amount"));
@@ -79,13 +84,24 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(amount);
 
-      return <span>{formatted}</span>;
+      return (
+        <TruncatedText
+          className={`block text-right font-mono tabular-nums ${
+            row.getValue("type") === "debit"
+              ? "text-destructive"
+              : "text-success"
+          }`}
+        >
+          {row.getValue("type") === "debit" ? "−" : "+"}
+          {formatted}
+        </TruncatedText>
+      );
     },
     meta: { globalFilter: true },
   },
   {
     accessorKey: "runningBalance",
-    header: "Running Balance",
+    header: () => <div className="text-right">Balance</div>,
     size: 150,
     enableSorting: false,
     cell: ({ row }) => {
@@ -95,7 +111,11 @@ export const transactionsColumns: ColumnDef<Transaction>[] = [
         currency: "LKR",
       }).format(balance || 0);
 
-      return <span className="font-medium">{formatted}</span>;
+      return (
+        <TruncatedText className="block text-right font-mono tabular-nums text-foreground">
+          {formatted}
+        </TruncatedText>
+      );
     },
   },
 ];

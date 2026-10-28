@@ -13,15 +13,14 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -44,7 +43,7 @@ import { useLookupStore } from "@/stores/use-lookup-store";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  accountType: z.string().min(1, "Account Type is required"),
+  accountType: z.string().min(1, "Account type is required"),
   balance: z.number().min(0, "Balance cannot be negative"),
 });
 
@@ -120,124 +119,155 @@ export default function AddAccountDialog() {
     }
   }
 
+  const [watchedName, watchedBalance] = form.watch(["name", "balance"]);
+  const summary = watchedName?.trim()
+    ? `Opens “${watchedName.trim()}” at ${new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "LKR",
+      }).format(watchedBalance || 0)}`
+    : "Name the account to continue";
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setOpen(true);
+          return;
+        }
+        handleCancel();
+      }}
+    >
       <Form {...form}>
         <DialogTrigger asChild>
           <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Account
+            <Plus />
+            New account
           </Button>
         </DialogTrigger>
-        <DialogContent className="min-w-xl">
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader className="pb-4">
-              <DialogTitle>Add a New Account</DialogTitle>
-            </DialogHeader>
-            <div className="max-h-lg overflow-y-auto flex flex-col gap-8">
-              <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem className="col-span-2">
-                        <FormLabel>Account Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Cash, Bank, etc."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+        <DialogContent className={ruledDialogContentClass}>
+          <RuledDialogHeader
+            eyebrow="( New account · Chart of accounts )"
+            lead="Open a"
+            title="new account."
+            description="Accounts hold balances that transactions move money between."
+          />
+          <form id="add-account-form" onSubmit={form.handleSubmit(onSubmit)}>
+            <RuledDialogSection label="01 / Identity">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Account name</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Cash in hand, BOC current account"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                  <FormField
-                    control={form.control}
-                    name="accountType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Type</FormLabel>
-                        <FormControl>
-                          <Select
-                            onValueChange={(value) => {
-                              if (value === "__new__") {
-                                router.push("/settings/account-types");
-                                return;
-                              }
+              <FormField
+                control={form.control}
+                name="accountType"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Account type</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        if (value === "__new__") {
+                          router.push("/settings/account-types");
+                          return;
+                        }
 
-                              field.onChange(value);
-                            }}
-                            defaultValue={field.value}
-                            value={field.value}
+                        field.onChange(value);
+                      }}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select an account type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" side="bottom">
+                        {accountTypes.map((accountType) => (
+                          <SelectItem
+                            key={accountType.id}
+                            value={accountType.name}
                           >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select an account type" />
-                            </SelectTrigger>
-                            <SelectContent position="popper" side="bottom">
-                              {accountTypes.map((accountType) => (
-                                <SelectItem
-                                  key={accountType.id}
-                                  value={accountType.name}
-                                >
-                                  {accountType.name}
-                                </SelectItem>
-                              ))}
-                              <SelectItem value="__new__">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create new account type
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                            {accountType.name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__new__">
+                          <Plus />
+                          Create new account type
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </RuledDialogSection>
 
-                  <FormField
-                    control={form.control}
-                    name="balance"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Initial Balance</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            {...field}
-                            value={field.value || ""}
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Submit"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-            </DialogFooter>
+            <RuledDialogSection label="02 / Opening balance">
+              <FormField
+                control={form.control}
+                name="balance"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Initial balance</FormLabel>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-mono text-xs text-muted-foreground">
+                        LKR
+                      </span>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          placeholder="0.00"
+                          className="h-12 pl-12 font-mono text-2xl font-light tabular-nums md:text-2xl"
+                          {...field}
+                          value={field.value || ""}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </FormControl>
+                    </div>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      The balance carried in before tracking starts here.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </RuledDialogSection>
           </form>
+          <RuledDialogFooter summary={summary}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="add-account-form"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating…" : "Create account"}
+            </Button>
+          </RuledDialogFooter>
         </DialogContent>
 
         <ConfirmationDialog

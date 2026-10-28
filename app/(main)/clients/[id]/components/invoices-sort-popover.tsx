@@ -1,65 +1,40 @@
 "use client";
 
-import { SortAsc } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Command, CommandItem } from "@/components/ui/command";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  type SortOption,
+  SortPopover,
+} from "@/components/shared/transactions-sort-popover";
 
 interface InvoicesSortPopoverProps {
   onSortChange: (column: string, direction: "asc" | "desc") => void;
 }
 
+const INVOICE_SORT_OPTIONS: readonly SortOption[] = [
+  { label: "Date · newest first", column: "date", direction: "desc" },
+  { label: "Date · oldest first", column: "date", direction: "asc" },
+  { label: "Total · high to low", column: "totalAmount", direction: "desc" },
+  { label: "Total · low to high", column: "totalAmount", direction: "asc" },
+  {
+    label: "Outstanding · high to low",
+    column: "outstandingAmount",
+    direction: "desc",
+  },
+  {
+    label: "Outstanding · low to high",
+    column: "outstandingAmount",
+    direction: "asc",
+  },
+];
+
 export function InvoicesSortPopover({
   onSortChange,
 }: InvoicesSortPopoverProps) {
-  const options = [
-    { label: "Date ↑", column: "date", direction: "asc" as const },
-    { label: "Date ↓", column: "date", direction: "desc" as const },
-    {
-      label: "Total Amount ↑",
-      column: "totalAmount",
-      direction: "asc" as const,
-    },
-    {
-      label: "Total Amount ↓",
-      column: "totalAmount",
-      direction: "desc" as const,
-    },
-    {
-      label: "Outstanding ↑",
-      column: "outstandingAmount",
-      direction: "asc" as const,
-    },
-    {
-      label: "Outstanding ↓",
-      column: "outstandingAmount",
-      direction: "desc" as const,
-    },
-  ];
-
+  // Default order is open invoices first, then newest — no single option.
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="icon">
-          <SortAsc />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-48 p-0">
-        <Command>
-          {options.map((opt) => (
-            <CommandItem
-              key={opt.label}
-              onSelect={() => onSortChange(opt.column, opt.direction)}
-            >
-              {opt.label}
-            </CommandItem>
-          ))}
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <SortPopover
+      onSortChange={onSortChange}
+      options={INVOICE_SORT_OPTIONS}
+      initialLabel={null}
+    />
   );
 }

@@ -3,17 +3,16 @@
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
+import { HeaderFigure, PageHeader } from "@/components/shared/page-header";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
-import { roundMoney } from "./[id]/invoice-model";
 import {
   type InvoiceStatus,
   isActiveInvoiceStatus,
 } from "./[id]/components/invoices-columns";
-import {
-  type Client,
-  clientsColumns,
-} from "./components/clients-columns";
+import { roundMoney } from "./[id]/invoice-model";
+import AddClientDialog from "./components/add-client-dialog";
+import { type Client, clientsColumns } from "./components/clients-columns";
 import ClientsDataTable from "./components/data-table";
 
 const VALID_STATUSES: InvoiceStatus[] = [
@@ -40,10 +39,7 @@ function invoiceOutstanding(data: Record<string, unknown>): number {
   if (data.outstandingAmount !== undefined && data.outstandingAmount !== null) {
     return Number(data.outstandingAmount) || 0;
   }
-  if (
-    data.totalIncludingVat !== undefined &&
-    data.totalIncludingVat !== null
-  ) {
+  if (data.totalIncludingVat !== undefined && data.totalIncludingVat !== null) {
     return Number(data.totalIncludingVat) || 0;
   }
   return Number(data.totalAmount) || 0;
@@ -200,28 +196,51 @@ export default function ClientsPage() {
     [clients, invoiceStats],
   );
 
-  return (
-    <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
-      <div className="w-full h-full flex flex-col p-4 bg-zinc-100 rounded-lg min-h-0">
-        <div className="w-full h-full p-4 bg-white rounded-lg flex flex-col gap-4 min-h-0">
-          <h2 className="text-2xl font-bold shrink-0">Clients</h2>
+  const totalOutstanding = clientsWithStats.reduce(
+    (sum, client) => sum + client.outstandingInvoiceAmount,
+    0,
+  );
+  const activeCount = clientsWithStats.filter(
+    (client) => client.status === "active",
+  ).length;
 
-          {loading ? (
-            <LoadingState
-              message="Loading clients..."
-              variant="skeleton"
-              rows={5}
+  return (
+    <div className="flex h-full flex-col divide-y bg-card font-sans">
+      <PageHeader
+        eyebrow="( Sales · Clients )"
+        lead="Clients and"
+        title="receivables."
+        description={
+          loading
+            ? "Loading clients…"
+            : `${activeCount} active · ${clientsWithStats.length} in total`
+        }
+        actions={
+          <>
+            <HeaderFigure
+              label="( Outstanding )"
+              unit="LKR"
+              value={totalOutstanding.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             />
-          ) : (
-            <div className="flex-1 min-h-0">
-              <ClientsDataTable
-                columns={clientsColumns}
-                data={clientsWithStats}
-              />
-            </div>
-          )}
+            <AddClientDialog />
+          </>
+        }
+      />
+
+      {loading ? (
+        <div className="p-4">
+          <LoadingState
+            message="Loading clients..."
+            variant="skeleton"
+            rows={5}
+          />
         </div>
-      </div>
+      ) : (
+        <ClientsDataTable columns={clientsColumns} data={clientsWithStats} />
+      )}
     </div>
   );
 }

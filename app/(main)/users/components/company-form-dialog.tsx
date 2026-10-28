@@ -13,15 +13,14 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -183,96 +182,130 @@ export default function CompanyFormDialog({
     setOpen(nextOpen);
   }
 
+  const isCreate = mode === "create";
+  const watchedName = form.watch("name")?.trim();
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         {!hideTrigger ? (
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Company
+              <Plus />
+              New company
             </Button>
           </DialogTrigger>
         ) : null}
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {mode === "create" ? "Add Company" : "Edit Company"}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+          <RuledDialogHeader
+            eyebrow={
+              isCreate
+                ? "( Administration · New company )"
+                : `( Administration · ${company?.name ?? "Company"} )`
+            }
+            lead={isCreate ? "Add a" : "Edit"}
+            title={isCreate ? "company." : "company details."}
+            description="These details print on every tax invoice as the supplier."
+          />
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Company name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Address" rows={3} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="telephoneNo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telephone no</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Telephone number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tin"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>TIN</FormLabel>
-                    <FormControl>
-                      <Input placeholder="TIN" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOpenChange(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting
-                    ? "Saving..."
-                    : mode === "create"
-                      ? "Create"
-                      : "Save"}
-                </Button>
-              </DialogFooter>
+            <form id="company-form" onSubmit={form.handleSubmit(onSubmit)}>
+              <RuledDialogSection label="01 / Company">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Company name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Stuttgart Logistics (Pvt) Ltd"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tin"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>TIN</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Taxpayer identification number"
+                          className="font-mono"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </RuledDialogSection>
+              <RuledDialogSection label="02 / Contact">
+                <FormField
+                  control={form.control}
+                  name="telephoneNo"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Telephone no</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="tel"
+                          placeholder="+94 11 234 5678"
+                          className="font-mono"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Street, city, postal code"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </RuledDialogSection>
             </form>
           </Form>
+          <RuledDialogFooter
+            summary={
+              watchedName
+                ? `${isCreate ? "Creates" : "Saves"} “${watchedName}”`
+                : "Name the company to continue"
+            }
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => handleOpenChange(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form="company-form" disabled={isSubmitting}>
+              {isSubmitting
+                ? "Saving…"
+                : isCreate
+                  ? "Create company"
+                  : "Save changes"}
+            </Button>
+          </RuledDialogFooter>
         </DialogContent>
       </Dialog>
 

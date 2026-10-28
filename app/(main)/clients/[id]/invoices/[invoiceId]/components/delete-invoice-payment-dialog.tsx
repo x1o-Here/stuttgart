@@ -9,17 +9,7 @@ import {
 } from "firebase/firestore";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { db } from "@/lib/firebase/firebase-client";
@@ -164,48 +154,38 @@ export default function DeleteInvoicePaymentDialog({
     }
   }
 
+  const amountLabel = roundMoney(payment.amount).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!deleting) setOpen(next);
+      }}
+      trigger={
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Delete payment"
           disabled={disabled}
-          className="text-destructive hover:bg-destructive/10"
+          className="text-muted-foreground hover:bg-danger-soft hover:text-destructive"
         >
-          <Trash2 className="mr-1 h-3.5 w-3.5" />
-          Delete
+          <Trash2 />
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete payment?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This payment of{" "}
-            <strong>
-              {roundMoney(payment.amount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </strong>{" "}
-            will be removed, linked account transactions will be reversed, and
-            the outstanding balance will be updated.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={deleting}
-            onClick={(event) => {
-              event.preventDefault();
-              void handleDelete();
-            }}
-          >
-            {deleting ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      }
+      eyebrow={`( Delete payment · LKR ${amountLabel} )`}
+      lead="Delete"
+      title="this payment?"
+      description="The linked account transactions are reversed and the invoice’s outstanding balance is updated."
+      confirmLabel={deleting ? "Deleting…" : "Delete payment"}
+      cancelLabel="Keep it"
+      pending={deleting}
+      keepOpen
+      onConfirm={() => void handleDelete()}
+    />
   );
 }

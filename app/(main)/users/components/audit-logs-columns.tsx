@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
 
 export type AuditLogRow = {
@@ -16,22 +17,41 @@ export type AuditLogRow = {
   createdAt: Date | null;
 };
 
+function actionVariant(action?: string) {
+  switch (action) {
+    case "create":
+      return "success" as const;
+    case "update":
+      return "brand" as const;
+    case "delete":
+      return "danger" as const;
+    default:
+      return "neutral" as const;
+  }
+}
+
 export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
   {
     id: "createdAt",
     accessorFn: (row) => row.createdAt?.getTime() ?? 0,
-    header: "Date",
-    cell: ({ row }) =>
-      row.original.createdAt
-        ? row.original.createdAt.toLocaleString()
-        : "—",
+    header: "When",
+    size: 170,
+    cell: ({ row }) => (
+      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        {row.original.createdAt ? row.original.createdAt.toLocaleString() : "–"}
+      </span>
+    ),
   },
   {
     accessorKey: "action",
     header: "Action",
+    size: 100,
     cell: ({ row }) => (
-      <Badge variant="secondary" className="capitalize">
-        {row.original.action || "—"}
+      <Badge
+        variant={actionVariant(row.original.action)}
+        className="capitalize"
+      >
+        {row.original.action || "–"}
       </Badge>
     ),
     filterFn: (row, _id, value: string) => {
@@ -43,8 +63,8 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
     accessorKey: "description",
     header: "Description",
     cell: ({ row }) => (
-      <span className="block max-w-md whitespace-normal">
-        {row.original.description || "—"}
+      <span className="block whitespace-normal text-foreground">
+        {row.original.description || "–"}
       </span>
     ),
   },
@@ -53,12 +73,14 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
     accessorFn: (row) => row.username || row.userId,
     header: "User",
     cell: ({ row }) => (
-      <div className="min-w-28">
-        <p className="font-medium">{row.original.username || "—"}</p>
+      <div className="flex min-w-0 flex-col">
+        <TruncatedText className="font-medium text-foreground">
+          {row.original.username || "–"}
+        </TruncatedText>
         {row.original.userId ? (
-          <p className="text-xs text-muted-foreground truncate max-w-[160px]">
+          <TruncatedText className="font-mono text-[11px] text-muted-foreground">
             {row.original.userId}
-          </p>
+          </TruncatedText>
         ) : null}
       </div>
     ),
@@ -72,12 +94,14 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
     accessorFn: (row) => row.companyName || row.companyId,
     header: "Company",
     cell: ({ row }) => (
-      <div className="min-w-28">
-        <p className="font-medium">{row.original.companyName || "—"}</p>
+      <div className="flex min-w-0 flex-col">
+        <TruncatedText className="font-medium text-foreground">
+          {row.original.companyName || "–"}
+        </TruncatedText>
         {row.original.companyId ? (
-          <p className="text-xs text-muted-foreground truncate max-w-[160px]">
+          <TruncatedText className="font-mono text-[11px] text-muted-foreground">
             {row.original.companyId}
-          </p>
+          </TruncatedText>
         ) : null}
       </div>
     ),
@@ -91,16 +115,19 @@ export const auditLogsColumns: ColumnDef<AuditLogRow>[] = [
     header: "Transaction",
     cell: ({ row }) =>
       row.original.transactionId ? (
-        <span className="font-mono text-xs">{row.original.transactionId}</span>
+        <TruncatedText className="font-mono text-xs">
+          {row.original.transactionId}
+        </TruncatedText>
       ) : (
-        "—"
+        <span className="text-muted-foreground">–</span>
       ),
   },
   {
     accessorKey: "entityStatus",
     header: "Status",
+    size: 100,
     cell: ({ row }) => (
-      <Badge variant={row.original.entityStatus ? "default" : "secondary"}>
+      <Badge variant={row.original.entityStatus ? "success" : "neutral"}>
         {row.original.entityStatus ? "Active" : "Inactive"}
       </Badge>
     ),

@@ -28,6 +28,9 @@ export type Account = {
   transactions: Transaction[];
   createdAt?: Date;
   initialBalance: number;
+  /** Set on system accounts that belong to a client or supplier. */
+  clientId?: string;
+  supplierId?: string;
 };
 
 function mapTransactionDoc(tx: {
@@ -85,6 +88,8 @@ export function useAccountsMeta() {
             transactions: [],
             initialBalance: data.initialBalance || 0,
             createdAt: toDate(data.createdAt),
+            clientId: data.clientId,
+            supplierId: data.supplierId,
           };
         });
         setAccounts(next);

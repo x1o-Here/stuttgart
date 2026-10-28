@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { db } from "@/lib/firebase/firebase-client";
 import { columns, type UserData } from "./columns";
+import { getAllCompanies } from "./companies-cache";
 import { DataTable } from "./data-table";
 
 function mapUsersSnapshot(
@@ -29,6 +30,7 @@ export default function UsersTable({
   refreshToken?: number;
 }) {
   const [users, setUsers] = useState<UserData[]>([]);
+  const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const loadUsers = useCallback(async () => {
@@ -36,8 +38,14 @@ export default function UsersTable({
     try {
       const usersRef = collection(db, "users");
       const q = query(usersRef, orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
+      const [snapshot, companyOptions] = await Promise.all([
+        getDocs(q),
+        getAllCompanies().catch(() => []),
+      ]);
       setUsers(mapUsersSnapshot(snapshot.docs));
+      setCompanyNames(
+        Object.fromEntries(companyOptions.map((c) => [c.id, c.name])),
+      );
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -50,12 +58,23 @@ export default function UsersTable({
   }, [loadUsers, refreshToken]);
 
   if (loading) {
-    return <LoadingState message="Loading users..." variant="compact" />;
+    return (
+      <div className="p-4">
+        <LoadingState message="Loading users..." variant="skeleton" rows={5} />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full">
-      <DataTable columns={columns} data={users} />
-    </div>
+    <DataTable
+      columns={columns}
+      data={users.map((user) => ({
+        ...user,
+        companyNames: user.companies.map((id) => companyNames[id] ?? id),
+      }))}
+      caption="User directory"
+      searchPlaceholder="Search by username, email or role"
+      emptyMessage="No users yet."
+    />
   );
 }

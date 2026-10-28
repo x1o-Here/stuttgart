@@ -1,3 +1,12 @@
+import {
+  outstandingFromPayments,
+  roundMoney,
+  VAT_RATE,
+} from "@/lib/invoices/money";
+
+// Shared money helpers now live in lib/invoices/money; re-exported for callers.
+export { outstandingFromPayments, roundMoney, VAT_RATE };
+
 import { toDate } from "@/lib/helpers/to-date";
 
 export type TemplateColumnType =
@@ -60,8 +69,6 @@ export type DeliveryDetails = {
   reference: string;
 };
 
-export const VAT_RATE = 0.18;
-
 export const LEADING_SYSTEM_COLUMN_KEYS = ["no", "date", "vehicleNo"] as const;
 export const TRAILING_SYSTEM_COLUMN_KEYS = ["rate", "amount"] as const;
 
@@ -92,9 +99,9 @@ export function orderedTemplateColumns(
   columns: TemplateColumn[],
 ): TemplateColumn[] {
   const byKey = new Map(columns.map((column) => [column.key, column]));
-  const leading = LEADING_SYSTEM_COLUMN_KEYS.map((key) => byKey.get(key)).filter(
-    (column): column is TemplateColumn => !!column,
-  );
+  const leading = LEADING_SYSTEM_COLUMN_KEYS.map((key) =>
+    byKey.get(key),
+  ).filter((column): column is TemplateColumn => !!column);
   const trailing = TRAILING_SYSTEM_COLUMN_KEYS.map((key) =>
     byKey.get(key),
   ).filter((column): column is TemplateColumn => !!column);
@@ -264,10 +271,6 @@ export function defaultInvoicePaymentDescription(invoiceNo: string): string {
   return `Payment for invoice ${no}`;
 }
 
-export function roundMoney(value: number): number {
-  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
-}
-
 /** Prefer stored outstanding; never treat 0 as missing. */
 export function resolveOutstandingAmount(
   raw: unknown,
@@ -278,16 +281,6 @@ export function resolveOutstandingAmount(
     if (Number.isFinite(parsed)) return roundMoney(Math.max(0, parsed));
   }
   return roundMoney(totalIncludingVat);
-}
-
-/** Remaining balance = total including VAT − sum of payments. */
-export function outstandingFromPayments(
-  totalIncludingVat: number,
-  paidAmount: number,
-): number {
-  return roundMoney(
-    Math.max(0, roundMoney(totalIncludingVat) - roundMoney(paidAmount)),
-  );
 }
 
 /** Status while collecting payments (`paid` is shown as Complete in the UI). */
@@ -329,8 +322,7 @@ export function mapInvoicePayment(
       : typeof data.taxInvoiceNo === "string"
         ? data.taxInvoiceNo
         : "";
-  const descriptionRaw =
-    data.description ?? data.note ?? data.reference ?? "";
+  const descriptionRaw = data.description ?? data.note ?? data.reference ?? "";
   const description =
     typeof descriptionRaw === "string"
       ? descriptionRaw.trim()
@@ -530,8 +522,7 @@ export function mapClientInvoiceDocument(
     totalIncludingVat:
       Number(data.totalIncludingVat) || totals.totalIncludingVat,
     outstandingAmount: (() => {
-      const total =
-        Number(data.totalIncludingVat) || totals.totalIncludingVat;
+      const total = Number(data.totalIncludingVat) || totals.totalIncludingVat;
       const status = (data.status as InvoiceStatus) || "issued";
       if (status === "paid") return 0;
       return resolveOutstandingAmount(data.outstandingAmount, total);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { LoadingState } from "@/components/shared/loading-state";
+import { TruncatedText } from "@/components/shared/truncated-text";
 import { useReportFilter } from "@/contexts/report-filter-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 
@@ -35,10 +35,7 @@ export default function ReportsSummaryCards() {
       currentBalance += account.balance;
       for (const tx of account.transactions) {
         const txDate = new Date(tx.date);
-        if (
-          txDate.getMonth() !== monthIndex ||
-          txDate.getFullYear() !== year
-        ) {
+        if (txDate.getMonth() !== monthIndex || txDate.getFullYear() !== year) {
           continue;
         }
         txCount += 1;
@@ -57,56 +54,56 @@ export default function ReportsSummaryCards() {
     };
   }, [accounts, selectedAccountId, selectedMonthYear]);
 
-  if (loading) {
-    return (
-      <div className="rounded-xl bg-white p-4">
-        <LoadingState message="Loading summary..." variant="compact" />
-      </div>
-    );
-  }
-
   const cards = [
     {
       label: "Month credits",
       value: `+${money(stats.credits)}`,
-      tone: "text-emerald-600",
+      tone: "text-success",
     },
     {
       label: "Month debits",
-      value: `-${money(stats.debits)}`,
-      tone: "text-red-600",
+      value: `−${money(stats.debits)}`,
+      tone: "text-destructive",
     },
     {
       label: "Net cash flow",
-      value: `${stats.net >= 0 ? "+" : ""}${money(stats.net)}`,
-      tone: stats.net >= 0 ? "text-emerald-600" : "text-red-600",
+      value: `${stats.net >= 0 ? "+" : "−"}${money(Math.abs(stats.net))}`,
+      tone: stats.net >= 0 ? "text-success" : "text-destructive",
     },
     {
       label: "Transactions",
       value: String(stats.txCount),
-      tone: "text-zinc-800",
+      tone: "text-foreground",
     },
     {
       label: "Current balances",
       value: money(stats.currentBalance),
-      tone: "text-zinc-800",
+      tone: "text-foreground",
     },
     {
       label: "Accounts in view",
       value: String(stats.accountCount),
-      tone: "text-zinc-800",
+      tone: "text-foreground",
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-xl bg-white p-4">
-          <p className="text-xs text-zinc-500">{card.label}</p>
-          <p className={`mt-1 text-xl font-semibold tabular-nums ${card.tone}`}>
-            {card.value}
-          </p>
-          <p className="mt-1 text-[11px] text-zinc-400">{selectedMonthYear}</p>
+        <div
+          key={card.label}
+          className="flex min-w-0 flex-col gap-4 bg-card px-5 py-4"
+        >
+          <TruncatedText className="eyebrow normal-case tracking-normal">
+            {card.label}
+          </TruncatedText>
+          <TruncatedText
+            className={`font-mono text-2xl font-light tabular-nums ${
+              loading ? "text-muted-foreground" : card.tone
+            }`}
+          >
+            {loading ? "–" : card.value}
+          </TruncatedText>
         </div>
       ))}
     </div>

@@ -25,7 +25,7 @@ export default function TransactionsVehicleFilter<TData>({
           ?.setFilterValue(value === "all" ? undefined : value);
       }}
     >
-      <SelectTrigger className="bg-white">
+      <SelectTrigger className="w-full bg-card sm:w-44" aria-label="Vehicle">
         <SelectValue placeholder="Vehicle" />
       </SelectTrigger>
 

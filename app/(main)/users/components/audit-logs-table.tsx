@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -15,6 +14,11 @@ import { CircleX, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
 import { LoadingState } from "@/components/shared/loading-state";
+import {
+  RuledTable,
+  TableCaption,
+  TablePager,
+} from "@/components/shared/ruled-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,17 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
-import { auditLogsColumns, type AuditLogRow } from "./audit-logs-columns";
+import { type AuditLogRow, auditLogsColumns } from "./audit-logs-columns";
 
 const fuzzyFilter = (
   row: Row<AuditLogRow>,
@@ -86,7 +82,9 @@ export default function AuditLogsTable() {
     setLoading(true);
     try {
       const [logsSnap, usersSnap, companiesSnap] = await Promise.all([
-        getDocs(query(collection(db, "auditLogs"), orderBy("createdAt", "desc"))),
+        getDocs(
+          query(collection(db, "auditLogs"), orderBy("createdAt", "desc")),
+        ),
         getDocs(collection(db, "users")),
         getDocs(collection(db, "companies")),
       ]);
@@ -251,165 +249,119 @@ export default function AuditLogsTable() {
   }
 
   if (loading) {
-    return <LoadingState message="Loading audit logs..." variant="compact" />;
+    return (
+      <div className="p-4">
+        <LoadingState
+          message="Loading audit logs..."
+          variant="skeleton"
+          rows={6}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search description, action, user, company..."
-            className="pl-8"
-          />
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 px-4 py-3">
+        <TableCaption
+          label="Activity"
+          count={table.getFilteredRowModel().rows.length}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-48 flex-1">
+            <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search description, action, user or company"
+              aria-label="Search audit log"
+              className="pl-8"
+            />
+          </div>
 
-        <Select value={actionFilter} onValueChange={setActionFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Action" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All actions</SelectItem>
-            {actionOptions.map((action) => (
-              <SelectItem key={action} value={action}>
-                {action}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={actionFilter} onValueChange={setActionFilter}>
+            <SelectTrigger
+              className="w-full bg-card sm:w-36"
+              aria-label="Action"
+            >
+              <SelectValue placeholder="Action" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All actions</SelectItem>
+              {actionOptions.map((action) => (
+                <SelectItem key={action} value={action}>
+                  {action}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={companyFilter} onValueChange={setCompanyFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Company" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All companies</SelectItem>
-            {companyOptions.map((company) => (
-              <SelectItem key={company.id} value={company.id}>
-                {company.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger
+              className="w-full bg-card sm:w-44"
+              aria-label="Company"
+            >
+              <SelectValue placeholder="Company" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All companies</SelectItem>
+              {companyOptions.map((company) => (
+                <SelectItem key={company.id} value={company.id}>
+                  {company.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={userFilter} onValueChange={setUserFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="User" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All users</SelectItem>
-            {userOptions.map((user) => (
-              <SelectItem key={user.id} value={user.id}>
-                {user.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="w-full bg-card sm:w-44" aria-label="User">
+              <SelectValue placeholder="User" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All users</SelectItem>
+              {userOptions.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger
+              className="w-full bg-card sm:w-36"
+              aria-label="Status"
+            >
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <div className="w-44">
-          <CalendarPopover value={dateFrom} onChange={setDateFrom} />
-        </div>
-        <div className="w-44">
-          <CalendarPopover value={dateTo} onChange={setDateTo} />
-        </div>
+          <div className="w-full sm:w-44">
+            <CalendarPopover value={dateFrom} onChange={setDateFrom} />
+          </div>
+          <div className="w-full sm:w-44">
+            <CalendarPopover value={dateTo} onChange={setDateTo} />
+          </div>
 
-        {hasActiveFilters ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={clearFilters}
-            title="Clear filters"
-          >
-            <CircleX className="h-4 w-4" />
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={auditLogsColumns.length}
-                  className="h-24 text-center"
-                >
-                  No audit logs match the current filters.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} log
-          {table.getFilteredRowModel().rows.length === 1 ? "" : "s"}
-        </p>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
+          {hasActiveFilters ? (
+            <Button type="button" variant="ghost" onClick={clearFilters}>
+              <CircleX />
+              Clear
+            </Button>
+          ) : null}
         </div>
       </div>
+
+      <RuledTable
+        table={table}
+        emptyMessage="No audit entries match these filters."
+      />
+      <TablePager table={table} />
     </div>
   );
 }

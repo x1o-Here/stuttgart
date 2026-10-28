@@ -1,14 +1,15 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { use, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { useAuth } from "@/contexts/auth-context";
 import { type CollectionKey, useLookupStore } from "@/stores/use-lookup-store";
-import { LoadingState } from "@/components/shared/loading-state";
 import { getLookupColumns } from "./components/columns/lookup-columns";
 import { DataTable } from "./components/data-table";
+import CreateModal from "./components/modals/create-modal";
 
 interface PageProps {
   params: Promise<{
@@ -21,7 +22,7 @@ const SETTING_MAP: Record<
   string,
   {
     key: CollectionKey;
-    storeKey: "accountTypes" | "vehicles" | "departments";
+    storeKey: "accountTypes" | "departments" | "supplierTypes";
     label: string;
   }
 > = {
@@ -30,29 +31,31 @@ const SETTING_MAP: Record<
     storeKey: "accountTypes",
     label: "Account Type",
   },
-  vehicles: {
-    key: "vehicles",
-    storeKey: "vehicles",
-    label: "Vehicle",
-  },
   departments: {
     key: "departments",
     storeKey: "departments",
     label: "Department",
   },
+  "supplier-types": {
+    key: "supplier-types",
+    storeKey: "supplierTypes",
+    label: "Supplier Type",
+  },
 };
 
 export default function SettingPage({ params }: PageProps) {
-  const router = useRouter();
   const resolvedParams = use(params);
   const settingSlug = resolvedParams?.setting?.[0];
   const { activeCompany, user } = useAuth();
 
   const createItem = useLookupStore((s) => s.createItem);
   const accountTypes = useLookupStore((s) => s.accountTypes);
-  const vehicles = useLookupStore((s) => s.vehicles);
   const departments = useLookupStore((s) => s.departments);
+  const supplierTypes = useLookupStore((s) => s.supplierTypes);
   const lookupLoading = useLookupStore((s) => s.loading);
+
+  // Vehicles moved to the Fleet section.
+  if (settingSlug === "vehicles") redirect("/fleet");
 
   const config = SETTING_MAP[settingSlug];
 
@@ -65,61 +68,71 @@ export default function SettingPage({ params }: PageProps) {
 
   if (!config) {
     return (
-      <div className="min-h-screen h-full p-4 flex flex-col items-center justify-center font-sans">
-        <p className="text-lg font-semibold mb-4">Setting route not found</p>
-        <Button onClick={() => router.push("/settings")}>
-          Go back to settings
-        </Button>
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-card p-6 text-center font-sans">
+        <span className="eyebrow">( Not found )</span>
+        <p className="heading text-2xl">
+          <span className="text-muted-foreground">This setting</span> doesn’t
+          exist.
+        </p>
+        <Link
+          href="/settings"
+          className="font-mono text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Back to settings
+        </Link>
       </div>
     );
   }
 
   const { key, storeKey, label } = config;
-  const dataByKey = { accountTypes, vehicles, departments };
+  const dataByKey = { accountTypes, departments, supplierTypes };
   const rawData = dataByKey[storeKey] || [];
   const isLoading = lookupLoading[key];
+  const lower = label.toLowerCase();
 
   return (
-    <div className="min-h-screen h-full p-4 flex items-center justify-center font-sans">
-      <div className="w-full h-full flex flex-col items-start gap-4 p-4 bg-zinc-50 rounded-lg overflow-y-auto">
-        <div className="flex flex-col gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="cursor-pointer hover:bg-gray-100 w-fit px-1"
-            onClick={() => router.back()}
-          >
-            <ChevronLeft />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold mb-4">{label}s</h1>
-        </div>
+    <div className="flex h-full flex-col divide-y bg-card font-sans">
+      <PageHeader
+        back={{ href: "/settings", label: "Settings" }}
+        eyebrow="( Settings · Lookup list )"
+        lead="Manage"
+        title={`${lower}s.`}
+        description={
+          isLoading
+            ? "Loading…"
+            : `${rawData.length} ${rawData.length === 1 ? "entry" : "entries"}`
+        }
+        actions={
+          <CreateModal
+            entityLabel={label}
+            onCreate={(data) => {
+              if (!activeCompany || !user) return Promise.resolve();
+              return createItem(activeCompany, user.uid, key, data);
+            }}
+          />
+        }
+      />
 
-        <div className="w-full p-4 rounded-md bg-white">
-          {isLoading ? (
-            <LoadingState
-              message={`Loading ${label.toLowerCase()}s...`}
-              variant="skeleton"
-              rows={5}
-            />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={rawData.map(({ id, name, shortForm, isSystem }) => ({
-                id,
-                name,
-                shortForm: shortForm ?? "",
-                isSystem,
-              }))}
-              entityLabel={label}
-              onCreate={(data) => {
-                if (!activeCompany || !user) return Promise.resolve();
-                return createItem(activeCompany, user.uid, key, data);
-              }}
-            />
-          )}
+      {isLoading ? (
+        <div className="p-4">
+          <LoadingState
+            message={`Loading ${lower}s...`}
+            variant="skeleton"
+            rows={5}
+          />
         </div>
-      </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={rawData.map(({ id, name, shortForm, isSystem }) => ({
+            id,
+            name,
+            shortForm: shortForm ?? "",
+            isSystem,
+          }))}
+          entityLabel={label}
+        />
+      )}
     </div>
   );
 }

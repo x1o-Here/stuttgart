@@ -2,17 +2,17 @@
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Download, FileSpreadsheet, FileText, Printer } from "lucide-react";
+import { FileSpreadsheet, FileText, Printer } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  RuledDialogFooter,
+  RuledDialogHeader,
+  RuledDialogSection,
+  ruledDialogContentClass,
+} from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export type ExportAccountSummaryRow = {
   name: string;
@@ -378,91 +378,96 @@ export default function ExportReportDialog({
     onOpenChange(false);
   }
 
+  const options = [
+    {
+      id: "export-accounts",
+      label: "Account summary",
+      checked: includeAccounts,
+      other: includeTransactions,
+      set: setIncludeAccounts,
+    },
+    {
+      id: "export-transactions",
+      label: "Transactions",
+      checked: includeTransactions,
+      other: includeAccounts,
+      set: setIncludeTransactions,
+    },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Export report
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-zinc-700">
-              Include in export
-            </p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={includeAccounts}
-                onCheckedChange={(checked) => {
-                  const next = checked === true;
-                  if (!next && !includeTransactions) return;
-                  setIncludeAccounts(next);
-                }}
-              />
-              <span className="text-sm text-zinc-700">Account summary</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={includeTransactions}
-                onCheckedChange={(checked) => {
-                  const next = checked === true;
-                  if (!next && !includeAccounts) return;
-                  setIncludeTransactions(next);
-                }}
-              />
-              <span className="text-sm text-zinc-700">Transaction summary</span>
-            </label>
-            {!canExport ? (
-              <p className="text-xs text-red-500">Select at least one option</p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-start h-11"
-              disabled={!canExport}
-              onClick={handleDownloadPdf}
+      <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
+        <RuledDialogHeader
+          eyebrow={`( Export · ${reportName} )`}
+          lead="Export"
+          title="this report."
+          description="Exports use the filters currently applied on the page."
+        />
+        <RuledDialogSection label="01 / Include">
+          {options.map((option) => (
+            <label
+              key={option.id}
+              htmlFor={option.id}
+              className="flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 text-sm transition-colors hover:bg-surface-muted sm:col-span-2"
             >
-              <FileText className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
+              <Checkbox
+                id={option.id}
+                checked={option.checked}
+                onCheckedChange={(checked) => {
+                  const next = checked === true;
+                  if (!next && !option.other) return;
+                  option.set(next);
+                }}
+              />
+              {option.label}
+            </label>
+          ))}
+          {!canExport ? (
+            <p className="text-xs text-destructive sm:col-span-2">
+              Select at least one section.
+            </p>
+          ) : null}
+        </RuledDialogSection>
+        <RuledDialogSection label="02 / Format">
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button
               type="button"
               variant="outline"
-              className="justify-start h-11"
               disabled={!canExport}
               onClick={handleDownloadCsv}
             >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Download CSV
+              <FileSpreadsheet />
+              CSV
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="justify-start h-11"
               disabled={!canExport}
               onClick={handlePrint}
             >
-              <Printer className="mr-2 h-4 w-4" />
+              <Printer />
               Print
             </Button>
           </div>
-        </div>
-
-        <DialogFooter>
+        </RuledDialogSection>
+        <RuledDialogFooter summary={`Period ${periodLabel}`}>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={() => onOpenChange(false)}
           >
             Cancel
           </Button>
-        </DialogFooter>
+          <Button
+            type="button"
+            disabled={!canExport}
+            onClick={handleDownloadPdf}
+          >
+            <FileText />
+            Download PDF
+          </Button>
+        </RuledDialogFooter>
       </DialogContent>
     </Dialog>
   );
