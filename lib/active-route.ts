@@ -4,6 +4,7 @@ export type SidebarRouteKey =
   | "accounts"
   | "clients"
   | "fleet"
+  | "inventory"
   | "users"
   | "settings"
   | "profile";
@@ -14,6 +15,7 @@ const ROUTE_PREFIX_MAP: Record<SidebarRouteKey, string[]> = {
   accounts: ["/account", "/accounts"],
   clients: ["/client", "/clients"],
   fleet: ["/fleet"],
+  inventory: ["/inventory"],
   users: ["/user", "/users"],
   settings: ["/settings"],
   profile: ["/profile"],

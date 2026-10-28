@@ -5,6 +5,7 @@ import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { releaseAllForVehicle } from "@/lib/inventory/spare-parts";
 import { type CollectionKey, useLookupStore } from "@/stores/use-lookup-store";
 
 interface DeleteModalProps {
@@ -40,6 +41,13 @@ export default function DeleteModal({
     if (!activeCompany || !user) return;
     try {
       setIsDeleting(true);
+      if (collectionKey === "vehicles") {
+        // No part may point at a deleted vehicle: return fitted parts first.
+        await releaseAllForVehicle(activeCompany, user.uid, {
+          id: itemId,
+          name: itemName,
+        });
+      }
       await deleteItem(
         activeCompany,
         user.uid,
@@ -83,7 +91,11 @@ export default function DeleteModal({
       eyebrow={`( Delete ${label} )`}
       lead="Delete"
       title={`${itemName}?`}
-      description={`This ${label} is removed from your lists. Existing transactions keep the name they were recorded with. This can’t be undone.`}
+      description={`This ${label} is removed from your lists. Existing transactions keep the name they were recorded with.${
+        collectionKey === "vehicles"
+          ? " Any spare parts fitted to it return to stock."
+          : ""
+      } This can’t be undone.`}
       confirmLabel={isDeleting ? "Deleting…" : `Delete ${label}`}
       cancelLabel="Keep it"
       pending={isDeleting}

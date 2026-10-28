@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { MainSidebarContent } from "@/data/sidebar-items";
 import { getActiveSidebarRoute } from "@/lib/active-route";
+import { isMechanic, type Role, roleLabel } from "@/lib/auth/roles";
 import { auth } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarContent, SidebarHeader } from "../custom/ui/sidebar";
@@ -29,8 +30,8 @@ export default function AppSidebar() {
     }
   }
 
-  const visibleItems = MainSidebarContent.filter(
-    (item) => item.key !== "users" || role === "admin" || role === "manager",
+  const visibleItems = MainSidebarContent.filter((item) =>
+    item.roles ? item.roles.includes(role as Role) : !isMechanic(role),
   );
 
   return (
@@ -84,20 +85,22 @@ export default function AppSidebar() {
 
       <div className="border-t px-2 py-2">
         <SidebarMenu className="gap-y-0.5">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              className={cn(
-                "h-9 cursor-pointer rounded-md px-2",
-                activeRoute === "settings"
-                  ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
-                  : "text-muted-foreground hover:bg-card hover:text-foreground",
-              )}
-              onClick={() => router.push("/settings")}
-            >
-              <Settings />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {!isMechanic(role) && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className={cn(
+                  "h-9 cursor-pointer rounded-md px-2",
+                  activeRoute === "settings"
+                    ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-card hover:text-foreground",
+                )}
+                onClick={() => router.push("/settings")}
+              >
+                <Settings />
+                <span>Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton
               className="h-9 cursor-pointer rounded-md px-2 text-muted-foreground hover:bg-danger-soft hover:text-destructive"
@@ -127,7 +130,7 @@ export default function AppSidebar() {
             {username || "User"}
           </p>
           <p className="eyebrow normal-case tracking-normal capitalize">
-            {role || "Role"}
+            {roleLabel(role)}
           </p>
         </div>
       </Link>

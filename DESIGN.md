@@ -128,6 +128,17 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 - Pass `max` in tables to collapse the rest into "+N" (hover shows the names). Always show names, never raw ids.
 - The company switcher lives on the profile page (`05 / Active company`), not in the sidebar.
 
+**Role-gated actions** (`lib/auth/roles.ts`)
+- Use `canEditInventory`, `isMechanic`, `isUserAdmin` and `canAccessPath` rather than comparing role strings inline.
+- **Hide** an action the role can never take (e.g. edit and delete icons for mechanics).
+- **Disable with a tooltip** only when it's blocked by state, e.g. "Delete" on a part that's on a vehicle, so the reason is visible.
+- Mechanics see only Inventory in the sidebar (plus their profile). `RoleGate` replaces any other route with `/inventory`.
+
+**Inventory** (`app/(main)/inventory`)
+- A ruled page with a status chip per part: In stock `success`, Assigned `brand`, Scrapped `neutral`.
+- The assigned vehicle shows as a mono `brand-soft` chip, linking to the vehicle for roles that can open Fleet.
+- Removing a part from a vehicle happens only on the vehicle page, through a dialog that asks: return to stock, or mark as scrapped.
+
 **Settings rows** (profile)
 - `section grid md:grid-cols-[18rem_minmax(0,32rem)] px-6 py-6` holds a numbered caption with a one-line description on the left and the form on the right.
 - Results show as a `success-soft` `<output>` or a `danger-soft` `role="alert"` note above the submit button.
@@ -228,5 +239,5 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 ## Rollout status
 
-- Done: tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
+- Done: inventory (parts list, add/edit/assign/delete, vehicle spare parts section, remove-part dialog), tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
 - Follow-up: none of the app pages are on the old styling. The printed invoice and export documents keep their own print styles on purpose.

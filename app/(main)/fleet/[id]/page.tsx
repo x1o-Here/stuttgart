@@ -14,13 +14,23 @@ import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TruncatedText } from "@/components/shared/truncated-text";
 import { Input } from "@/components/ui/input";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   AccountsLedgerProvider,
   useAccountsContext,
 } from "@/contexts/useAccountsContext";
+import { useSpareParts } from "@/hooks/use-spare-parts";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import { buildLedgerTransactions } from "../../components/logistics/build-ledger-transactions";
 import { transactionsColumns } from "../../components/logistics/columns";
 import DeleteModal from "../../settings/[...setting]/components/modals/delete-modal";
+import { RemovePartDialog } from "../components/remove-part-dialog";
 import VehicleFormDialog from "../components/vehicle-form-dialog";
 
 // Lorry is implied by the page; tags/createdAt are hidden on the dashboard too.
@@ -40,6 +50,10 @@ const vehicleTransactionColumns = transactionsColumns.filter(
     VEHICLE_TX_COLUMN_KEYS.includes(column.accessorKey as string),
 );
 
+const PART_TH =
+  "font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground first:pl-4 last:pr-4";
+const PART_TD = "py-2.5 first:pl-4 last:pr-4";
+
 function formatAmount(amount: number) {
   return amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -56,6 +70,14 @@ function VehicleDetailContent() {
   const [globalFilter, setGlobalFilter] = useState("");
 
   const vehicle = vehicles.find((v) => v.id === params.id);
+  const { parts, loading: partsLoading } = useSpareParts();
+  const fittedParts = useMemo(
+    () =>
+      parts.filter(
+        (part) => part.status === "assigned" && part.vehicleId === params.id,
+      ),
+    [parts, params.id],
+  );
 
   const transactions = useMemo(() => {
     const number = vehicle?.name.trim().toLowerCase();
@@ -152,6 +174,14 @@ function VehicleDetailContent() {
         </span>
       ),
     },
+    {
+      label: "05 / Spare parts fitted",
+      value: (
+        <span className="font-mono text-2xl font-light tabular-nums">
+          {partsLoading ? "–" : fittedParts.length}
+        </span>
+      ),
+    },
   ];
 
   return (
@@ -186,7 +216,7 @@ function VehicleDetailContent() {
         }
       />
 
-      <dl className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-4">
+      <dl className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-5">
         {facts.map((fact) => (
           <div
             key={fact.label}
@@ -199,6 +229,72 @@ function VehicleDetailContent() {
           </div>
         ))}
       </dl>
+
+      <section className="flex flex-col">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 px-4 py-3">
+          <TableCaption
+            label="Spare parts"
+            count={partsLoading ? undefined : fittedParts.length}
+          />
+          <Link
+            href="/inventory"
+            className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Assign parts from Inventory
+          </Link>
+        </div>
+        {partsLoading ? (
+          <div className="px-4 pb-4">
+            <LoadingState message="Loading parts..." variant="compact" />
+          </div>
+        ) : fittedParts.length === 0 ? (
+          <p className="border-t px-4 py-6 text-sm text-muted-foreground">
+            No parts fitted to this vehicle.
+          </p>
+        ) : (
+          <div className="overflow-x-auto border-t">
+            <Table>
+              <TableHeader className="bg-surface-muted">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={PART_TH}>Part ID</TableHead>
+                  <TableHead className={PART_TH}>Description</TableHead>
+                  <TableHead className={PART_TH}>Assigned on</TableHead>
+                  <TableHead className={PART_TH}>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fittedParts.map((part) => (
+                  <TableRow key={part.id} className="hover:bg-surface-muted">
+                    <TableCell
+                      className={`font-mono font-medium text-foreground ${PART_TD}`}
+                    >
+                      {part.partId}
+                    </TableCell>
+                    <TableCell className={`whitespace-normal ${PART_TD}`}>
+                      {part.description}
+                    </TableCell>
+                    <TableCell
+                      className={`font-mono text-xs tabular-nums text-muted-foreground ${PART_TD}`}
+                    >
+                      {part.assignedAt
+                        ? part.assignedAt.toLocaleDateString()
+                        : "–"}
+                    </TableCell>
+                    <TableCell className={`text-right ${PART_TD}`}>
+                      <RemovePartDialog
+                        part={part}
+                        vehicleName={vehicle.name}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
 
       <div className="flex min-h-[20rem] flex-1 flex-col">
         <div className="flex shrink-0 flex-col gap-3 px-4 py-3">

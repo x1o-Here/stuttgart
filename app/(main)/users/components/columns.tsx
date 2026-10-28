@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { CompanyChips } from "@/components/shared/company-chips";
 import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
+import { roleLabel } from "@/lib/auth/roles";
 
 import { UserActions } from "./user-actions";
 
@@ -52,11 +53,7 @@ export const columns: ColumnDef<UserData>[] = [
     size: 110,
     cell: ({ row }) => {
       const role = row.getValue("role") as string;
-      return (
-        <Badge variant={roleVariant(role)} className="capitalize">
-          {role}
-        </Badge>
-      );
+      return <Badge variant={roleVariant(role)}>{roleLabel(role)}</Badge>;
     },
   },
   {

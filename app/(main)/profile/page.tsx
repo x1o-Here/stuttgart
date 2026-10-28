@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
+import { roleLabel } from "@/lib/auth/roles";
 import { auth, db } from "@/lib/firebase/firebase-client";
 
 const usernameSchema = z.object({
@@ -215,9 +216,7 @@ export default function ProfilePage() {
     );
   }
 
-  const roleLabel = role
-    ? role.charAt(0).toUpperCase() + role.slice(1)
-    : "User";
+  const roleText = roleLabel(role);
   const facts = [
     { label: "01 / Username", value: username || "–" },
     {
@@ -236,7 +235,7 @@ export default function ProfilePage() {
                 : "neutral"
           }
         >
-          {roleLabel}
+          {roleText}
         </Badge>
       ),
     },
@@ -249,7 +248,7 @@ export default function ProfilePage() {
   return (
     <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
       <PageHeader
-        eyebrow={`( Account · ${roleLabel} )`}
+        eyebrow={`( Account · ${roleText} )`}
         lead="Your"
         title="profile."
         description={

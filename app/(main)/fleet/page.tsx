@@ -15,13 +15,16 @@ import { PageHeader } from "@/components/shared/page-header";
 import { RuledTable, TableCaption } from "@/components/shared/ruled-table";
 import { TruncatedText } from "@/components/shared/truncated-text";
 import { Input } from "@/components/ui/input";
+import { useSpareParts } from "@/hooks/use-spare-parts";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import DeleteModal from "../settings/[...setting]/components/modals/delete-modal";
 import VehicleFormDialog, {
   type VehicleRow,
 } from "./components/vehicle-form-dialog";
 
-const columns: ColumnDef<VehicleRow>[] = [
+type FleetRow = VehicleRow & { partsCount: number };
+
+const columns: ColumnDef<FleetRow>[] = [
   {
     id: "index",
     header: "No",
@@ -55,6 +58,21 @@ const columns: ColumnDef<VehicleRow>[] = [
       >
         {row.original.description || "–"}
       </TruncatedText>
+    ),
+  },
+  {
+    accessorKey: "partsCount",
+    header: () => <div className="text-right">Parts</div>,
+    size: 80,
+    enableGlobalFilter: false,
+    cell: ({ row }) => (
+      <div
+        className={`text-right font-mono tabular-nums ${
+          row.original.partsCount ? "text-foreground" : "text-muted-foreground"
+        }`}
+      >
+        {row.original.partsCount}
+      </div>
     ),
   },
   {
@@ -93,15 +111,21 @@ export default function FleetPage() {
   const isLoading = useLookupStore((s) => s.loading.vehicles);
   const [globalFilter, setGlobalFilter] = useState("");
 
-  const data = useMemo<VehicleRow[]>(
-    () =>
-      vehicles.map(({ id, name, description }) => ({
-        id,
-        name,
-        description: description ?? "",
-      })),
-    [vehicles],
-  );
+  const { parts } = useSpareParts();
+  const data = useMemo<FleetRow[]>(() => {
+    const fitted = new Map<string, number>();
+    for (const part of parts) {
+      if (part.status === "assigned" && part.vehicleId) {
+        fitted.set(part.vehicleId, (fitted.get(part.vehicleId) ?? 0) + 1);
+      }
+    }
+    return vehicles.map(({ id, name, description }) => ({
+      id,
+      name,
+      description: description ?? "",
+      partsCount: fitted.get(id) ?? 0,
+    }));
+  }, [vehicles, parts]);
 
   const table = useReactTable({
     defaultColumn: {
