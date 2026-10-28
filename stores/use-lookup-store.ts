@@ -11,9 +11,8 @@ import {
 } from "firebase/firestore";
 import { create } from "zustand";
 import {
-  CLIENT_ACCOUNT_TYPE_NAME,
-  isClientAccountTypeName,
   isProtectedAccountType,
+  isSystemAccountTypeName,
 } from "@/lib/constants/client-account";
 import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
@@ -32,12 +31,17 @@ export type LookupItem = {
   createdAt?: Date;
 };
 
-export type CollectionKey = "account-types" | "vehicles" | "departments";
+export type CollectionKey =
+  | "account-types"
+  | "vehicles"
+  | "departments"
+  | "supplier-types";
 
 type CompanyLookupCache = {
   accountTypes: LookupItem[];
   vehicles: LookupItem[];
   departments: LookupItem[];
+  supplierTypes: LookupItem[];
 };
 
 type LookupState = {
@@ -45,6 +49,7 @@ type LookupState = {
   accountTypes: LookupItem[];
   vehicles: LookupItem[];
   departments: LookupItem[];
+  supplierTypes: LookupItem[];
   loading: Record<CollectionKey, boolean>;
   error: Record<CollectionKey, string | null>;
   /** In-memory per-company snapshots so switching back doesn't flash empty. */
@@ -86,17 +91,19 @@ const collectionPath = (companyId: string, key: CollectionKey) =>
 
 const stateKey: Record<
   CollectionKey,
-  "accountTypes" | "vehicles" | "departments"
+  "accountTypes" | "vehicles" | "departments" | "supplierTypes"
 > = {
   "account-types": "accountTypes",
   vehicles: "vehicles",
   departments: "departments",
+  "supplier-types": "supplierTypes",
 };
 
 const humanLabel: Record<CollectionKey, string> = {
   "account-types": "Account type",
   vehicles: "Vehicle",
   departments: "Department",
+  "supplier-types": "Supplier type",
 };
 
 function mapDoc(d: {
@@ -119,12 +126,14 @@ const emptyLoading = {
   "account-types": true,
   vehicles: true,
   departments: true,
+  "supplier-types": true,
 } as const;
 
 const emptyError = {
   "account-types": null,
   vehicles: null,
   departments: null,
+  "supplier-types": null,
 } as const;
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -134,12 +143,18 @@ export const useLookupStore = create<LookupState>((set, get) => ({
   accountTypes: [],
   vehicles: [],
   departments: [],
+  supplierTypes: [],
   loading: { ...emptyLoading },
   error: { ...emptyError },
   cacheByCompany: {},
 
   subscribeAll: (companyId, _userId) => {
-    const keys: CollectionKey[] = ["account-types", "vehicles", "departments"];
+    const keys: CollectionKey[] = [
+      "account-types",
+      "vehicles",
+      "departments",
+      "supplier-types",
+    ];
     const cached = get().cacheByCompany[companyId];
 
     if (cached) {
@@ -149,10 +164,12 @@ export const useLookupStore = create<LookupState>((set, get) => ({
         accountTypes: cached.accountTypes,
         vehicles: cached.vehicles,
         departments: cached.departments,
+        supplierTypes: cached.supplierTypes ?? [],
         loading: {
           "account-types": false,
           vehicles: false,
           departments: false,
+          "supplier-types": false,
         },
         error: { ...emptyError },
       });
@@ -162,6 +179,7 @@ export const useLookupStore = create<LookupState>((set, get) => ({
         accountTypes: [],
         vehicles: [],
         departments: [],
+        supplierTypes: [],
         loading: { ...emptyLoading },
         error: { ...emptyError },
       });
@@ -180,12 +198,13 @@ export const useLookupStore = create<LookupState>((set, get) => ({
           set((state) => {
             const nextSlice = { [stateKey[key]]: items } as Pick<
               LookupState,
-              "accountTypes" | "vehicles" | "departments"
+              "accountTypes" | "vehicles" | "departments" | "supplierTypes"
             >;
             const prevCache = state.cacheByCompany[companyId] ?? {
               accountTypes: state.accountTypes,
               vehicles: state.vehicles,
               departments: state.departments,
+              supplierTypes: state.supplierTypes,
             };
             const nextCacheEntry: CompanyLookupCache = {
               ...prevCache,
@@ -221,10 +240,10 @@ export const useLookupStore = create<LookupState>((set, get) => ({
   createItem: async (companyId, userId, collectionKey, data) => {
     if (
       collectionKey === "account-types" &&
-      isClientAccountTypeName(data.name)
+      isSystemAccountTypeName(data.name)
     ) {
       throw new Error(
-        `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type is system-managed and cannot be created manually.`,
+        `The "${data.name.trim()}" account type is system-managed and cannot be created manually.`,
       );
     }
 
@@ -257,13 +276,11 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       const existing = get().accountTypes.find((item) => item.id === id);
       if (existing && isProtectedAccountType(existing)) {
         throw new Error(
-          `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type cannot be edited.`,
+          `The "${existing.name}" account type cannot be edited.`,
         );
       }
-      if (data.name && isClientAccountTypeName(data.name)) {
-        throw new Error(
-          `Cannot rename an account type to "${CLIENT_ACCOUNT_TYPE_NAME}".`,
-        );
+      if (data.name && isSystemAccountTypeName(data.name)) {
+        throw new Error(`Cannot rename an account type to "${data.name}".`);
       }
     }
 
@@ -293,11 +310,9 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       const existing = get().accountTypes.find((item) => item.id === id);
       if (
         (existing && isProtectedAccountType(existing)) ||
-        isClientAccountTypeName(itemName)
+        isSystemAccountTypeName(itemName)
       ) {
-        throw new Error(
-          `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type cannot be deleted.`,
-        );
+        throw new Error(`The "${itemName}" account type cannot be deleted.`);
       }
     }
 

@@ -22,7 +22,7 @@ const SETTING_MAP: Record<
   string,
   {
     key: CollectionKey;
-    storeKey: "accountTypes" | "departments";
+    storeKey: "accountTypes" | "departments" | "supplierTypes";
     label: string;
   }
 > = {
@@ -36,6 +36,11 @@ const SETTING_MAP: Record<
     storeKey: "departments",
     label: "Department",
   },
+  "supplier-types": {
+    key: "supplier-types",
+    storeKey: "supplierTypes",
+    label: "Supplier Type",
+  },
 };
 
 export default function SettingPage({ params }: PageProps) {
@@ -46,6 +51,7 @@ export default function SettingPage({ params }: PageProps) {
   const createItem = useLookupStore((s) => s.createItem);
   const accountTypes = useLookupStore((s) => s.accountTypes);
   const departments = useLookupStore((s) => s.departments);
+  const supplierTypes = useLookupStore((s) => s.supplierTypes);
   const lookupLoading = useLookupStore((s) => s.loading);
 
   // Vehicles moved to the Fleet section.
@@ -79,7 +85,7 @@ export default function SettingPage({ params }: PageProps) {
   }
 
   const { key, storeKey, label } = config;
-  const dataByKey = { accountTypes, departments };
+  const dataByKey = { accountTypes, departments, supplierTypes };
   const rawData = dataByKey[storeKey] || [];
   const isLoading = lookupLoading[key];
   const lower = label.toLowerCase();

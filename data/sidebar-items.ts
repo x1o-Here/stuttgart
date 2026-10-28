@@ -1,6 +1,7 @@
 import {
   ChartColumn,
   ContactRound,
+  Factory,
   KeyRound,
   Landmark,
   LayoutDashboard,
@@ -41,6 +42,12 @@ const MainSidebarContent: SidebarItem[] = [
     title: "Clients",
     href: "/clients",
     icon: ContactRound,
+  },
+  {
+    key: "suppliers" as SidebarRouteKey,
+    title: "Suppliers",
+    href: "/suppliers",
+    icon: Factory,
   },
   {
     key: "fleet" as SidebarRouteKey,

@@ -35,7 +35,9 @@ export default function DeleteModal({
       ? "vehicles"
       : label === "account type"
         ? "account-types"
-        : "departments";
+        : label === "supplier type"
+          ? "supplier-types"
+          : "departments";
 
   const handleDelete = async () => {
     if (!activeCompany || !user) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Building, Tags } from "lucide-react";
+import { ArrowUpRight, Building, Factory, Tags } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { useLookupStore } from "@/stores/use-lookup-store";
@@ -8,6 +8,7 @@ import { useLookupStore } from "@/stores/use-lookup-store";
 export default function SettingsPage() {
   const accountTypes = useLookupStore((s) => s.accountTypes);
   const departments = useLookupStore((s) => s.departments);
+  const supplierTypes = useLookupStore((s) => s.supplierTypes);
   const loading = useLookupStore((s) => s.loading);
 
   const settings = [
@@ -27,6 +28,14 @@ export default function SettingsPage() {
       href: "/settings/departments",
       count: loading.departments ? null : departments.length,
     },
+    {
+      name: "Supplier types",
+      description:
+        "Categories for suppliers, such as Fuel, Spare parts or Tyres.",
+      icon: Factory,
+      href: "/settings/supplier-types",
+      count: loading["supplier-types"] ? null : supplierTypes.length,
+    },
   ];
 
   return (
@@ -38,7 +47,7 @@ export default function SettingsPage() {
         description="Lookup lists used across the ledger"
       />
 
-      <div className="grid sm:grid-cols-2">
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3">
         {settings.map((setting, index) => (
           <Link
             key={setting.name}

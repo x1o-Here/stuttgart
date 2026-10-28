@@ -14,6 +14,12 @@ type LookupFormFieldsProps = {
   onEdit?: () => void;
 };
 
+const PLACEHOLDERS: Record<string, { name: string; short: string }> = {
+  "Account Type": { name: "Bank", short: "BNK" },
+  Department: { name: "Operations", short: "OPS" },
+  "Supplier Type": { name: "Fuel", short: "FUL" },
+};
+
 /** Name + short form section shared by the create and update lookup modals. */
 export function LookupFormFields({
   form,
@@ -34,7 +40,7 @@ export function LookupFormFields({
               {...field}
               id={`${idPrefix}-name`}
               aria-invalid={fieldState.invalid}
-              placeholder={`e.g. ${entityLabel === "Department" ? "Operations" : "Bank"}`}
+              placeholder={`e.g. ${PLACEHOLDERS[entityLabel]?.name ?? "Bank"}`}
               autoComplete="off"
               onChange={(event) => {
                 field.onChange(event);
@@ -55,7 +61,7 @@ export function LookupFormFields({
               {...field}
               id={`${idPrefix}-short`}
               aria-invalid={fieldState.invalid}
-              placeholder={entityLabel === "Department" ? "OPS" : "BNK"}
+              placeholder={PLACEHOLDERS[entityLabel]?.short ?? "BNK"}
               autoComplete="off"
               className="font-mono"
             />

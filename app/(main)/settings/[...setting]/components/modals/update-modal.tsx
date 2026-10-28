@@ -37,7 +37,11 @@ export default function UpdateModal({
 
   const label = entityLabel.toLowerCase();
   const collectionKey: CollectionKey =
-    label === "account type" ? "account-types" : "departments";
+    label === "account type"
+      ? "account-types"
+      : label === "supplier type"
+        ? "supplier-types"
+        : "departments";
 
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),

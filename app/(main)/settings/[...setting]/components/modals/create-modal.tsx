@@ -17,10 +17,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  CLIENT_ACCOUNT_TYPE_NAME,
-  isClientAccountTypeName,
-} from "@/lib/constants/client-account";
+import { isSystemAccountTypeName } from "@/lib/constants/client-account";
 import { LookupFormFields } from "./lookup-form-fields";
 
 export const formSchema = z.object({
@@ -53,9 +50,9 @@ export default function CreateModal({
   });
 
   async function onSubmit(data: FormSchema) {
-    if (isAccountType && isClientAccountTypeName(data.name)) {
+    if (isAccountType && isSystemAccountTypeName(data.name)) {
       setFormError(
-        `The "${CLIENT_ACCOUNT_TYPE_NAME}" account type is system-managed and cannot be created manually.`,
+        `The "${data.name.trim()}" account type is system-managed and cannot be created manually.`,
       );
       return;
     }

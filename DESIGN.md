@@ -139,6 +139,16 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 - The assigned vehicle shows as a mono `brand-soft` chip, linking to the vehicle for roles that can open Fleet.
 - Removing a part from a vehicle happens only on the vehicle page, through a dialog that asks: return to stock, or mark as scrapped.
 
+**VAT-inclusive amounts** (`lib/invoices/money.ts`)
+- When someone enters a total *including* VAT, show the split live beneath it: **Bill amount** and **VAT (18%)** in a two-cell `surface-muted` grid.
+- Use `splitVatInclusive(total)`, where VAT = total − bill, so the parts always add back to the total.
+- Tax invoice numbers use `validateTaxInvoiceNo`: exactly 15 characters, A–Z, 0–9, `-` or `/`, stored upper-case. Show a live `n / 15` counter next to the label that turns `text-success` at 15.
+
+**Suppliers** (`app/(main)/suppliers`)
+- Mirrors Clients: register, detail with a facts grid, invoices table, and invoice detail with Items + Payments.
+- Payments move money **from** one of our accounts **to** the supplier account.
+- Tax invoice numbers are unique across all suppliers, enforced with claim docs in a transaction.
+
 **Settings rows** (profile)
 - `section grid md:grid-cols-[18rem_minmax(0,32rem)] px-6 py-6` holds a numbered caption with a one-line description on the left and the form on the right.
 - Results show as a `success-soft` `<output>` or a `danger-soft` `role="alert"` note above the submit button.
@@ -239,5 +249,5 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 ## Rollout status
 
-- Done: inventory (parts list, add/edit/assign/delete, vehicle spare parts section, remove-part dialog), tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
+- Done: suppliers (register, detail, submit/edit invoice with VAT split, payments, supplier types lookup), inventory (parts list, add/edit/assign/delete, vehicle spare parts section, remove-part dialog), tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
 - Follow-up: none of the app pages are on the old styling. The printed invoice and export documents keep their own print styles on purpose.
