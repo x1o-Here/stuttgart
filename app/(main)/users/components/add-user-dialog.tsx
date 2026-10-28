@@ -181,7 +181,7 @@ export default function AddUserDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role: currentRole } = useAuth();
 
   useEffect(() => {
     if (!open) return;
@@ -420,7 +420,10 @@ export default function AddUserDialog({
                       <SelectContent>
                         <SelectItem value="user">User</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        {/* Firestore rules: only admins may create admins. */}
+                        {currentRole === "admin" && (
+                          <SelectItem value="admin">Admin</SelectItem>
+                        )}
                         <SelectItem value="mechanic">Mechanic</SelectItem>
                       </SelectContent>
                     </Select>

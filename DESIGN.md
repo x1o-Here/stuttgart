@@ -144,6 +144,19 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 - Use `splitVatInclusive(total)`, where VAT = total − bill, so the parts always add back to the total.
 - Tax invoice numbers use `validateTaxInvoiceNo`: exactly 15 characters, A–Z, 0–9, `-` or `/`, stored upper-case. Show a live `n / 15` counter next to the label that turns `text-success` at 15.
 
+**VAT tab** (Reports → `02 / VAT`, `app/(main)/reports/components/vat`)
+- Quarters follow the Sri Lankan tax year: 1 April start, Q1 Apr–Jun (`lib/vat/quarters.ts`).
+- VAT counts by **invoice date**. Client invoices are outgoing VAT; supplier invoices are incoming VAT.
+- Always show the formula next to VAT figures: "Due VAT = Outgoing VAT − Incoming VAT".
+- **Statuses:**
+  - Upcoming / In progress: `brand` or `neutral`
+  - Payable: `warning`
+  - Part paid: `brand`
+  - Paid: `success`
+  - Refundable and Nil: `neutral`
+- A negative due shows as `−` with a Refundable chip and is not carried forward.
+- VAT payments post a `debit` to the paying account, tagged `vat-payment`.
+
 **Suppliers** (`app/(main)/suppliers`)
 - Mirrors Clients: register, detail with a facts grid, invoices table, and invoice detail with Items + Payments.
 - Payments move money **from** one of our accounts **to** the supplier account.
@@ -249,5 +262,5 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 
 ## Rollout status
 
-- Done: suppliers (register, detail, submit/edit invoice with VAT split, payments, supplier types lookup), inventory (parts list, add/edit/assign/delete, vehicle spare parts section, remove-part dialog), tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
+- Done: VAT tab (quarterly outgoing/incoming/due, VAT payments), suppliers (register, detail, submit/edit invoice with VAT split, payments, supplier types lookup), inventory (parts list, add/edit/assign/delete, vehicle spare parts section, remove-part dialog), tokens, app shell (ruled sidebar, flush main), sign-in, accounts list and detail, profile (account facts, active company switch, username and password sections), settings (overview tiles, account type and department lists, add/edit/delete lookup dialogs), users (users, companies and audit log tabs, invite user, company, password reset and company status dialogs), reports (overview, custom report, report filters, panels, charts, custom report, share and export dialogs), fleet (register, vehicle detail, vehicle and delete dialogs), clients (list, detail, invoices, invoice detail, document, new and edit invoice, template, analytics, and all their dialogs), add account, edit and delete transaction, confirmations, primitives (button, input, card, badge, dialog), the dashboard (greeting strip and full-width table) and the Add Transaction dialog.
 - Follow-up: none of the app pages are on the old styling. The printed invoice and export documents keep their own print styles on purpose.

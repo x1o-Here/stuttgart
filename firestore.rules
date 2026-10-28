@@ -1,0 +1,214 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stuttgart — Firestore security rules
+//
+// Roles live on users/{uid}.role: admin | manager | user | mechanic
+// Company access comes from users/{uid}.companies (array of company ids).
+//
+//   admin / manager / user  → full ledger access in their companies
+//                             (accounts, clients, suppliers, invoices,
+//                             payments, reports, VAT, fleet, lookup lists)
+//   mechanic                → inventory only: read vehicles + lookup lists,
+//                             add spare parts and assign them to vehicles;
+//                             cannot edit, remove or delete parts
+//   admin / manager         → also manage users, companies and the audit log
+//
+// Server routes (app/api/*) use the Admin SDK and bypass these rules.
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(userPath());
+    }
+
+    function profile() {
+      return get(userPath()).data;
+    }
+
+    function role() {
+      return hasProfile() ? profile().get('role', '') : '';
+    }
+
+    function isAdmin() {
+      return role() == 'admin';
+    }
+
+    function isUserAdmin() {
+      return role() in ['admin', 'manager'];
+    }
+
+    // Every role except mechanic works with the ledger.
+    function isLedgerRole() {
+      return role() in ['admin', 'manager', 'user'];
+    }
+
+    function isMember(companyId) {
+      return hasProfile() && companyId in profile().get('companies', []);
+    }
+
+    function canUseLedger(companyId) {
+      return isMember(companyId) && isLedgerRole();
+    }
+
+    // Changing only these fields of the existing document.
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // The creator of a brand-new company is added to it in the same batch
+    // (arrayUnion appends the new id last). Adding yourself to an existing
+    // company is not allowed.
+    function addsOwnNewCompany(uid) {
+      return isUserAdmin()
+        && request.auth.uid == uid
+        && onlyChanges(['companies'])
+        && request.resource.data.companies.size()
+             == resource.data.get('companies', []).size() + 1
+        && request.resource.data.companies.hasAll(resource.data.get('companies', []))
+        && !exists(/databases/$(database)/documents/companies/$(request.resource.data.companies[request.resource.data.companies.size() - 1]))
+        && existsAfter(/databases/$(database)/documents/companies/$(request.resource.data.companies[request.resource.data.companies.size() - 1]));
+    }
+
+    // ── Users ────────────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      // Own profile (sign-in, profile page); admins/managers list everyone.
+      allow read: if signedIn() && (request.auth.uid == uid || isUserAdmin());
+
+      // Invite user (admin / manager). Only an admin may grant the admin role.
+      allow create: if isUserAdmin()
+        && request.resource.data.role in ['admin', 'manager', 'user', 'mechanic']
+        && (request.resource.data.role != 'admin' || isAdmin());
+
+      // Profile page: a user may rename themself and nothing else. Admins
+      // manage everyone; admins/managers join companies they just created.
+      allow update: if (signedIn() && request.auth.uid == uid
+                        && onlyChanges(['username', 'updatedAt']))
+        || addsOwnNewCompany(uid)
+        || isAdmin();
+
+      // Rollback when an invite fails part-way.
+      allow delete: if isUserAdmin();
+    }
+
+    // ── Audit log (append-only) ──────────────────────────────────────────────
+
+    match /auditLogs/{logId} {
+      allow read: if isUserAdmin();
+      allow create: if hasProfile();
+      allow update, delete: if false;
+    }
+
+    // ── Lookup lists: account types, departments, supplier types ─────────────
+
+    match /lookup-lists/{companyId}/{document=**} {
+      // Mechanics read them too (the app loads them for every role).
+      allow read: if isMember(companyId);
+      allow write: if canUseLedger(companyId);
+    }
+
+    // ── Companies ────────────────────────────────────────────────────────────
+
+    match /companies/{companyId} {
+      // Members read their companies; admins/managers list all of them to
+      // assign users and to resolve audit-log names.
+      allow read: if isMember(companyId) || isUserAdmin();
+      allow create: if isUserAdmin();
+      // Edit details / activate / deactivate.
+      allow update: if isAdmin() || (isUserAdmin() && isMember(companyId));
+      allow delete: if false;
+
+      // Chart of accounts and their ledger entries.
+      match /accounts/{accountId} {
+        allow read, write: if canUseLedger(companyId);
+
+        match /transactions/{transactionId} {
+          allow read, write: if canUseLedger(companyId);
+        }
+      }
+
+      // Clients and everything under them: invoice template, invoices,
+      // payments. (`=**` also matches the client document itself.)
+      match /clients/{document=**} {
+        allow read, write: if canUseLedger(companyId);
+      }
+
+      // Suppliers and everything under them: invoices, payments.
+      match /suppliers/{document=**} {
+        allow read, write: if canUseLedger(companyId);
+      }
+
+      // One claim per supplier tax invoice no (unique across all suppliers).
+      match /supplierInvoiceNos/{taxInvoiceNo} {
+        allow read, create, delete: if canUseLedger(companyId);
+        allow update: if false;
+      }
+
+      // VAT payments to the tax authority.
+      match /vatPayments/{paymentId} {
+        allow read, write: if canUseLedger(companyId);
+      }
+
+      // Saved custom reports.
+      match /reports/{reportId} {
+        allow read, write: if canUseLedger(companyId);
+      }
+
+      // Fleet: everyone in the company reads (mechanics assign parts to
+      // vehicles); only ledger roles add, edit or delete vehicles.
+      match /vehicles/{vehicleId} {
+        allow read: if isMember(companyId);
+        allow write: if canUseLedger(companyId);
+      }
+
+      // ── Inventory: spare parts ─────────────────────────────────────────────
+
+      match /spareParts/{partId} {
+        allow read: if isMember(companyId);
+
+        // Any member (mechanics included) adds a part, always into stock.
+        allow create: if isMember(companyId)
+          && request.resource.data.status == 'in_stock'
+          && request.resource.data.vehicleId == null
+          && request.resource.data.entityStatus == true
+          && request.resource.data.createdBy == request.auth.uid;
+
+        // Any member may assign an in-stock part to a vehicle. Editing,
+        // removing from a vehicle, scrapping and soft-deleting need a
+        // ledger role.
+        allow update: if canUseLedger(companyId)
+          || (isMember(companyId)
+              && resource.data.status == 'in_stock'
+              && request.resource.data.status == 'assigned'
+              && request.resource.data.vehicleId is string
+              && onlyChanges(['status', 'vehicleId', 'assignedAt', 'assignedBy']));
+
+        // Parts are soft-deleted (entityStatus = false) through update.
+        allow delete: if false;
+      }
+
+      // One claim per part ID: created with a new part (any member), moved or
+      // released when a part is renamed or deleted (ledger roles).
+      match /sparePartIds/{partIdKey} {
+        allow read, create: if isMember(companyId);
+        allow delete: if canUseLedger(companyId);
+        allow update: if false;
+      }
+    }
+
+    // Anything not matched above is denied.
+  }
+}
