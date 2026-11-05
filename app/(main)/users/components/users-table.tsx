@@ -1,10 +1,10 @@
 "use client";
 
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { db } from "@/lib/firebase/firebase-client";
-import { columns, type UserData } from "./columns";
+import { createUserColumns, type UserData } from "./columns";
 import { getAllCompanies } from "./companies-cache";
 import { DataTable } from "./data-table";
 
@@ -17,7 +17,8 @@ function mapUsersSnapshot(
       id: userDoc.id,
       username: data.username || "N/A",
       email: data.email || "N/A",
-      role: data.role || "user",
+      removed: data.entityStatus === false,
+      role: data.role || "general",
       companies: data.companies || [],
       createdAt: data.createdAt,
     };
@@ -57,6 +58,11 @@ export default function UsersTable({
     loadUsers();
   }, [loadUsers, refreshToken]);
 
+  const columns = useMemo(
+    () => createUserColumns({ onChanged: () => void loadUsers() }),
+    [loadUsers],
+  );
+
   if (loading) {
     return (
       <div className="p-4">
@@ -68,10 +74,13 @@ export default function UsersTable({
   return (
     <DataTable
       columns={columns}
-      data={users.map((user) => ({
-        ...user,
-        companyNames: user.companies.map((id) => companyNames[id] ?? id),
-      }))}
+      // Active users first; removed ones stay listed for traceability.
+      data={[...users]
+        .sort((a, b) => Number(a.removed) - Number(b.removed))
+        .map((user) => ({
+          ...user,
+          companyNames: user.companies.map((id) => companyNames[id] ?? id),
+        }))}
       caption="User directory"
       searchPlaceholder="Search by username, email or role"
       emptyMessage="No users yet."

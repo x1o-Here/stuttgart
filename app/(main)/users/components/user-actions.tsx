@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { KeyRound, MoreHorizontal } from "lucide-react";
+import { KeyRound, MoreHorizontal, UserX } from "lucide-react";
 import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,51 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/auth-context";
 import type { UserData } from "./columns";
 
 interface UserActionsProps {
   user: UserData;
+  /** Called after the user is removed so the list can reload. */
+  onChanged?: () => void;
 }
 
-export function UserActions({ user }: UserActionsProps) {
+export function UserActions({ user, onChanged }: UserActionsProps) {
+  const { user: currentUser, role: currentRole } = useAuth();
+  // Mirrors the checks in /api/users/remove.
+  const canRemove =
+    currentUser?.uid !== user.id &&
+    (user.role !== "admin" || currentRole === "admin");
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  async function handleRemove() {
+    setRemoveError(null);
+    setRemoving(true);
+    try {
+      const token = await currentUser?.getIdToken();
+      await axios.post(
+        "/api/users/remove",
+        { uid: user.id },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setRemoveOpen(false);
+      onChanged?.();
+    } catch (error) {
+      console.error("Error removing user:", error);
+      setRemoveError(
+        axios.isAxiosError(error)
+          ? (error.response?.data?.error ?? error.message)
+          : "Something went wrong.",
+      );
+    } finally {
+      setRemoving(false);
+    }
+  }
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [result, setResult] = useState<
@@ -80,6 +116,21 @@ export function UserActions({ user }: UserActionsProps) {
             <KeyRound />
             Send password reset
           </DropdownMenuItem>
+          {canRemove ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => {
+                  setRemoveError(null);
+                  setRemoveOpen(true);
+                }}
+              >
+                <UserX />
+                Remove user
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -117,6 +168,27 @@ export function UserActions({ user }: UserActionsProps) {
               Couldn’t send the email: {result.message}
             </p>
           )
+        ) : null}
+      </ConfirmationDialog>
+
+      <ConfirmationDialog
+        open={removeOpen}
+        onOpenChange={(next) => {
+          if (!removing) setRemoveOpen(next);
+        }}
+        eyebrow={`( Access · ${user.username} )`}
+        lead="Remove"
+        title={`${user.username}?`}
+        description={`They can no longer sign in, and ${user.email} is freed so a new account can use it. Their audit log history is kept.`}
+        confirmLabel={removing ? "Removing…" : "Remove user"}
+        pending={removing}
+        keepOpen
+        onConfirm={() => void handleRemove()}
+      >
+        {removeError ? (
+          <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-destructive">
+            Couldn’t remove the user: {removeError}
+          </p>
         ) : null}
       </ConfirmationDialog>
     </>

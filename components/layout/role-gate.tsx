@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { canAccessPath } from "@/lib/auth/roles";
 
 /**
- * Keeps restricted roles on the routes they may use. Mechanics can open only
+ * Keeps restricted roles on the routes they may use. Technicians can open only
  * Inventory and Profile; anything else (including "/" after sign-in) is
  * replaced with /inventory before it renders.
  */

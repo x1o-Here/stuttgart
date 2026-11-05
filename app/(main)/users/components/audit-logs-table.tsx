@@ -92,13 +92,18 @@ export default function AuditLogsTable() {
       const usernames = new Map<string, string>();
       usersSnap.docs.forEach((userDoc) => {
         const data = userDoc.data();
-        usernames.set(
-          userDoc.id,
+        const name =
           typeof data.username === "string" && data.username
             ? data.username
-            : typeof data.email === "string"
+            : typeof data.email === "string" && data.email
               ? data.email
-              : userDoc.id,
+              : typeof data.removedEmail === "string" && data.removedEmail
+                ? data.removedEmail
+                : userDoc.id;
+        // Tell a removed account apart from a new one reusing the name/email.
+        usernames.set(
+          userDoc.id,
+          data.entityStatus === false ? `${name} (removed)` : name,
         );
       });
 

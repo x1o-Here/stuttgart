@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { useSpareParts } from "@/hooks/use-spare-parts";
-import { canEditInventory, isMechanic } from "@/lib/auth/roles";
+import { canEditInventory, isTechnician } from "@/lib/auth/roles";
 import type { SparePart, SparePartStatus } from "@/lib/inventory/spare-parts";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import { AssignPartDialog } from "./components/assign-part-dialog";
@@ -61,7 +61,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const canEdit = canEditInventory(role);
-  const mechanic = isMechanic(role);
+  const technician = isTechnician(role);
 
   const rows = useMemo<PartRow[]>(() => {
     const names = new Map(vehicles.map((v) => [v.id, v.name]));
@@ -129,7 +129,7 @@ export default function InventoryPage() {
           }
           const chip =
             "inline-flex max-w-full items-center gap-1.5 rounded-sm bg-brand-soft px-1.5 py-0.5 font-mono text-xs text-brand";
-          return mechanic ? (
+          return technician ? (
             <span className={chip}>
               <span className="truncate">{vehicleName}</span>
             </span>
@@ -172,7 +172,7 @@ export default function InventoryPage() {
         ),
       },
     ],
-    [canEdit, mechanic],
+    [canEdit, technician],
   );
 
   const table = useReactTable({

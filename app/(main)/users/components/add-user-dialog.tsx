@@ -211,7 +211,7 @@ export default function AddUserDialog({
       username: "",
       email: "",
       companies: [],
-      role: "user",
+      role: "general",
     },
     resolver: zodResolver(formSchema),
     mode: "onSubmit",
@@ -418,13 +418,13 @@ export default function AddUserDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="general">General User</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
                         {/* Firestore rules: only admins may create admins. */}
                         {currentRole === "admin" && (
                           <SelectItem value="admin">Admin</SelectItem>
                         )}
-                        <SelectItem value="mechanic">Mechanic</SelectItem>
+                        <SelectItem value="technician">Technician</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

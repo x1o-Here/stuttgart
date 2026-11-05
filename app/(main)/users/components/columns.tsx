@@ -17,6 +17,8 @@ export type UserData = {
   /** Company names resolved from ids, same order as `companies`. */
   companyNames?: string[];
   createdAt?: any;
+  /** Removed accounts stay listed so their history remains traceable. */
+  removed: boolean;
 };
 
 function roleVariant(role: string) {
@@ -25,63 +27,74 @@ function roleVariant(role: string) {
   return "neutral" as const;
 }
 
-export const columns: ColumnDef<UserData>[] = [
-  {
-    id: "username",
-    // Searchable text covers both the name and the email shown beneath it.
-    accessorFn: (row) => `${row.username} ${row.email}`,
-    header: "User",
-    cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted font-mono text-[11px] uppercase text-muted-foreground ring-1 ring-inset ring-border">
-          {row.original.username.slice(0, 2)}
-        </span>
-        <div className="flex min-w-0 flex-col">
-          <TruncatedText className="font-medium text-foreground">
-            {row.original.username}
-          </TruncatedText>
-          <TruncatedText className="font-mono text-xs text-muted-foreground">
-            {row.original.email}
-          </TruncatedText>
+export function createUserColumns({
+  onChanged,
+}: {
+  onChanged: () => void;
+}): ColumnDef<UserData>[] {
+  return [
+    {
+      id: "username",
+      // Searchable text covers both the name and the email shown beneath it.
+      accessorFn: (row) =>
+        `${row.username} ${row.removed ? "removed" : row.email}`,
+      header: "User",
+      cell: ({ row }) => (
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted font-mono text-[11px] uppercase text-muted-foreground ring-1 ring-inset ring-border">
+            {row.original.username.slice(0, 2)}
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <TruncatedText className="font-medium text-foreground">
+              {row.original.username}
+            </TruncatedText>
+            <TruncatedText className="font-mono text-xs text-muted-foreground">
+              {row.original.removed ? "Email released" : row.original.email}
+            </TruncatedText>
+          </div>
         </div>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "role",
-    header: "Role",
-    size: 110,
-    cell: ({ row }) => {
-      const role = row.getValue("role") as string;
-      return <Badge variant={roleVariant(role)}>{roleLabel(role)}</Badge>;
+      ),
     },
-  },
-  {
-    id: "companies",
-    // Search by company name, not id.
-    accessorFn: (row) => (row.companyNames ?? row.companies).join(" "),
-    header: "Companies",
-    cell: ({ row }) => {
-      const names = row.original.companyNames ?? row.original.companies;
-      return (
-        <CompanyChips
-          companies={row.original.companies.map((id, index) => ({
-            id,
-            name: names[index] ?? id,
-          }))}
-          max={3}
-        />
-      );
+    {
+      accessorKey: "role",
+      header: "Role",
+      size: 110,
+      cell: ({ row }) => {
+        if (row.original.removed) {
+          return <Badge variant="danger">Removed</Badge>;
+        }
+        const role = row.getValue("role") as string;
+        return <Badge variant={roleVariant(role)}>{roleLabel(role)}</Badge>;
+      },
     },
-  },
-  {
-    id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    size: 56,
-    cell: ({ row }) => (
-      <div className="flex justify-end">
-        <UserActions user={row.original} />
-      </div>
-    ),
-  },
-];
+    {
+      id: "companies",
+      // Search by company name, not id.
+      accessorFn: (row) => (row.companyNames ?? row.companies).join(" "),
+      header: "Companies",
+      cell: ({ row }) => {
+        const names = row.original.companyNames ?? row.original.companies;
+        return (
+          <CompanyChips
+            companies={row.original.companies.map((id, index) => ({
+              id,
+              name: names[index] ?? id,
+            }))}
+            max={3}
+          />
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      size: 56,
+      cell: ({ row }) =>
+        row.original.removed ? null : (
+          <div className="flex justify-end">
+            <UserActions user={row.original} onChanged={onChanged} />
+          </div>
+        ),
+    },
+  ];
+}

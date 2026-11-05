@@ -1,6 +1,6 @@
 "use client";
 
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -73,6 +73,13 @@ async function fetchAuthProfile(user: User): Promise<AuthProfile> {
   }
 
   const data = userDoc.data();
+
+  // Removed accounts keep their doc for audit history but lose access.
+  if (data.entityStatus === false) {
+    await signOut(auth);
+    throw new Error("This account has been removed.");
+  }
+
   const companyIds = Array.isArray(data.companies)
     ? (data.companies as string[])
     : [];
@@ -205,7 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Error fetching user data:", error);
         sessionProfile = null;
-        setUser(nextUser);
+        // Null when the profile check signed the user out (removed account).
+        setUser(auth.currentUser);
         setUsername(null);
         setRole(null);
         setCompanies([]);

@@ -6,12 +6,12 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { RequireAuth, useAuth } from "@/contexts/auth-context";
 import { LookupSubscription } from "@/contexts/lookup-context";
 import { AccountsProvider } from "@/contexts/useAccountsContext";
-import { isMechanic } from "@/lib/auth/roles";
+import { isTechnician } from "@/lib/auth/roles";
 
-/** Mechanics never see ledger pages, so they skip the accounts listeners. */
+/** Technicians never see ledger pages, so they skip the accounts listeners. */
 function LedgerProviders({ children }: { children: React.ReactNode }) {
   const { role } = useAuth();
-  if (isMechanic(role)) return children;
+  if (isTechnician(role)) return children;
   return <AccountsProvider>{children}</AccountsProvider>;
 }
 
