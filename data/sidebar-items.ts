@@ -15,7 +15,7 @@ import {
 import type { SidebarRouteKey } from "@/lib/active-route";
 import type { Role } from "@/lib/auth/roles";
 
-/** Roles that see an item; omitted = every role except mechanic. */
+/** Roles that see an item; omitted = every role except technician. */
 type SidebarItem = {
   key: SidebarRouteKey;
   title: string;
@@ -60,7 +60,7 @@ const MainSidebarContent: SidebarItem[] = [
     title: "Inventory",
     href: "/inventory",
     icon: Warehouse,
-    roles: ["admin", "manager", "user", "mechanic"],
+    roles: ["admin", "manager", "general", "technician"],
   },
   {
     key: "reports" as SidebarRouteKey,

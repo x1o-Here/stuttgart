@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { MainSidebarContent } from "@/data/sidebar-items";
 import { getActiveSidebarRoute } from "@/lib/active-route";
-import { isMechanic, type Role, roleLabel } from "@/lib/auth/roles";
+import { isTechnician, type Role, roleLabel } from "@/lib/auth/roles";
 import { auth } from "@/lib/firebase/firebase-client";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarContent, SidebarHeader } from "../custom/ui/sidebar";
@@ -31,7 +31,7 @@ export default function AppSidebar() {
   }
 
   const visibleItems = MainSidebarContent.filter((item) =>
-    item.roles ? item.roles.includes(role as Role) : !isMechanic(role),
+    item.roles ? item.roles.includes(role as Role) : !isTechnician(role),
   );
 
   return (
@@ -85,7 +85,7 @@ export default function AppSidebar() {
 
       <div className="border-t px-2 py-2">
         <SidebarMenu className="gap-y-0.5">
-          {!isMechanic(role) && (
+          {!isTechnician(role) && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 className={cn(

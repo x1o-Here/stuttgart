@@ -17,7 +17,7 @@ function mapUsersSnapshot(
       id: userDoc.id,
       username: data.username || "N/A",
       email: data.email || "N/A",
-      role: data.role || "user",
+      role: data.role || "general",
       companies: data.companies || [],
       createdAt: data.createdAt,
     };

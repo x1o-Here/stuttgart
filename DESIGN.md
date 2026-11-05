@@ -129,10 +129,10 @@ The frame is flush, with no outer padding, so it uses all the space beside the s
 - The company switcher lives on the profile page (`05 / Active company`), not in the sidebar.
 
 **Role-gated actions** (`lib/auth/roles.ts`)
-- Use `canEditInventory`, `isMechanic`, `isUserAdmin` and `canAccessPath` rather than comparing role strings inline.
-- **Hide** an action the role can never take (e.g. edit and delete icons for mechanics).
+- Use `canEditInventory`, `isTechnician`, `isUserAdmin` and `canAccessPath` rather than comparing role strings inline.
+- **Hide** an action the role can never take (e.g. edit and delete icons for technicians).
 - **Disable with a tooltip** only when it's blocked by state, e.g. "Delete" on a part that's on a vehicle, so the reason is visible.
-- Mechanics see only Inventory in the sidebar (plus their profile). `RoleGate` replaces any other route with `/inventory`.
+- Technicians see only Inventory in the sidebar (plus their profile). `RoleGate` replaces any other route with `/inventory`.
 
 **Inventory** (`app/(main)/inventory`)
 - A ruled page with a status chip per part: In stock `success`, Assigned `brand`, Scrapped `neutral`.
