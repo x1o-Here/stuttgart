@@ -1,0 +1,13 @@
+{
+    "name": "stuttgart",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "npm run dev -w @stuttgart/web",
+        "build": "npm run build -w @stuttgart/web",
+        "lint": "npm run lint -w @stuttgart/web"
+    }
+}
