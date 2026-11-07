@@ -44,3 +44,6 @@ next-env.d.ts
 .turbo
 # prisma generated client
 **/generated/prisma/
+
+# Firestore → Postgres migration reports
+migration-logs/
