@@ -1,4 +1,4 @@
-import { roundMoney } from "@/lib/invoices/money";
+import { roundMoney } from "../invoices/money";
 import {
   compareQuarters,
   quarterRange,
