@@ -1,0 +1,57 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  admin
+  manager
+  general
+  technician
+}
+
+model User {
+  id           String        @id // Firebase Auth uid
+  username     String
+  email        String
+  role         Role          @default(general)
+  firstSignIn  Boolean       @default(true) @map("first_sign_in")
+  entityStatus Boolean       @default(true) @map("entity_status")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  companies    UserCompany[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Company {
+  id           String        @id @default(cuid())
+  name         String
+  address      String        @default("")
+  telephoneNo  String        @default("") @map("telephone_no")
+  tin          String        @default("")
+  entityStatus Boolean       @default(true) @map("entity_status")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  users        UserCompany[]
+
+  @@map("companies")
+}
+
+model UserCompany {
+  userId    String  @map("user_id")
+  companyId String  @map("company_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@id([userId, companyId])
+  @@index([companyId])
+  @@map("user_companies")
+}
