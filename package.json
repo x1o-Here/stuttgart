@@ -1,13 +1,18 @@
 {
     "name": "stuttgart",
     "private": true,
+    "packageManager": "npm@11.19.1",
     "workspaces": [
         "apps/*",
         "packages/*"
     ],
     "scripts": {
-        "dev": "npm run dev -w @stuttgart/web",
-        "build": "npm run build -w @stuttgart/web",
-        "lint": "npm run lint -w @stuttgart/web"
+        "dev": "turbo run dev",
+        "build": "turbo run build",
+        "lint": "turbo run lint",
+        "format": "turbo run format"
+    },
+    "devDependencies": {
+        "turbo": "^2.11.10"
     }
 }
