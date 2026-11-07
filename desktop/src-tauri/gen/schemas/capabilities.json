@@ -1,0 +1,1 @@
+{"web-app":{"identifier":"web-app","description":"Lets the hosted web app read the installed version and trigger an update check.","remote":{"urls":["https://stuttgart-three.vercel.app/*","http://localhost:3000/*"]},"local":true,"windows":["main"],"permissions":["core:app:allow-version","allow-check-for-updates"]}}

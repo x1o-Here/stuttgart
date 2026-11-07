@@ -4,6 +4,7 @@ import { ArrowUpRight, Building, Factory, Tags } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { useLookupStore } from "@/stores/use-lookup-store";
+import { DesktopAppSettings } from "./components/desktop-app";
 
 export default function SettingsPage() {
   const accountTypes = useLookupStore((s) => s.accountTypes);
@@ -80,6 +81,8 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
+
+      <DesktopAppSettings />
     </div>
   );
 }

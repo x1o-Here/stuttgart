@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Stuttgart",
+  "version": "../package.json",
+  "identifier": "com.stuttgart.desktop",
+  "build": {
+    "devUrl": "http://localhost:3000",
+    "frontendDist": "https://stuttgart-three.vercel.app/",
+    "beforeDevCommand": {
+      "script": "npm run dev",
+      "cwd": "../..",
+      "wait": false
+    }
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg",
+      "nsis"
+    ],
+    "createUpdaterArtifacts": true,
+    "category": "Business",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.3",
+      "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc2OEY3RkE0QTc3MUJCNDAKUldSQXUzR25wSCtQZHJ0bFFrYVdlalMyMkxjaHNXRmtzTlNiSmpVZzhWUFBkVlZzVmw1cDY2R3cK",
+      "endpoints": [
+        "https://github.com/x1o-Here/stuttgart/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
