@@ -1,4 +1,7 @@
 "use client";
+// Receives a TanStack table object whose identity never changes, so the React
+// Compiler would keep showing stale rows/filters. Opt this file out.
+"use no memo";
 
 import { flexRender, type Table as TanstackTable } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight } from "lucide-react";

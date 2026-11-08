@@ -1,11 +1,5 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -27,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import type { CompanyRecord } from "@/lib/companies/types";
-import { db } from "@/lib/firebase/firebase-client";
+import { saveTemplate as saveInvoiceTemplate } from "@/lib/data/ledger";
 import {
   createCustomColumnKey,
   DEFAULT_TEMPLATE_COLUMNS,
@@ -163,43 +157,15 @@ export default function EditInvoiceTemplateDialog({
     try {
       setSaving(true);
       setError("");
-      const batch = writeBatch(db);
-      const templateRef = doc(
-        db,
-        "companies",
+      await saveInvoiceTemplate({
         activeCompany,
-        "clients",
         clientId,
-        "invoice-template",
-        "config",
-      );
-      const payload = withCompanySupplier(draft, company);
-      batch.set(
-        templateRef,
-        {
-          ...payload,
-          clientId,
-          entityStatus: true,
-          updatedAt: serverTimestamp(),
-          updatedBy: user.uid,
-          ...(!template
-            ? { createdAt: serverTimestamp(), createdBy: user.uid }
-            : {}),
-        },
-        { merge: true },
-      );
-
-      const auditRef = doc(collection(db, "auditLogs"));
-      batch.set(auditRef, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: template ? "update" : "create",
-        description: `${template ? "Invoice template updated" : "Invoice template created"}: ${clientName}`,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
+        clientName,
+        company,
+        draft,
+        template,
+        user,
       });
-
-      await batch.commit();
       setOpen(false);
     } catch (saveError) {
       console.error("Failed to save invoice template", saveError);

@@ -5,18 +5,9 @@ import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { TruncatedText } from "@/components/shared/truncated-text";
 import { Badge } from "@/components/ui/badge";
-export type ClientStatus = "active" | "inactive";
+import type { Client } from "@/lib/data/clients";
 
-export type Client = {
-  id: string;
-  name: string;
-  address: string;
-  vatNo: string;
-  contactNo: string;
-  status: ClientStatus;
-  activeInvoiceCount: number;
-  outstandingInvoiceAmount: number;
-};
+export type { Client, ClientStatus } from "@/lib/data/clients";
 
 export const clientsColumns: ColumnDef<Client>[] = [
   {

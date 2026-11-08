@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { completeInvoice } from "@/lib/data/ledger";
 import {
   type ClientInvoiceDocument,
   canCompleteInvoice,
@@ -40,36 +34,7 @@ export default function CompleteInvoiceDialog({
 
     try {
       setCompleting(true);
-      const batch = writeBatch(db);
-      const invoiceRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        clientId,
-        "invoices",
-        invoice.id,
-      );
-
-      batch.update(invoiceRef, {
-        status: "paid",
-        outstandingAmount: 0,
-        updatedAt: serverTimestamp(),
-        updatedBy: user.uid,
-      });
-
-      const auditRef = doc(collection(db, "auditLogs"));
-      batch.set(auditRef, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: "update",
-        description: `Invoice ${invoice.taxInvoiceNo} marked as completed/paid`,
-        entityStatus: true,
-        transactionId: invoice.id,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
+      await completeInvoice({ activeCompany, clientId, invoice, user });
       setOpen(false);
     } catch (error) {
       console.error("Failed to complete invoice", error);

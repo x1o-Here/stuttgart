@@ -1,7 +1,8 @@
 "use client";
 
+import { sparePartInputSchema } from "@stuttgart/shared/schemas/inventory";
 import type { UseFormReturn } from "react-hook-form";
-import z from "zod";
+import type z from "zod";
 import { RuledDialogSection } from "@/components/shared/ruled-dialog";
 import {
   FormControl,
@@ -13,14 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-export const partFormSchema = z.object({
-  partId: z.string().trim().min(1, "Part ID is required").max(60, "Too long"),
-  description: z
-    .string()
-    .trim()
-    .min(1, "Description is required")
-    .max(300, "Keep it under 300 characters"),
-});
+/** Same rules the server checks (packages/shared). */
+export const partFormSchema = sparePartInputSchema;
 
 export type PartFormValues = z.infer<typeof partFormSchema>;
 

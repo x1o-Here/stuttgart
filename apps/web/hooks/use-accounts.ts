@@ -3,6 +3,9 @@
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { usesApi } from "@/lib/data/flags";
+import { ledgerApi } from "@/lib/data/ledger/api";
+import { onLiveCollection, poll } from "@/lib/data/live";
 import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
 
@@ -37,6 +40,7 @@ function mapTransactionDoc(tx: {
   id: string;
   data: () => Record<string, unknown>;
 }): Transaction {
+  // biome-ignore lint/suspicious/noExplicitAny: untyped Firestore-shaped document; each field is checked below
   const t = tx.data() as Record<string, any>;
   return {
     id: tx.id,
@@ -70,15 +74,12 @@ export function useAccountsMeta() {
     setLoading(true);
     setError(null);
 
-    const accountsQuery = query(
-      collection(db, "companies", activeCompany, "accounts"),
-      orderBy("createdAt", "desc"),
-    );
-
-    const unsubscribe = onSnapshot(
-      accountsQuery,
+    const unsubscribe = onLiveCollection(
+      "ledger",
+      ["companies", activeCompany, "accounts"],
       (snapshot) => {
         const next: Account[] = snapshot.docs.map((docSnap) => {
+          // biome-ignore lint/suspicious/noExplicitAny: untyped Firestore-shaped document; each field is checked below
           const data = docSnap.data() as Record<string, any>;
           return {
             id: docSnap.id,
@@ -100,6 +101,7 @@ export function useAccountsMeta() {
         setError("Failed to fetch accounts");
         setLoading(false);
       },
+      { orderBy: "createdAt", direction: "desc" },
     );
 
     return unsubscribe;
@@ -123,9 +125,10 @@ export function useAccountTransactionsMap(
   const unsubsRef = useRef<Record<string, () => void>>({});
   const accountIdsKey = accountIds.slice().sort().join(",");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: accountIdsKey captures the id set
   useEffect(() => {
     if (!companyId || accountIds.length === 0) {
-      Object.values(unsubsRef.current).forEach((u) => u());
+      for (const stop of Object.values(unsubsRef.current)) stop();
       unsubsRef.current = {};
       setTxByAccount({});
       setLoading(false);
@@ -133,6 +136,31 @@ export function useAccountTransactionsMap(
     }
 
     setLoading(true);
+
+    if (usesApi("ledger")) {
+      // API mode: every requested account's entries in one call, re-read on changes.
+      return poll(
+        async () => {
+          const byAccount = await ledgerApi.ledger(companyId, accountIds);
+          setTxByAccount(
+            Object.fromEntries(
+              Object.entries(byAccount).map(([id, docs]) => [
+                id,
+                docs.map((d) =>
+                  mapTransactionDoc({ id: d.id, data: () => d.data }),
+                ),
+              ]),
+            ),
+          );
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Failed to fetch transactions:", err);
+          setLoading(false);
+        },
+      );
+    }
+
     const wanted = new Set(accountIds);
 
     // Tear down listeners for accounts no longer needed
@@ -184,7 +212,7 @@ export function useAccountTransactionsMap(
     }
 
     return () => {
-      Object.values(unsubsRef.current).forEach((u) => u());
+      for (const stop of Object.values(unsubsRef.current)) stop();
       unsubsRef.current = {};
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- accountIdsKey captures id set

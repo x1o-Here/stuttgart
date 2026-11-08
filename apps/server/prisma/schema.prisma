@@ -257,10 +257,11 @@ model Transaction {
   creditAccountId String?     @map("credit_account_id")
   creditAccount   Account?    @relation("TransactionCreditAccount", fields: [creditAccountId], references: [id])
   /// Firestore stored the department/vehicle *name*; migration resolves it to the row.
+  /// onDelete: Restrict — a lookup item used by history can only be hidden, never deleted.
   departmentId    String?     @map("department_id")
-  department      Department? @relation(fields: [departmentId], references: [id])
+  department      Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   vehicleId       String?     @map("vehicle_id")
-  vehicle         Vehicle?    @relation(fields: [vehicleId], references: [id])
+  vehicle         Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   /// e.g. ["reversal"], ["corrected"], ["invoice-payment", "<tax no>"]
   tags            String[]    @default([])
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -412,7 +413,7 @@ model Supplier {
   address        String            @default("")
   contactNo      String            @default("") @map("contact_no")
   supplierTypeId String?           @map("supplier_type_id")
-  supplierType   SupplierType?     @relation(fields: [supplierTypeId], references: [id])
+  supplierType   SupplierType?     @relation(fields: [supplierTypeId], references: [id], onDelete: Restrict)
   status         PartyStatus       @default(active)
   entityStatus   Boolean           @default(true) @map("entity_status")
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -534,7 +535,7 @@ model SparePart {
   description  String          @default("")
   status       SparePartStatus @default(in_stock)
   vehicleId    String?         @map("vehicle_id")
-  vehicle      Vehicle?        @relation(fields: [vehicleId], references: [id])
+  vehicle      Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   assignedAt   DateTime?       @map("assigned_at") @db.Timestamptz(3)
   entityStatus Boolean         @default(true) @map("entity_status")
   createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)

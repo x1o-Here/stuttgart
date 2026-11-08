@@ -1,12 +1,5 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-} from "firebase/firestore";
 import { FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -16,7 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveCollection, onLiveDoc } from "@/lib/data/live";
 import {
   invoiceStatusLabel,
   invoiceStatusVariant,
@@ -49,16 +42,9 @@ export default function ClientInvoiceDetailPage() {
     if (!activeCompany || !clientId || !invoiceId) return;
 
     setLoading(true);
-    return onSnapshot(
-      doc(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        clientId,
-        "invoices",
-        invoiceId,
-      ),
+    return onLiveDoc(
+      "ledger",
+      ["companies", activeCompany, "clients", clientId, "invoices", invoiceId],
       (snapshot) => {
         if (!snapshot.exists() || snapshot.data().entityStatus === false) {
           setInvoice(null);
@@ -90,20 +76,17 @@ export default function ClientInvoiceDetailPage() {
     }
 
     setPaymentsLoading(true);
-    return onSnapshot(
-      query(
-        collection(
-          db,
-          "companies",
-          activeCompany,
-          "clients",
-          clientId,
-          "invoices",
-          invoiceId,
-          "payments",
-        ),
-        orderBy("date", "desc"),
-      ),
+    return onLiveCollection(
+      "ledger",
+      [
+        "companies",
+        activeCompany,
+        "clients",
+        clientId,
+        "invoices",
+        invoiceId,
+        "payments",
+      ],
       (snapshot) => {
         setPayments(
           snapshot.docs
@@ -120,6 +103,7 @@ export default function ClientInvoiceDetailPage() {
         console.error("Failed to fetch invoice payments:", error);
         setPaymentsLoading(false);
       },
+      { orderBy: "date", direction: "desc" },
     );
   }, [activeCompany, clientId, invoiceId]);
 

@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  Timestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { Plus, Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
@@ -26,14 +18,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { ApiError } from "@/lib/api-client";
+import { saveInvoice } from "@/lib/data/ledger";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import {
   amountInWords,
   type ClientInvoiceDocument,
   type ClientSnapshot,
   calculateInvoiceTotals,
-  deriveStatusFromBalances,
   type InvoiceTemplate,
   orderedTemplateColumns,
   roundMoney,
@@ -253,115 +245,34 @@ export default function CreateInvoiceForm({
     try {
       setSaving(true);
       setError("");
-      const batch = writeBatch(db);
-      const invoiceRef = isEditing
-        ? doc(
-            db,
-            "companies",
-            activeCompany,
-            "clients",
-            client.id,
-            "invoices",
-            invoice.id,
-          )
-        : doc(
-            collection(
-              db,
-              "companies",
-              activeCompany,
-              "clients",
-              client.id,
-              "invoices",
-            ),
-          );
-      const lineItems = lines.map((line, index) => ({
-        no: index + 1,
-        date: Timestamp.fromDate(new Date(`${line.date}T00:00:00`)),
-        vehicleNo: line.vehicleNo,
-        rate: Number(line.rate),
-        amount: Number(line.amount),
-        customValues: Object.fromEntries(
-          customColumns.map((column) => {
-            const value = line.customValues[column.key] ?? "";
-            return [
-              column.key,
-              column.type === "number" || column.type === "decimal"
-                ? Number(value) || 0
-                : value,
-            ];
-          }),
-        ),
-      }));
-
-      const nextOutstanding = isEditing
-        ? roundMoney(Math.max(0, totals.totalIncludingVat - paidAmount))
-        : totals.totalIncludingVat;
-      const nextStatus = isEditing
-        ? deriveStatusFromBalances(
-            totals.totalIncludingVat,
-            nextOutstanding,
-            invoice.status,
-          )
-        : "issued";
-
-      const payload = {
-        taxInvoiceNo: taxInvoiceNo.trim(),
-        date: Timestamp.fromDate(new Date(`${invoiceDate}T00:00:00`)),
-        delivery: {
-          date: Timestamp.fromDate(new Date(`${deliveryDate}T00:00:00`)),
-          address: placeOfSupply.trim(),
-          reference: additionalInfo.trim(),
-        },
-        client: { ...client },
-        template: structuredClone(template),
-        lineItems,
-        totalAmount: totals.supplyValue,
-        vatAmount: totals.vatAmount,
-        totalIncludingVat: totals.totalIncludingVat,
-        outstandingAmount: nextOutstanding,
-        status: nextStatus,
-        isActive: nextStatus !== "paid" && nextStatus !== "cancelled",
-        entityStatus: true,
-      };
-
-      if (isEditing) {
-        batch.update(invoiceRef, {
-          ...payload,
-          updatedAt: serverTimestamp(),
-          updatedBy: user.uid,
-        });
-      } else {
-        batch.set(invoiceRef, {
-          ...payload,
-          createdAt: serverTimestamp(),
-          createdBy: user.uid,
-        });
-      }
-
-      const auditRef = doc(collection(db, "auditLogs"));
-      batch.set(auditRef, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: isEditing ? "update" : "create",
-        description: isEditing
-          ? `Invoice ${taxInvoiceNo.trim()} updated for ${client.name}`
-          : `Invoice ${taxInvoiceNo.trim()} created for ${client.name}`,
-        entityStatus: true,
-        transactionId: invoiceRef.id,
-        createdAt: serverTimestamp(),
+      const savedId = await saveInvoice({
+        activeCompany,
+        additionalInfo,
+        client,
+        customColumns,
+        deliveryDate,
+        invoice,
+        invoiceDate,
+        lines,
+        paidAmount,
+        placeOfSupply,
+        taxInvoiceNo,
+        template,
+        totals,
+        user,
       });
-
-      await batch.commit();
-      router.push(`/clients/${client.id}/invoices/${invoiceRef.id}`);
+      router.push(`/clients/${client.id}/invoices/${savedId}`);
     } catch (createError) {
       console.error(
         isEditing ? "Failed to update invoice" : "Failed to create invoice",
         createError,
       );
       setError(
-        isEditing
-          ? "Failed to update the invoice."
-          : "Failed to create the invoice.",
+        createError instanceof ApiError
+          ? createError.message
+          : isEditing
+            ? "Failed to update the invoice."
+            : "Failed to create the invoice.",
       );
       setSaving(false);
     }

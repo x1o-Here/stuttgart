@@ -1,15 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  where,
-  writeBatch,
-} from "firebase/firestore";
 import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -23,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { useUpdateClient } from "@/lib/data/clients";
 import {
   ClientFormSections,
   type ClientFormValues,
@@ -41,8 +32,9 @@ export default function EditClientDialog({
 }: EditClientDialogProps) {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
+  const updateClient = useUpdateClient(activeCompany, clientId);
+  const isSubmitting = updateClient.isPending;
 
   const form = useForm<ClientFormValues>({
     defaultValues,
@@ -61,56 +53,14 @@ export default function EditClientDialog({
     if (!activeCompany || !user) return;
 
     try {
-      setIsSubmitting(true);
-      const batch = writeBatch(db);
-      const clientName = data.name.trim();
-
-      const clientRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        clientId,
-      );
-      batch.update(clientRef, {
-        name: clientName,
-        address: data.address,
-        vatNo: data.vatNo,
-        contactNo: data.contactNo,
-        updatedAt: serverTimestamp(),
+      await updateClient.mutateAsync({
+        input: data,
+        previousName: defaultValues.name,
       });
-
-      if (clientName !== defaultValues.name.trim()) {
-        const accountsQuery = query(
-          collection(db, "companies", activeCompany, "accounts"),
-          where("clientId", "==", clientId),
-        );
-        const accountSnaps = await getDocs(accountsQuery);
-        for (const accountSnap of accountSnaps.docs) {
-          batch.update(accountSnap.ref, {
-            name: clientName,
-            updatedAt: serverTimestamp(),
-          });
-        }
-      }
-
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
-        userId: user.uid,
-        action: "update",
-        description: `Client updated: ${clientName}`,
-        companyId: activeCompany,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
-      form.reset({ ...data, name: clientName });
+      form.reset(data);
       setOpen(false);
     } catch (error) {
       console.error("Failed to update client", error);
-    } finally {
-      setIsSubmitting(false);
     }
   }
 

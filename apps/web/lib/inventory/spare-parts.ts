@@ -9,6 +9,9 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
+import { ApiError, api } from "@/lib/api-client";
+import { usesApi } from "@/lib/data/flags";
+import { dataChanged } from "@/lib/data/live";
 import { appendAuditLog } from "@/lib/firebase/audit-log";
 import { db } from "@/lib/firebase/firebase-client";
 
@@ -57,6 +60,22 @@ function audit(
   });
 }
 
+/** API mode ("inventory" slice): one server call, messages shown like local errors. */
+async function inventoryApi(
+  path: string,
+  method: "post" | "patch" | "delete",
+  body?: unknown,
+) {
+  try {
+    const { data } = await api.request({ url: path, method, data: body });
+    dataChanged();
+    return data as { count?: number };
+  } catch (error) {
+    if (error instanceof ApiError) throw new InventoryError(error.message);
+    throw error;
+  }
+}
+
 export async function createPart(
   companyId: string,
   userId: string,
@@ -65,6 +84,13 @@ export async function createPart(
   const partId = data.partId.trim();
   const key = partIdKey(partId);
   if (!key) throw new InventoryError("Part ID is required.");
+  if (usesApi("inventory")) {
+    await inventoryApi(`/companies/${companyId}/spare-parts`, "post", {
+      partId,
+      description: data.description,
+    });
+    return;
+  }
   const newRef = doc(partsCol(companyId));
 
   await runTransaction(db, async (tx) => {
@@ -102,6 +128,13 @@ export async function updatePart(
   const partId = data.partId.trim();
   const key = partIdKey(partId);
   if (!key) throw new InventoryError("Part ID is required.");
+  if (usesApi("inventory")) {
+    await inventoryApi(`/companies/${companyId}/spare-parts/${id}`, "patch", {
+      partId,
+      description: data.description,
+    });
+    return;
+  }
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(partRef(companyId, id));
@@ -133,6 +166,10 @@ export async function deletePart(
   userId: string,
   id: string,
 ) {
+  if (usesApi("inventory")) {
+    await inventoryApi(`/companies/${companyId}/spare-parts/${id}`, "delete");
+    return;
+  }
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(partRef(companyId, id));
     if (!snap.exists()) return;
@@ -158,6 +195,16 @@ export async function assignPart(
   id: string,
   vehicle: { id: string; name: string },
 ) {
+  if (usesApi("inventory")) {
+    await inventoryApi(
+      `/companies/${companyId}/spare-parts/${id}/assign`,
+      "post",
+      {
+        vehicleId: vehicle.id,
+      },
+    );
+    return;
+  }
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(partRef(companyId, id));
     if (!snap.exists()) throw new InventoryError("This part no longer exists.");
@@ -190,6 +237,15 @@ export async function releasePart(
   mode: "stock" | "scrapped",
   vehicleName: string,
 ) {
+  if (usesApi("inventory")) {
+    void vehicleName;
+    await inventoryApi(
+      `/companies/${companyId}/spare-parts/${id}/release`,
+      "post",
+      { mode },
+    );
+    return;
+  }
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(partRef(companyId, id));
     if (!snap.exists()) throw new InventoryError("This part no longer exists.");
@@ -226,6 +282,13 @@ export async function releaseAllForVehicle(
   userId: string,
   vehicle: { id: string; name: string },
 ) {
+  if (usesApi("inventory")) {
+    const result = await inventoryApi(
+      `/companies/${companyId}/vehicles/${vehicle.id}/release-parts`,
+      "post",
+    );
+    return result.count ?? 0;
+  }
   const snap = await getDocs(
     query(
       partsCol(companyId),

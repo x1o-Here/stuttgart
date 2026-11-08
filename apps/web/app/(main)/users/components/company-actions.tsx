@@ -1,11 +1,5 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { MoreHorizontal, Pencil, Power } from "lucide-react";
 import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
@@ -18,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/auth-context";
 import type { CompanyRecord } from "@/lib/companies/types";
-import { db } from "@/lib/firebase/firebase-client";
+import { setCompanyActive } from "@/lib/data/identity";
 import { invalidateCompaniesCache } from "./companies-cache";
 import CompanyFormDialog from "./company-form-dialog";
 
@@ -39,25 +33,7 @@ export function CompanyActions({ company, onChanged }: CompanyActionsProps) {
 
     try {
       setIsSubmitting(true);
-      const batch = writeBatch(db);
-      const companyRef = doc(db, "companies", company.id);
-      batch.update(companyRef, {
-        entityStatus: nextActive,
-        updatedAt: serverTimestamp(),
-        updatedBy: user.uid,
-      });
-
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
-        userId: user.uid,
-        action: "update",
-        description: `Company ${nextActive ? "activated" : "deactivated"}: ${company.name}`,
-        companyId: company.id,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
+      await setCompanyActive(user, company, nextActive);
       invalidateCompaniesCache();
       await refreshProfile();
       setStatusOpen(false);

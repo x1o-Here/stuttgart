@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSourceBanner } from "@/components/layout/data-source-banner";
 import { RoleGate } from "@/components/layout/role-gate";
 import AppSidebar from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -29,6 +30,7 @@ export default function MainLayout({
             <main className="min-w-0 flex-1 overflow-auto border-l">
               <RoleGate>{children}</RoleGate>
             </main>
+            <DataSourceBanner />
           </LookupSubscription>
         </LedgerProviders>
       </SidebarProvider>

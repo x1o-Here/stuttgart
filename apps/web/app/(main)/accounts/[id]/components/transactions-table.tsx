@@ -1,7 +1,11 @@
 "use client";
+// TanStack Table returns a stable table object, so the React Compiler would
+// keep rendering stale rows when the data changes. Opt this file out.
+"use no memo";
 
 import {
   type ColumnDef,
+  type ColumnFiltersState,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
@@ -22,32 +26,45 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
 }
 
-const fuzzyFilter = (row: any, _columnId: string, value: string) => {
+const fuzzyFilter = (
+  row: { original: unknown },
+  _columnId: string,
+  value: string,
+) => {
   const searchValue = value.toLowerCase();
 
-  return Object.values(row.original).some((cellValue) => {
-    if (cellValue === undefined || cellValue === null) return false;
+  return Object.values(row.original as Record<string, unknown>).some(
+    (cellValue) => {
+      if (cellValue === undefined || cellValue === null) return false;
 
-    // Dates
-    if (cellValue instanceof Date) {
-      return cellValue.toLocaleDateString().toLowerCase().includes(searchValue);
-    }
+      // Dates
+      if (cellValue instanceof Date) {
+        return cellValue
+          .toLocaleDateString()
+          .toLowerCase()
+          .includes(searchValue);
+      }
 
-    // Numbers
-    if (typeof cellValue === "number") {
-      return cellValue.toString().includes(searchValue);
-    }
+      // Numbers
+      if (typeof cellValue === "number") {
+        return cellValue.toString().includes(searchValue);
+      }
 
-    // Strings
-    if (typeof cellValue === "string") {
-      return cellValue.toLowerCase().includes(searchValue);
-    }
+      // Strings
+      if (typeof cellValue === "string") {
+        return cellValue.toLowerCase().includes(searchValue);
+      }
 
-    return false;
-  });
+      return false;
+    },
+  );
 };
 
-const transactionTypeFilter = (row: any, columnId: string, value: string) => {
+const transactionTypeFilter = (
+  row: { getValue: (columnId: string) => unknown },
+  columnId: string,
+  value: string,
+) => {
   if (!value || value === "all") return true;
   return row.getValue(columnId) === value;
 };
@@ -61,9 +78,7 @@ export function TransactionsDataTable<TData, TValue>({
     { id: "date", desc: true },
     { id: "createdAt", desc: true },
   ]);
-  const [columnFilters, setColumnFilters] = useState<
-    { id: string; value: any }[]
-  >([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
     defaultColumn: {
@@ -119,7 +134,9 @@ export function TransactionsDataTable<TData, TValue>({
           />
 
           <TransactionTypeFilterSelect
-            value={columnFilters.find((f) => f.id === "type")?.value ?? "all"}
+            value={String(
+              columnFilters.find((f) => f.id === "type")?.value ?? "all",
+            )}
             onChange={(value) => {
               if (value === "all") {
                 setColumnFilters((prev) => prev.filter((f) => f.id !== "type"));
@@ -132,7 +149,7 @@ export function TransactionsDataTable<TData, TValue>({
             }}
           />
 
-          <TransactionsTagFilter table={table as unknown as any} />
+          <TransactionsTagFilter table={table} />
 
           <Button variant="ghost" onClick={() => setColumnFilters([])}>
             <CircleX />

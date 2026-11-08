@@ -1,13 +1,11 @@
 "use client";
 
-import { doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Power } from "lucide-react";
 import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { appendAuditLog } from "@/lib/firebase/audit-log";
-import { db } from "@/lib/firebase/firebase-client";
+import { setSupplierStatus } from "@/lib/data/ledger";
 import type { Supplier } from "@/lib/suppliers/supplier-model";
 
 export default function ChangeSupplierStatusDialog({
@@ -25,18 +23,7 @@ export default function ChangeSupplierStatusDialog({
     if (!activeCompany || !user) return;
     setSaving(true);
     try {
-      const batch = writeBatch(db);
-      batch.update(
-        doc(db, "companies", activeCompany, "suppliers", supplier.id),
-        { status: nextStatus, updatedAt: serverTimestamp() },
-      );
-      appendAuditLog(batch, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: "update",
-        description: `Supplier status changed to ${nextStatus}: ${supplier.name}`,
-      });
-      await batch.commit();
+      await setSupplierStatus({ activeCompany, supplier, nextStatus, user });
       setOpen(false);
     } catch (error) {
       console.error("Failed to change supplier status", error);

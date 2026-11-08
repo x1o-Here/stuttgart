@@ -1,5 +1,4 @@
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase/firebase-client";
+import { companyOptions } from "@/lib/data/identity";
 
 export type CompanyOption = {
   id: string;
@@ -13,16 +12,10 @@ let companiesCachePromise: Promise<CompanyOption[]> | null = null;
 export async function getAllCompanies(): Promise<CompanyOption[]> {
   if (companiesCache) return companiesCache;
   if (!companiesCachePromise) {
-    companiesCachePromise = getDocs(collection(db, "companies"))
-      .then((companySnapshot) => {
-        companiesCache = companySnapshot.docs
-          .filter((companyDoc) => companyDoc.data().entityStatus !== false)
-          .map((companyDoc) => ({
-            id: companyDoc.id,
-            name: (companyDoc.data().name as string) ?? companyDoc.id,
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        return companiesCache;
+    companiesCachePromise = loadCompanies()
+      .then((options) => {
+        companiesCache = options;
+        return options;
       })
       .catch((error) => {
         companiesCachePromise = null;
@@ -30,6 +23,10 @@ export async function getAllCompanies(): Promise<CompanyOption[]> {
       });
   }
   return companiesCachePromise;
+}
+
+function loadCompanies(): Promise<CompanyOption[]> {
+  return companyOptions();
 }
 
 export function invalidateCompaniesCache() {

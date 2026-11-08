@@ -1,13 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  increment,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -20,8 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { FieldGroup } from "@/components/ui/field";
 import { useAuth } from "@/contexts/auth-context";
-import { appendAuditLog } from "@/lib/firebase/audit-log";
-import { db } from "@/lib/firebase/firebase-client";
+import { addTransaction } from "@/lib/data/ledger";
 import {
   TransactionFormSections,
   type TransactionFormValues,
@@ -54,87 +46,7 @@ export function AddTransactionDialog() {
   async function onSubmit(data: TransactionFormValues) {
     try {
       setIsSubmitting(true);
-      const batch = writeBatch(db);
-
-      // Transactions
-      const transactionId = doc(collection(db, "transactions")).id;
-
-      const creditTransactionRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "accounts",
-        data.creditingAccount,
-        "transactions",
-        transactionId,
-      );
-
-      batch.set(creditTransactionRef, {
-        date: data.date,
-        amount: data.amount,
-        type: "credit",
-        department: data.department,
-        vehicle: data.vehicle,
-        voucherNo: data.voucherNo,
-        description: data.description,
-        createdAt: serverTimestamp(),
-      });
-
-      const debitTransactionRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "accounts",
-        data.debitingAccount,
-        "transactions",
-        transactionId,
-      );
-
-      batch.set(debitTransactionRef, {
-        date: data.date,
-        amount: data.amount,
-        type: "debit",
-        department: data.department,
-        vehicle: data.vehicle,
-        voucherNo: data.voucherNo,
-        description: data.description,
-        createdAt: serverTimestamp(),
-      });
-
-      // Accounts
-      const creditAccountRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "accounts",
-        data.creditingAccount,
-      );
-      batch.update(creditAccountRef, {
-        balance: increment(data.amount),
-      });
-
-      const debitAccountRef = doc(
-        db,
-        "companies",
-        activeCompany,
-        "accounts",
-        data.debitingAccount,
-      );
-      batch.update(debitAccountRef, {
-        balance: increment(-data.amount),
-      });
-
-      // Audit Log
-      appendAuditLog(batch, {
-        userId: user?.uid,
-        transactionId: transactionId,
-        action: "create",
-        description: `Transaction added`,
-        companyId: activeCompany,
-        entityStatus: true,
-      });
-
-      await batch.commit();
+      await addTransaction({ activeCompany, data, user });
 
       form.reset();
       setOpen(false);

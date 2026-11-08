@@ -1,4 +1,7 @@
 "use client";
+// TanStack Table returns a stable table object, so the React Compiler would
+// keep rendering stale rows when the data changes. Opt this file out.
+"use no memo";
 
 import {
   type ColumnFiltersState,
@@ -67,6 +70,7 @@ export default function AccountsPage() {
   const visibleRows = filteredRows.slice(0, visibleCount);
   const hasMoreRows = visibleCount < filteredRows.length;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset paging whenever the search, filters or list size change
   useEffect(() => {
     setVisibleCount(ACCOUNTS_PAGE_SIZE);
     scrollAreaRef.current?.scrollTo({ top: 0 });

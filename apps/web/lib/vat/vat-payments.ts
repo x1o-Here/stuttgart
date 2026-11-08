@@ -9,12 +9,26 @@ import {
   Timestamp,
   where,
 } from "firebase/firestore";
+import { ApiError, api } from "@/lib/api-client";
+import { usesApi } from "@/lib/data/flags";
+import { dataChanged } from "@/lib/data/live";
 import { db } from "@/lib/firebase/firebase-client";
 import { roundMoney } from "@/lib/invoices/money";
 import type { TaxQuarter } from "./quarters";
 import type { VatPaymentRecord } from "./vat-summary";
 
 export class VatPaymentError extends Error {}
+
+/** API mode ("vat-reports" slice): server messages shown like local errors. */
+async function vatApi(call: () => Promise<unknown>) {
+  try {
+    await call();
+    dataChanged();
+  } catch (error) {
+    if (error instanceof ApiError) throw new VatPaymentError(error.message);
+    throw error;
+  }
+}
 
 const paymentsCol = (c: string) =>
   collection(db, "companies", c, "vatPayments");
@@ -46,6 +60,20 @@ export async function recordVatPayment(
   const amount = roundMoney(input.amount);
   if (!(amount > 0)) {
     throw new VatPaymentError("Enter an amount greater than zero.");
+  }
+  if (usesApi("vat-reports")) {
+    await vatApi(() =>
+      api.post(`/companies/${companyId}/vat-payments`, {
+        quarterKey: input.quarter.key,
+        quarterLabel: input.quarter.label,
+        due: input.due,
+        date: input.date.toISOString(),
+        amount,
+        reference: input.reference,
+        accountId: input.account.id,
+      }),
+    );
+    return;
   }
 
   // Re-read what's already paid for this quarter so the cap is current.
@@ -122,6 +150,14 @@ export async function deleteVatPayment(
   userId: string,
   payment: VatPaymentRecord & { quarterLabel: string },
 ) {
+  if (usesApi("vat-reports")) {
+    await vatApi(() =>
+      api.post(`/companies/${companyId}/vat-payments/${payment.id}/delete`, {
+        quarterLabel: payment.quarterLabel,
+      }),
+    );
+    return;
+  }
   await runTransaction(db, async (tx) => {
     tx.update(doc(paymentsCol(companyId), payment.id), {
       entityStatus: false,

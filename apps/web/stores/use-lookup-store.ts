@@ -14,6 +14,8 @@ import {
   isProtectedAccountType,
   isSystemAccountTypeName,
 } from "@/lib/constants/client-account";
+import { usesApi } from "@/lib/data/flags";
+import { lookupsApi } from "@/lib/data/lookups/api";
 import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
 
@@ -56,6 +58,8 @@ type LookupState = {
   cacheByCompany: Record<string, CompanyLookupCache>;
 
   subscribeAll: (companyId: string, userId: string) => () => void;
+  /** API mode: reload all four lists for the company. */
+  refreshFromApi: (companyId: string) => Promise<void>;
 
   createItem: (
     companyId: string,
@@ -185,6 +189,19 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       });
     }
 
+    if (usesApi("lookups")) {
+      // API mode: load now, then again on window focus and every minute
+      // (replaces the live onSnapshot listeners).
+      const refresh = () => void get().refreshFromApi(companyId);
+      refresh();
+      window.addEventListener("focus", refresh);
+      const timer = window.setInterval(refresh, 60_000);
+      return () => {
+        window.removeEventListener("focus", refresh);
+        window.clearInterval(timer);
+      };
+    }
+
     const unsubs = keys.map((key) => {
       const q = query(
         collection(db, ...collectionPath(companyId, key)),
@@ -234,7 +251,43 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       );
     });
 
-    return () => unsubs.forEach((u) => u());
+    return () => {
+      for (const stop of unsubs) stop();
+    };
+  },
+
+  refreshFromApi: async (companyId) => {
+    try {
+      const lists = await lookupsApi.all(companyId);
+      if (get().activeCompanyId !== companyId) return; // company switched meanwhile
+      set((state) => ({
+        ...lists,
+        loading: {
+          "account-types": false,
+          vehicles: false,
+          departments: false,
+          "supplier-types": false,
+        },
+        error: { ...emptyError },
+        cacheByCompany: { ...state.cacheByCompany, [companyId]: lists },
+      }));
+    } catch (err) {
+      console.error("[useLookupStore] Failed to fetch lookups:", err);
+      set({
+        loading: {
+          "account-types": false,
+          vehicles: false,
+          departments: false,
+          "supplier-types": false,
+        },
+        error: {
+          "account-types": "Failed to fetch account types",
+          vehicles: "Failed to fetch vehicles",
+          departments: "Failed to fetch departments",
+          "supplier-types": "Failed to fetch supplier types",
+        },
+      });
+    }
   },
 
   createItem: async (companyId, userId, collectionKey, data) => {
@@ -245,6 +298,16 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       throw new Error(
         `The "${data.name.trim()}" account type is system-managed and cannot be created manually.`,
       );
+    }
+
+    if (usesApi("lookups")) {
+      await lookupsApi.create(companyId, collectionKey, {
+        name: data.name,
+        shortForm: data.shortForm,
+        description: data.description,
+      });
+      await get().refreshFromApi(companyId);
+      return;
     }
 
     const batch = writeBatch(db);
@@ -284,6 +347,16 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       }
     }
 
+    if (usesApi("lookups")) {
+      await lookupsApi.update(companyId, collectionKey, id, {
+        name: data.name,
+        shortForm: data.shortForm,
+        description: data.description,
+      });
+      await get().refreshFromApi(companyId);
+      return;
+    }
+
     const batch = writeBatch(db);
 
     const itemRef = doc(db, ...collectionPath(companyId, collectionKey), id);
@@ -314,6 +387,12 @@ export const useLookupStore = create<LookupState>((set, get) => ({
       ) {
         throw new Error(`The "${itemName}" account type cannot be deleted.`);
       }
+    }
+
+    if (usesApi("lookups")) {
+      await lookupsApi.remove(companyId, collectionKey, id);
+      await get().refreshFromApi(companyId);
+      return;
     }
 
     const batch = writeBatch(db);

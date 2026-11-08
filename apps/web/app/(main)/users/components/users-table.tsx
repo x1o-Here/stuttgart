@@ -1,29 +1,11 @@
 "use client";
 
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
-import { db } from "@/lib/firebase/firebase-client";
+import { listUsers } from "@/lib/data/identity";
 import { createUserColumns, type UserData } from "./columns";
 import { getAllCompanies } from "./companies-cache";
 import { DataTable } from "./data-table";
-
-function mapUsersSnapshot(
-  docs: { id: string; data: () => Record<string, unknown> }[],
-): UserData[] {
-  return docs.map((userDoc) => {
-    const data = userDoc.data() as Record<string, any>;
-    return {
-      id: userDoc.id,
-      username: data.username || "N/A",
-      email: data.email || "N/A",
-      removed: data.entityStatus === false,
-      role: data.role || "general",
-      companies: data.companies || [],
-      createdAt: data.createdAt,
-    };
-  });
-}
 
 export default function UsersTable({
   refreshToken = 0,
@@ -37,13 +19,11 @@ export default function UsersTable({
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, orderBy("createdAt", "desc"));
-      const [snapshot, companyOptions] = await Promise.all([
-        getDocs(q),
+      const [rows, companyOptions] = await Promise.all([
+        listUsers(),
         getAllCompanies().catch(() => []),
       ]);
-      setUsers(mapUsersSnapshot(snapshot.docs));
+      setUsers(rows);
       setCompanyNames(
         Object.fromEntries(companyOptions.map((c) => [c.id, c.name])),
       );
@@ -54,6 +34,7 @@ export default function UsersTable({
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshToken is a "reload now" signal from the parent
   useEffect(() => {
     loadUsers();
   }, [loadUsers, refreshToken]);

@@ -1,19 +1,12 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-} from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import {
   type InvoicePayment,
   mapInvoicePayment,
 } from "@/app/(main)/clients/[id]/invoice-model";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveCollection, onLiveDoc } from "@/lib/data/live";
 import {
   mapSupplierDoc,
   mapSupplierInvoice,
@@ -30,11 +23,9 @@ export function useSuppliers() {
   useEffect(() => {
     if (!activeCompany) return;
     setLoading(true);
-    return onSnapshot(
-      query(
-        collection(db, "companies", activeCompany, "suppliers"),
-        orderBy("createdAt", "desc"),
-      ),
+    return onLiveCollection(
+      "ledger",
+      ["companies", activeCompany, "suppliers"],
       (snapshot) => {
         setSuppliers(
           snapshot.docs
@@ -47,6 +38,7 @@ export function useSuppliers() {
         console.error("Failed to load suppliers:", error);
         setLoading(false);
       },
+      { orderBy: "createdAt", direction: "desc" },
     );
   }, [activeCompany]);
 
@@ -61,8 +53,9 @@ export function useSupplier(supplierId: string | undefined) {
   useEffect(() => {
     if (!activeCompany || !supplierId) return;
     setLoading(true);
-    return onSnapshot(
-      doc(db, "companies", activeCompany, "suppliers", supplierId),
+    return onLiveDoc(
+      "ledger",
+      ["companies", activeCompany, "suppliers", supplierId],
       (snap) => {
         setSupplier(
           snap.exists() && snap.data().entityStatus !== false
@@ -91,18 +84,9 @@ export function useSupplierInvoices(supplierId: string | undefined) {
   useEffect(() => {
     if (!activeCompany || !supplierId) return;
     setLoading(true);
-    return onSnapshot(
-      query(
-        collection(
-          db,
-          "companies",
-          activeCompany,
-          "suppliers",
-          supplierId,
-          "invoices",
-        ),
-        orderBy("date", "desc"),
-      ),
+    return onLiveCollection(
+      "ledger",
+      ["companies", activeCompany, "suppliers", supplierId, "invoices"],
       (snapshot) => {
         setInvoices(
           snapshot.docs
@@ -115,6 +99,7 @@ export function useSupplierInvoices(supplierId: string | undefined) {
         console.error("Failed to load supplier invoices:", error);
         setLoading(false);
       },
+      { orderBy: "date", direction: "desc" },
     );
   }, [activeCompany, supplierId]);
 
@@ -132,16 +117,16 @@ export function useSupplierInvoice(
   useEffect(() => {
     if (!activeCompany || !supplierId || !invoiceId) return;
     setLoading(true);
-    return onSnapshot(
-      doc(
-        db,
+    return onLiveDoc(
+      "ledger",
+      [
         "companies",
         activeCompany,
         "suppliers",
         supplierId,
         "invoices",
         invoiceId,
-      ),
+      ],
       (snap) => {
         setInvoice(
           snap.exists() && snap.data().entityStatus !== false
@@ -172,20 +157,17 @@ export function useSupplierPayments(
   useEffect(() => {
     if (!activeCompany || !supplierId || !invoiceId) return;
     setLoading(true);
-    return onSnapshot(
-      query(
-        collection(
-          db,
-          "companies",
-          activeCompany,
-          "suppliers",
-          supplierId,
-          "invoices",
-          invoiceId,
-          "payments",
-        ),
-        orderBy("date", "desc"),
-      ),
+    return onLiveCollection(
+      "ledger",
+      [
+        "companies",
+        activeCompany,
+        "suppliers",
+        supplierId,
+        "invoices",
+        invoiceId,
+        "payments",
+      ],
       (snapshot) => {
         setPayments(
           snapshot.docs
@@ -198,6 +180,7 @@ export function useSupplierPayments(
         console.error("Failed to load supplier payments:", error);
         setLoading(false);
       },
+      { orderBy: "date", direction: "desc" },
     );
   }, [activeCompany, supplierId, invoiceId]);
 
@@ -223,15 +206,9 @@ export function useSupplierInvoiceStats(supplierIds: string[]) {
       return;
     }
     const unsubs = key.split("|").map((supplierId) =>
-      onSnapshot(
-        collection(
-          db,
-          "companies",
-          activeCompany,
-          "suppliers",
-          supplierId,
-          "invoices",
-        ),
+      onLiveCollection(
+        "ledger",
+        ["companies", activeCompany, "suppliers", supplierId, "invoices"],
         (snapshot) => {
           let openInvoices = 0;
           let outstanding = 0;

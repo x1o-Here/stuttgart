@@ -1,7 +1,10 @@
 "use client";
 
+import {
+  type ClientInput,
+  clientInputSchema,
+} from "@stuttgart/shared/schemas/clients";
 import type { UseFormReturn } from "react-hook-form";
-import z from "zod";
 import { RuledDialogSection } from "@/components/shared/ruled-dialog";
 import {
   FormControl,
@@ -13,14 +16,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-export const clientFormSchema = z.object({
-  name: z.string().min(1, "Customer name is required"),
-  address: z.string().min(1, "Address is required"),
-  vatNo: z.string().min(1, "VAT number is required"),
-  contactNo: z.string().min(1, "Contact number is required"),
-});
-
-export type ClientFormValues = z.infer<typeof clientFormSchema>;
+/** Same schema the server validates with (packages/shared). */
+export const clientFormSchema = clientInputSchema;
+export type ClientFormValues = ClientInput;
 
 /** Ruled sections shared by the add and edit client dialogs. */
 export function ClientFormSections({

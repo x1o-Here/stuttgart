@@ -1,18 +1,12 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { deleteInvoice } from "@/lib/data/ledger";
 
 type DeleteInvoiceDialogProps = {
   clientId: string;
@@ -37,35 +31,13 @@ export default function DeleteInvoiceDialog({
 
     try {
       setDeleting(true);
-      const batch = writeBatch(db);
-      const invoiceRef = doc(
-        db,
-        "companies",
+      await deleteInvoice({
         activeCompany,
-        "clients",
         clientId,
-        "invoices",
         invoiceId,
-      );
-      batch.update(invoiceRef, {
-        entityStatus: false,
-        status: "cancelled",
-        updatedAt: serverTimestamp(),
-        updatedBy: user.uid,
+        taxInvoiceNo,
+        user,
       });
-
-      const auditRef = doc(collection(db, "auditLogs"));
-      batch.set(auditRef, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: "delete",
-        description: `Invoice ${taxInvoiceNo || invoiceId} deleted`,
-        entityStatus: true,
-        transactionId: invoiceId,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
       setOpen(false);
       router.push(`/clients/${clientId}`);
     } catch (error) {

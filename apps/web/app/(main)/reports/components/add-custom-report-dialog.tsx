@@ -1,12 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -34,8 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
-import { appendAuditLog } from "@/lib/firebase/audit-log";
-import { db } from "@/lib/firebase/firebase-client";
+import { createReport } from "@/lib/data/vat-reports";
 
 const formSchema = z
   .object({
@@ -91,30 +84,7 @@ export default function AddCustomReportDialog() {
 
     try {
       setIsSubmitting(true);
-      const batch = writeBatch(db);
-
-      const reportRef = doc(
-        collection(db, "companies", activeCompany, "reports"),
-      );
-      batch.set(reportRef, {
-        name: data.name.trim(),
-        description: data.description?.trim() || "",
-        fromDate: data.fromDate,
-        toDate: data.toDate,
-        accountIds: data.accountIds,
-        createdBy: user.uid,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-      appendAuditLog(batch, {
-        userId: user.uid,
-        action: "create",
-        description: `Custom report created: ${data.name.trim()}`,
-        companyId: activeCompany,
-        entityStatus: true,
-      });
-
-      await batch.commit();
+      await createReport({ activeCompany, data, user });
 
       form.reset(defaultValues);
       setOpen(false);
@@ -248,8 +218,12 @@ export default function AddCustomReportDialog() {
                   <FormItem className="sm:col-span-2">
                     <div className="flex items-center justify-between gap-3">
                       <FormLabel>Accounts included</FormLabel>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                      <label
+                        htmlFor="report-accounts-all"
+                        className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
+                      >
                         <Checkbox
+                          id="report-accounts-all"
                           checked={allSelected}
                           onCheckedChange={(checked) =>
                             toggleAllAccounts(checked === true)
@@ -273,8 +247,12 @@ export default function AddCustomReportDialog() {
                             render={({ field }) => {
                               const checked = field.value.includes(account.id);
                               return (
-                                <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-muted">
+                                <label
+                                  htmlFor={`report-account-${account.id}`}
+                                  className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-muted"
+                                >
                                   <Checkbox
+                                    id={`report-account-${account.id}`}
                                     checked={checked}
                                     onCheckedChange={(isChecked) => {
                                       field.onChange(

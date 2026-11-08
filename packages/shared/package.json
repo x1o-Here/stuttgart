@@ -3,13 +3,21 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "exports": {
-        "./*": "./src/*.ts"
-    },
     "scripts": {
-        "lint": "tsc --noEmit"
+        "lint": "tsc --noEmit",
+        "build": "tsc",
+        "dev": "tsc --watch --preserveWatchOutput"
     },
     "devDependencies": {
         "typescript": "^5"
+    },
+    "exports": {
+        "./*": {
+            "types": "./dist/*.d.ts",
+            "default": "./dist/*.js"
+        }
+    },
+    "dependencies": {
+        "zod": "^4.6.7"
     }
 }

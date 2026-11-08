@@ -1,15 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  where,
-  writeBatch,
-} from "firebase/firestore";
 import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -23,8 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { useAuth } from "@/contexts/auth-context";
-import { appendAuditLog } from "@/lib/firebase/audit-log";
-import { db } from "@/lib/firebase/firebase-client";
+import { updateSupplier } from "@/lib/data/ledger";
 import type { Supplier } from "@/lib/suppliers/supplier-model";
 import {
   SupplierFormSections,
@@ -69,37 +59,7 @@ export default function EditSupplierDialog({
     setSaving(true);
     setError(null);
     try {
-      const batch = writeBatch(db);
-      const name = data.name.trim();
-      batch.update(
-        doc(db, "companies", activeCompany, "suppliers", supplier.id),
-        {
-          name,
-          tin: data.tin.trim(),
-          address: data.address.trim(),
-          supplierType: data.supplierType,
-          contactNo: data.contactNo.trim(),
-          updatedAt: serverTimestamp(),
-        },
-      );
-      if (name !== supplier.name.trim()) {
-        const accounts = await getDocs(
-          query(
-            collection(db, "companies", activeCompany, "accounts"),
-            where("supplierId", "==", supplier.id),
-          ),
-        );
-        for (const account of accounts.docs) {
-          batch.update(account.ref, { name, updatedAt: serverTimestamp() });
-        }
-      }
-      appendAuditLog(batch, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: "update",
-        description: `Supplier updated: ${name}`,
-      });
-      await batch.commit();
+      await updateSupplier({ activeCompany, data, supplier, user });
       form.reset(data);
       setOpen(false);
     } catch (err) {

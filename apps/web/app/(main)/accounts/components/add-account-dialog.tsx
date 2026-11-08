@@ -1,17 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
+import { accountCreateSchema } from "@stuttgart/shared/schemas/ledger";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
+import type z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import {
   RuledDialogFooter,
@@ -38,14 +33,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { createAccount } from "@/lib/data/ledger";
 import { useLookupStore } from "@/stores/use-lookup-store";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  accountType: z.string().min(1, "Account type is required"),
-  balance: z.number().min(0, "Balance cannot be negative"),
-});
+/** Same rules the server checks (packages/shared). */
+const formSchema = accountCreateSchema;
 
 type FormOutput = z.infer<typeof formSchema>;
 
@@ -72,33 +64,7 @@ export default function AddAccountDialog() {
   async function onSubmit(data: FormOutput) {
     try {
       setIsSubmitting(true);
-      const batch = writeBatch(db);
-
-      // 1️⃣ Add account
-      const accountRef = doc(
-        collection(db, "companies", activeCompany, "accounts"),
-      );
-      batch.set(accountRef, {
-        name: data.name,
-        initialBalance: data.balance,
-        accountType: data.accountType,
-        balance: data.balance,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      // 2️⃣ Add Audit Log
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
-        userId: user?.uid,
-        action: "create",
-        description: `Account created: ${data.name}`,
-        companyId: activeCompany,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
+      await createAccount({ activeCompany, data, user });
 
       form.reset();
       setOpen(false);

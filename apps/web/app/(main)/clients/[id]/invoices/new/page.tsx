@@ -1,12 +1,11 @@
 "use client";
 
-import { doc, onSnapshot } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useAuth } from "@/contexts/auth-context";
 import { type CompanyRecord, mapCompanyDoc } from "@/lib/companies/types";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveDoc } from "@/lib/data/live";
 import CreateInvoiceForm from "../../components/create-invoice-form";
 import {
   type ClientSnapshot,
@@ -30,8 +29,9 @@ export default function CreateClientInvoicePage() {
   useEffect(() => {
     if (!activeCompany || !clientId) return;
 
-    const unsubscribeClient = onSnapshot(
-      doc(db, "companies", activeCompany, "clients", clientId),
+    const unsubscribeClient = onLiveDoc(
+      "ledger",
+      ["companies", activeCompany, "clients", clientId],
       (snapshot) => {
         if (!snapshot.exists() || snapshot.data()?.entityStatus === false) {
           setClient(null);
@@ -49,8 +49,9 @@ export default function CreateClientInvoicePage() {
       },
     );
 
-    const unsubscribeCompany = onSnapshot(
-      doc(db, "companies", activeCompany),
+    const unsubscribeCompany = onLiveDoc(
+      "ledger",
+      ["companies", activeCompany],
       (snapshot) => {
         setCompany(
           snapshot.exists()
@@ -64,16 +65,16 @@ export default function CreateClientInvoicePage() {
       },
     );
 
-    const unsubscribeTemplate = onSnapshot(
-      doc(
-        db,
+    const unsubscribeTemplate = onLiveDoc(
+      "ledger",
+      [
         "companies",
         activeCompany,
         "clients",
         clientId,
         "invoice-template",
         "config",
-      ),
+      ],
       (snapshot) => {
         setTemplate(
           snapshot.exists()

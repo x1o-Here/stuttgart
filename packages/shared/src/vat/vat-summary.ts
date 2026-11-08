@@ -1,10 +1,10 @@
-import { roundMoney } from "../invoices/money";
+import { roundMoney } from "../invoices/money.js";
 import {
   compareQuarters,
   quarterRange,
   type TaxQuarter,
   taxQuarterOf,
-} from "./quarters";
+} from "./quarters.js";
 
 export type VatSourceInvoice = {
   id: string;

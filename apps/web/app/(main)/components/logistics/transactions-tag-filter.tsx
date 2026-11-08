@@ -1,4 +1,7 @@
 "use client";
+// Receives a TanStack table object whose identity never changes, so the React
+// Compiler would keep showing stale rows/filters. Opt this file out.
+"use no memo";
 
 import type { Table } from "@tanstack/react-table";
 import { Filter } from "lucide-react";

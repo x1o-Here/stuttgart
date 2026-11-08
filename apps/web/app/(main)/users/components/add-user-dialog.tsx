@@ -1,24 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import axios from "axios";
-import { type FirebaseApp, getApp, initializeApp } from "firebase/app";
-import {
-  createUserWithEmailAndPassword,
-  getAuth,
-  signOut,
-} from "firebase/auth";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
+import { userCreateSchema } from "@stuttgart/shared/schemas/identity";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
+import type z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import {
   RuledDialogFooter,
@@ -58,17 +45,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { ApiError } from "@/lib/api-client";
+import { createUser } from "@/lib/data/identity";
 import { cn } from "@/lib/utils";
 
 import { type CompanyOption, getAllCompanies } from "./companies-cache";
 
-const formSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  email: z.string().min(1, "Email is required").email("Invalid email address"),
-  companies: z.array(z.string()).min(1, "Companies are required"),
-  role: z.string().min(1, "Role is required"),
-});
+/** Same rules the server checks (packages/shared). */
+const formSchema = userCreateSchema;
 
 type FormOutput = z.infer<typeof formSchema>;
 
@@ -160,17 +144,6 @@ function CompanyMultiSelect({
   );
 }
 
-function generateRandomPassword() {
-  const length = 10;
-  const charset =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let retVal = "";
-  for (let i = 0, n = charset.length; i < length; ++i) {
-    retVal += charset.charAt(Math.floor(Math.random() * n));
-  }
-  return retVal;
-}
-
 export default function AddUserDialog({
   onCreated,
 }: {
@@ -219,63 +192,7 @@ export default function AddUserDialog({
   });
 
   async function onSubmit(data: FormOutput) {
-    let userCredential;
-    try {
-      setIsSubmitting(true);
-      const firebaseConfig = {
-        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-        messagingSenderId:
-          process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-      };
-
-      let secondaryApp: FirebaseApp;
-      try {
-        secondaryApp = getApp("SecondaryClient");
-      } catch {
-        secondaryApp = initializeApp(firebaseConfig, "SecondaryClient");
-      }
-
-      const secondaryAuth = getAuth(secondaryApp);
-
-      const password = generateRandomPassword();
-      userCredential = await createUserWithEmailAndPassword(
-        secondaryAuth,
-        data.email,
-        password,
-      );
-      const authUser = userCredential.user;
-
-      const batch = writeBatch(db);
-
-      // 1️⃣ Add user to Firestore
-      const userRef = doc(db, "users", authUser.uid);
-      batch.set(userRef, {
-        username: data.username,
-        email: data.email,
-        role: data.role,
-        companies: data.companies,
-        firstSignIn: true,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      // 2️⃣ Add Audit Log
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
-        userId: currentUser?.uid,
-        action: "create",
-        description: `User created: ${data.username} (${data.email})`,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
-
-      const welcomeTemplate = `
+    const welcomeTemplate = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 8px;">
           <h2 style="color: #333;">Welcome to Stuttgart</h2>
           <p>Your account has been successfully created. To get started, please set your password using the secure link below:</p>
@@ -288,35 +205,32 @@ export default function AddUserDialog({
         </div>
       `;
 
-      // 3️⃣ Generate and send a personalized password reset link via custom email
-      await axios.post("/api/users/send-reset-link", {
-        email: data.email,
-        subject: "Welcome to Stuttgart",
-        htmlTemplate: welcomeTemplate,
+    try {
+      setIsSubmitting(true);
+
+      const { emailFailed } = await createUser({
+        data,
+        currentUser,
+        welcomeTemplate,
       });
-
-      // 4️⃣ Clean up secondary auth session
-      await signOut(secondaryAuth);
-
+      onCreated?.();
+      if (emailFailed) {
+        form.setError("root", {
+          message:
+            "User created, but the welcome email couldn't be sent. Use “Send reset link” in the user's menu.",
+        });
+        return;
+      }
       form.reset();
       setOpen(false);
-      onCreated?.();
     } catch (error) {
       console.error("Failed to add user or send email", error);
 
-      // Rollback if user was created but process failed
-      if (userCredential && userCredential.user) {
-        try {
-          await deleteDoc(doc(db, "users", userCredential.user.uid));
-          await userCredential.user.delete();
-          console.log("Rolled back user creation");
-        } catch (rollbackError) {
-          console.error("Failed to rollback user creation", rollbackError);
-        }
-      }
-
       form.setError("root", {
-        message: "Failed to create user. Please try again.",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "Failed to create user. Please try again.",
       });
     } finally {
       setIsSubmitting(false);

@@ -13,6 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/auth-context";
+import { ApiError } from "@/lib/api-client";
+import { usesApi } from "@/lib/data/flags";
+import { identityApi } from "@/lib/data/identity/api";
 import type { UserData } from "./columns";
 
 interface UserActionsProps {
@@ -35,6 +38,12 @@ export function UserActions({ user, onChanged }: UserActionsProps) {
     setRemoveError(null);
     setRemoving(true);
     try {
+      if (usesApi("identity")) {
+        await identityApi.removeUser(user.id);
+        setRemoveOpen(false);
+        onChanged?.();
+        return;
+      }
       const token = await currentUser?.getIdToken();
       await axios.post(
         "/api/users/remove",
@@ -46,9 +55,11 @@ export function UserActions({ user, onChanged }: UserActionsProps) {
     } catch (error) {
       console.error("Error removing user:", error);
       setRemoveError(
-        axios.isAxiosError(error)
-          ? (error.response?.data?.error ?? error.message)
-          : "Something went wrong.",
+        error instanceof ApiError
+          ? error.message
+          : axios.isAxiosError(error)
+            ? (error.response?.data?.error ?? error.message)
+            : "Something went wrong.",
       );
     } finally {
       setRemoving(false);
@@ -83,11 +94,15 @@ export function UserActions({ user, onChanged }: UserActionsProps) {
         htmlTemplate: resetTemplate,
       });
       setResult({ ok: true });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error sending reset email:", error);
       setResult({
         ok: false,
-        message: error.response?.data?.error || error.message,
+        message: axios.isAxiosError(error)
+          ? (error.response?.data?.error ?? error.message)
+          : error instanceof Error
+            ? error.message
+            : "Something went wrong.",
       });
     } finally {
       setLoading(false);

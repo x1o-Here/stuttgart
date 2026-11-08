@@ -1,9 +1,8 @@
 "use client";
 
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveCollection } from "@/lib/data/live";
 import { toDate } from "@/lib/helpers/to-date";
 import type { SparePart, SparePartStatus } from "@/lib/inventory/spare-parts";
 
@@ -21,13 +20,9 @@ export function useSpareParts() {
       return;
     }
     setLoading(true);
-    return onSnapshot(
-      query(
-        collection(db, "companies", activeCompany, "spareParts"),
-        // Single-field order only (no composite index); deleted rows are
-        // filtered below.
-        orderBy("createdAt", "desc"),
-      ),
+    return onLiveCollection(
+      "inventory",
+      ["companies", activeCompany, "spareParts"],
       (snapshot) => {
         setParts(
           snapshot.docs
@@ -54,6 +49,8 @@ export function useSpareParts() {
         setError("Couldn’t load inventory. Check your connection and access.");
         setLoading(false);
       },
+      // Single-field order only (no composite index); deleted rows are filtered below.
+      { orderBy: "createdAt", direction: "desc" },
     );
   }, [activeCompany]);
 

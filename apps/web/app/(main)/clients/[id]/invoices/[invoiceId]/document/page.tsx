@@ -1,8 +1,6 @@
 "use client";
 
-import { doc, onSnapshot } from "firebase/firestore";
 import { Download, Printer } from "lucide-react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -10,7 +8,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveDoc } from "@/lib/data/live";
 import InvoicePreview from "../../../components/invoice-preview";
 import {
   type ClientInvoiceDocument,
@@ -49,16 +47,9 @@ export default function InvoiceDocumentPage() {
     if (!activeCompany || !clientId || !invoiceId) return;
 
     setLoading(true);
-    return onSnapshot(
-      doc(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        clientId,
-        "invoices",
-        invoiceId,
-      ),
+    return onLiveDoc(
+      "ledger",
+      ["companies", activeCompany, "clients", clientId, "invoices", invoiceId],
       (snapshot) => {
         if (!snapshot.exists() || snapshot.data().entityStatus === false) {
           setInvoice(null);

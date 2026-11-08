@@ -1,7 +1,6 @@
 "use client";
 
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -12,7 +11,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { auth, db } from "@/lib/firebase/firebase-client";
+import { loadProfile } from "@/lib/data/identity";
+import { auth } from "@/lib/firebase/firebase-client";
 
 export type Company = {
   id: string;
@@ -61,8 +61,8 @@ function resolveActiveCompany(uid: string, userCompanies: Company[]): string {
 }
 
 async function fetchAuthProfile(user: User): Promise<AuthProfile> {
-  const userDoc = await getDoc(doc(db, "users", user.uid));
-  if (!userDoc.exists()) {
+  const profile = await loadProfile(user);
+  if (!profile) {
     return {
       user,
       username: null,
@@ -71,42 +71,12 @@ async function fetchAuthProfile(user: User): Promise<AuthProfile> {
       activeCompany: "",
     };
   }
-
-  const data = userDoc.data();
-
-  // Removed accounts keep their doc for audit history but lose access.
-  if (data.entityStatus === false) {
-    await signOut(auth);
-    throw new Error("This account has been removed.");
-  }
-
-  const companyIds = Array.isArray(data.companies)
-    ? (data.companies as string[])
-    : [];
-
-  let userCompanies: Company[] = [];
-  if (companyIds.length > 0) {
-    const companySnaps = await Promise.all(
-      companyIds.map((companyId) => getDoc(doc(db, "companies", companyId))),
-    );
-
-    userCompanies = companySnaps
-      .filter(
-        (companyDoc) =>
-          companyDoc.exists() && companyDoc.data()?.entityStatus !== false,
-      )
-      .map((companyDoc) => ({
-        id: companyDoc.id,
-        name: (companyDoc.data()?.name as string) || companyDoc.id,
-      }));
-  }
-
   return {
     user,
-    username: data.username ?? null,
-    role: data.role ?? null,
-    companies: userCompanies,
-    activeCompany: resolveActiveCompany(user.uid, userCompanies),
+    username: profile.username,
+    role: profile.role,
+    companies: profile.companies,
+    activeCompany: resolveActiveCompany(user.uid, profile.companies),
   };
 }
 

@@ -1,10 +1,9 @@
 "use client";
 
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveCollection } from "@/lib/data/live";
 import { toDate } from "@/lib/helpers/to-date";
 import {
   type ClientSnapshot,
@@ -64,20 +63,10 @@ export default function ClientInvoicesSection({
     }
 
     setLoading(true);
-    const invoicesQuery = query(
-      collection(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        client.id,
-        "invoices",
-      ),
-      orderBy("date", "desc"),
-    );
 
-    const unsubscribe = onSnapshot(
-      invoicesQuery,
+    const unsubscribe = onLiveCollection(
+      "ledger",
+      ["companies", activeCompany, "clients", client.id, "invoices"],
       (snapshot) => {
         const next: ClientInvoice[] = snapshot.docs
           .map((docSnap) => {
@@ -131,6 +120,7 @@ export default function ClientInvoicesSection({
         console.error("Failed to fetch invoices:", error);
         setLoading(false);
       },
+      { orderBy: "date", direction: "desc" },
     );
 
     return unsubscribe;

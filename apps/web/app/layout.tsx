@@ -6,6 +6,7 @@ import {
   Instrument_Sans,
 } from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
+import { QueryProvider } from "@/lib/data/query-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -45,7 +46,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bodoniModa.variable} ${instrumentSans.variable} antialiased bg-canvas text-foreground`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

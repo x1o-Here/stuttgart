@@ -1,5 +1,5 @@
-import { toDate } from "../helpers/to-date";
-import { roundMoney } from "../invoices/money";
+import { toDate } from "../helpers/to-date.js";
+import { roundMoney } from "../invoices/money.js";
 
 export type SupplierStatus = "active" | "inactive";
 

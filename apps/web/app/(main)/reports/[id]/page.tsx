@@ -1,14 +1,6 @@
 "use client";
 
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import {
-  CircleX,
-  Download,
-  Filter,
-  Save,
-  Search,
-  Share2,
-} from "lucide-react";
+import { CircleX, Download, Filter, Save, Search, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -45,7 +37,7 @@ import {
   useAccountsContext,
 } from "@/contexts/useAccountsContext";
 import { useCustomReport } from "@/hooks/use-custom-reports";
-import { db } from "@/lib/firebase/firebase-client";
+import { saveReportFilters } from "@/lib/data/vat-reports";
 import { matchesTagFilter, TAG_OPTIONS } from "@/lib/helpers/transaction-tags";
 import ExportReportDialog from "./components/export-report-dialog";
 import ShareReportDialog from "./components/share-report-dialog";
@@ -87,6 +79,7 @@ function CustomReportPageContent() {
     setFiltersHydrated(true);
   }, [report, filtersHydrated]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-hydrate saved filters whenever another report is opened
   useEffect(() => {
     setFiltersHydrated(false);
   }, [reportId]);
@@ -279,13 +272,7 @@ function CustomReportPageContent() {
 
     setSaving(true);
     try {
-      await updateDoc(
-        doc(db, "companies", activeCompany, "reports", reportId),
-        {
-          filters: nextFilters,
-          updatedAt: serverTimestamp(),
-        },
-      );
+      await saveReportFilters({ activeCompany, reportId, nextFilters });
     } catch (err) {
       console.error("Failed to save report filters:", err);
     } finally {

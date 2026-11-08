@@ -1,7 +1,11 @@
 "use client";
+// TanStack Table returns a stable table object, so the React Compiler would
+// keep rendering stale rows when the data changes. Opt this file out.
+"use no memo";
 
 import {
   type ColumnDef,
+  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -38,29 +42,38 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
 }
 
-const fuzzyFilter = (row: any, _columnId: string, value: string) => {
+const fuzzyFilter = (
+  row: { original: unknown },
+  _columnId: string,
+  value: string,
+) => {
   const searchValue = value.toLowerCase();
 
-  return Object.values(row.original).some((cellValue) => {
-    if (cellValue === undefined || cellValue === null) return false;
+  return Object.values(row.original as Record<string, unknown>).some(
+    (cellValue) => {
+      if (cellValue === undefined || cellValue === null) return false;
 
-    // Dates
-    if (cellValue instanceof Date) {
-      return cellValue.toLocaleDateString().toLowerCase().includes(searchValue);
-    }
+      // Dates
+      if (cellValue instanceof Date) {
+        return cellValue
+          .toLocaleDateString()
+          .toLowerCase()
+          .includes(searchValue);
+      }
 
-    // Numbers
-    if (typeof cellValue === "number") {
-      return cellValue.toString().includes(searchValue);
-    }
+      // Numbers
+      if (typeof cellValue === "number") {
+        return cellValue.toString().includes(searchValue);
+      }
 
-    // Strings
-    if (typeof cellValue === "string") {
-      return cellValue.toLowerCase().includes(searchValue);
-    }
+      // Strings
+      if (typeof cellValue === "string") {
+        return cellValue.toLowerCase().includes(searchValue);
+      }
 
-    return false;
-  });
+      return false;
+    },
+  );
 };
 
 export function DashboardTransactionsTable<TData, TValue>({
@@ -72,9 +85,9 @@ export function DashboardTransactionsTable<TData, TValue>({
     { id: "date", desc: true },
     { id: "createdAt", desc: true },
   ]);
-  const [columnFilters, setColumnFilters] = useState<
-    { id: string; value: any }[]
-  >([{ id: "tags", value: ["active"] }]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([
+    { id: "tags", value: ["active"] },
+  ]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
@@ -223,6 +236,7 @@ export function DashboardTransactionsTable<TData, TValue>({
           </PaginationItem>
 
           {Array.from({ length: table.getPageCount() }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: page numbers are the index
             <PaginationItem key={i}>
               <PaginationLink
                 onClick={() => table.setPageIndex(i)}

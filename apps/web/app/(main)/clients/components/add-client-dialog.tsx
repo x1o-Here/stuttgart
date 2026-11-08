@@ -1,12 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -20,13 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { useAuth } from "@/contexts/auth-context";
-import {
-  CLIENT_ACCOUNT_TYPE_NAME,
-  CLIENT_ACCOUNT_TYPE_SHORT_FORM,
-  isClientAccountTypeName,
-} from "@/lib/constants/client-account";
-import { db } from "@/lib/firebase/firebase-client";
-import { useLookupStore } from "@/stores/use-lookup-store";
+import { useCreateClient } from "@/lib/data/clients";
 import {
   ClientFormSections,
   type ClientFormValues,
@@ -36,9 +24,9 @@ import {
 export default function AddClientDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
-  const accountTypes = useLookupStore((state) => state.accountTypes);
+  const createClient = useCreateClient(activeCompany);
+  const isSubmitting = createClient.isPending;
 
   const form = useForm<ClientFormValues>({
     defaultValues: {
@@ -56,94 +44,11 @@ export default function AddClientDialog() {
     if (!activeCompany || !user) return;
 
     try {
-      setIsSubmitting(true);
-      const batch = writeBatch(db);
-      const clientName = data.name.trim();
-
-      const clientRef = doc(
-        collection(db, "companies", activeCompany, "clients"),
-      );
-      batch.set(clientRef, {
-        name: clientName,
-        address: data.address,
-        vatNo: data.vatNo,
-        contactNo: data.contactNo,
-        status: "active",
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      const existingClientType = accountTypes.find((type) =>
-        isClientAccountTypeName(type.name),
-      );
-      if (!existingClientType) {
-        const clientTypeRef = doc(
-          collection(db, "lookup-lists", activeCompany, "account-types"),
-        );
-        batch.set(clientTypeRef, {
-          name: CLIENT_ACCOUNT_TYPE_NAME,
-          shortForm: CLIENT_ACCOUNT_TYPE_SHORT_FORM,
-          isSystem: true,
-          entityStatus: true,
-          createdAt: serverTimestamp(),
-        });
-      } else if (!existingClientType.isSystem) {
-        batch.update(
-          doc(
-            db,
-            "lookup-lists",
-            activeCompany,
-            "account-types",
-            existingClientType.id,
-          ),
-          {
-            isSystem: true,
-            updatedAt: serverTimestamp(),
-          },
-        );
-      }
-
-      const accountRef = doc(
-        collection(db, "companies", activeCompany, "accounts"),
-      );
-      batch.set(accountRef, {
-        name: clientName,
-        accountType: CLIENT_ACCOUNT_TYPE_NAME,
-        initialBalance: 0,
-        balance: 0,
-        clientId: clientRef.id,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      const auditLogRef = doc(collection(db, "auditLogs"));
-      batch.set(auditLogRef, {
-        userId: user.uid,
-        action: "create",
-        description: `Client created: ${clientName}`,
-        companyId: activeCompany,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      const accountAuditRef = doc(collection(db, "auditLogs"));
-      batch.set(accountAuditRef, {
-        userId: user.uid,
-        action: "create",
-        description: `Client account created: ${clientName}`,
-        companyId: activeCompany,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
-
+      await createClient.mutateAsync(data);
       form.reset();
       setOpen(false);
     } catch (error) {
       console.error("Failed to add client", error);
-    } finally {
-      setIsSubmitting(false);
     }
   }
 

@@ -27,7 +27,9 @@ export async function migrateSales(ctx: Ctx) {
             const clientId = seg(doc)[3];
             if (!ctx.known.clients.has(clientId)) throw new Reject(`client ${clientId} not found`);
             return {
-                id: doc.id,
+                // Firestore kept every client's template at the same doc ID ("config"),
+                // so the row ID is derived from the client to keep it unique.
+                id: `tpl-${clientId}`,
                 clientId,
                 columns: json(d.columns ?? []),
                 signing: json(d.signing ?? {}),

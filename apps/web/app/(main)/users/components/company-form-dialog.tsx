@@ -1,17 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  arrayUnion,
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
+import { companyInputSchema } from "@stuttgart/shared/schemas/identity";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
+import type z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
 import {
   RuledDialogFooter,
@@ -33,15 +27,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import type { CompanyRecord } from "@/lib/companies/types";
-import { db } from "@/lib/firebase/firebase-client";
+import { createCompany, updateCompany } from "@/lib/data/identity";
 import { invalidateCompaniesCache } from "./companies-cache";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Company name is required"),
-  address: z.string().min(1, "Address is required"),
-  telephoneNo: z.string().min(1, "Telephone number is required"),
-  tin: z.string().min(1, "TIN is required"),
-});
+/** Same rules the server checks (packages/shared). */
+const formSchema = companyInputSchema;
 
 type FormOutput = z.infer<typeof formSchema>;
 
@@ -105,64 +95,18 @@ export default function CompanyFormDialog({
 
     try {
       setIsSubmitting(true);
-      const batch = writeBatch(db);
       const companyName = data.name.trim();
 
-      if (mode === "create") {
-        const companyRef = doc(collection(db, "companies"));
-        batch.set(companyRef, {
-          name: companyName,
-          address: data.address.trim(),
-          telephoneNo: data.telephoneNo.trim(),
-          tin: data.tin.trim(),
-          entityStatus: true,
-          createdAt: serverTimestamp(),
-          createdBy: user.uid,
-        });
-
-        const userRef = doc(db, "users", user.uid);
-        batch.update(userRef, {
-          companies: arrayUnion(companyRef.id),
-        });
-
-        const auditLogRef = doc(collection(db, "auditLogs"));
-        batch.set(auditLogRef, {
-          userId: user.uid,
-          action: "create",
-          description: `Company created: ${companyName}`,
-          companyId: companyRef.id,
-          entityStatus: true,
-          createdAt: serverTimestamp(),
-        });
-
-        await batch.commit();
-        invalidateCompaniesCache();
-        await refreshProfile();
-      } else if (company) {
-        const companyRef = doc(db, "companies", company.id);
-        batch.update(companyRef, {
-          name: companyName,
-          address: data.address.trim(),
-          telephoneNo: data.telephoneNo.trim(),
-          tin: data.tin.trim(),
-          updatedAt: serverTimestamp(),
-          updatedBy: user.uid,
-        });
-
-        const auditLogRef = doc(collection(db, "auditLogs"));
-        batch.set(auditLogRef, {
-          userId: user.uid,
-          action: "update",
-          description: `Company updated: ${companyName}`,
-          companyId: company.id,
-          entityStatus: true,
-          createdAt: serverTimestamp(),
-        });
-
-        await batch.commit();
-        invalidateCompaniesCache();
-        await refreshProfile();
-      }
+      const input = {
+        name: companyName,
+        address: data.address.trim(),
+        telephoneNo: data.telephoneNo.trim(),
+        tin: data.tin.trim(),
+      };
+      if (mode === "create") await createCompany(user, input);
+      else if (company) await updateCompany(user, company, input);
+      invalidateCompaniesCache();
+      await refreshProfile();
 
       form.reset();
       setOpen(false);

@@ -1,9 +1,10 @@
 "use client";
 
+import { supplierInputSchema } from "@stuttgart/shared/schemas/ledger";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { UseFormReturn } from "react-hook-form";
-import z from "zod";
+import type z from "zod";
 import { RuledDialogSection } from "@/components/shared/ruled-dialog";
 import {
   FormControl,
@@ -23,13 +24,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useLookupStore } from "@/stores/use-lookup-store";
 
-export const supplierFormSchema = z.object({
-  name: z.string().trim().min(1, "Supplier name is required"),
-  tin: z.string().trim().min(1, "TIN is required"),
-  address: z.string().trim().min(1, "Address is required"),
-  supplierType: z.string().min(1, "Supplier type is required"),
-  contactNo: z.string().trim().min(1, "Contact number is required"),
-});
+/** Same rules the server checks (packages/shared). */
+export const supplierFormSchema = supplierInputSchema;
 
 export type SupplierFormValues = z.infer<typeof supplierFormSchema>;
 

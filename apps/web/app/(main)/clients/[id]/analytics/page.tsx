@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-} from "firebase/firestore";
 import { Download, Share2 } from "lucide-react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -46,7 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveCollection, onLiveDoc, readCollection } from "@/lib/data/live";
 import { toDate } from "@/lib/helpers/to-date";
 import {
   type InvoiceStatus,
@@ -185,8 +176,9 @@ export default function ClientAnalyticsPage() {
     if (!activeCompany || !clientId) return;
 
     setClientLoading(true);
-    return onSnapshot(
-      doc(db, "companies", activeCompany, "clients", clientId),
+    return onLiveDoc(
+      "ledger",
+      ["companies", activeCompany, "clients", clientId],
       (snapshot) => {
         if (!snapshot.exists() || snapshot.data()?.entityStatus === false) {
           setClientName("");
@@ -210,20 +202,10 @@ export default function ClientAnalyticsPage() {
     if (!activeCompany || !clientId || notFound) return;
 
     setDataLoading(true);
-    const invoicesQuery = query(
-      collection(
-        db,
-        "companies",
-        activeCompany,
-        "clients",
-        clientId,
-        "invoices",
-      ),
-      orderBy("date", "desc"),
-    );
 
-    return onSnapshot(
-      invoicesQuery,
+    return onLiveCollection(
+      "ledger",
+      ["companies", activeCompany, "clients", clientId, "invoices"],
       async (snapshot) => {
         try {
           const nextInvoices: ClientAnalyticsInvoiceRow[] = [];
@@ -269,8 +251,16 @@ export default function ClientAnalyticsPage() {
             });
 
             paymentFetches.push(
-              getDocs(collection(docSnap.ref, "payments")).then((paymentSnap) =>
-                paymentSnap.docs
+              readCollection("ledger", [
+                "companies",
+                activeCompany,
+                "clients",
+                clientId,
+                "invoices",
+                docSnap.id,
+                "payments",
+              ]).then((paymentDocs) =>
+                paymentDocs
                   .map((paymentDoc) => {
                     const paymentData = paymentDoc.data() as Record<
                       string,
@@ -319,6 +309,7 @@ export default function ClientAnalyticsPage() {
         console.error("Failed to subscribe to client invoices:", error);
         setDataLoading(false);
       },
+      { orderBy: "date", direction: "desc" },
     );
   }, [activeCompany, clientId, notFound]);
 

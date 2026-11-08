@@ -1,4 +1,7 @@
 "use client";
+// TanStack Table returns a stable table object, so the React Compiler would
+// keep rendering stale rows when the data changes. Opt this file out.
+"use no memo";
 
 import {
   type ColumnDef,

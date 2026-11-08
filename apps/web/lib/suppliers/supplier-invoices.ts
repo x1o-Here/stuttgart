@@ -10,6 +10,9 @@ import {
   type Transaction,
   where,
 } from "firebase/firestore";
+import { ApiError } from "@/lib/api-client";
+import { usesApi } from "@/lib/data/flags";
+import { ledgerApi } from "@/lib/data/ledger/api";
 import { db } from "@/lib/firebase/firebase-client";
 import {
   normalizeTaxInvoiceNo,
@@ -24,6 +27,24 @@ import {
 } from "./supplier-model";
 
 export class SupplierInvoiceError extends Error {}
+
+/** API mode: show the server's message the same way as a local validation error. */
+async function viaApi<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    if (error instanceof ApiError)
+      throw new SupplierInvoiceError(error.message);
+    throw error;
+  }
+}
+
+const apiInvoice = (input: SupplierInvoiceInput) => ({
+  taxInvoiceNo: input.taxInvoiceNo,
+  date: input.date.toISOString(),
+  totalIncludingVat: input.totalIncludingVat,
+  lineItems: input.lineItems,
+});
 
 export type SupplierInvoiceInput = {
   taxInvoiceNo: string;
@@ -123,6 +144,16 @@ export async function createSupplierInvoice(
   supplier: { id: string; name: string },
   input: SupplierInvoiceInput,
 ) {
+  if (usesApi("ledger")) {
+    const created = await viaApi(() =>
+      ledgerApi.createSupplierInvoice(
+        companyId,
+        supplier.id,
+        apiInvoice(input),
+      ),
+    );
+    return created.id;
+  }
   const lineItems = validateInput(input);
   const taxNo = normalizeTaxInvoiceNo(input.taxInvoiceNo);
   const split = splitVatInclusive(input.totalIncludingVat);
@@ -170,6 +201,17 @@ export async function updateSupplierInvoice(
   invoiceId: string,
   input: SupplierInvoiceInput,
 ) {
+  if (usesApi("ledger")) {
+    await viaApi(() =>
+      ledgerApi.updateSupplierInvoice(
+        companyId,
+        supplier.id,
+        invoiceId,
+        apiInvoice(input),
+      ),
+    );
+    return;
+  }
   const lineItems = validateInput(input);
   const taxNo = normalizeTaxInvoiceNo(input.taxInvoiceNo);
   const split = splitVatInclusive(input.totalIncludingVat);
@@ -224,6 +266,12 @@ export async function deleteSupplierInvoice(
   supplier: { id: string; name: string },
   invoice: SupplierInvoice,
 ) {
+  if (usesApi("ledger")) {
+    await viaApi(() =>
+      ledgerApi.deleteSupplierInvoice(companyId, supplier.id, invoice.id),
+    );
+    return;
+  }
   const payments = await getDocs(
     query(
       collection(invoiceRef(companyId, supplier.id, invoice.id), "payments"),
@@ -275,6 +323,25 @@ export async function saveSupplierPayment(
   const amount = roundMoney(input.amount);
   if (!(amount > 0)) {
     throw new SupplierInvoiceError("Enter an amount greater than zero.");
+  }
+  if (usesApi("ledger")) {
+    await viaApi(() =>
+      ledgerApi.saveSupplierPayment(
+        companyId,
+        supplier.id,
+        invoiceId,
+        {
+          date: input.date.toISOString(),
+          description: input.description.trim(),
+          chequeNo: input.chequeNo.trim(),
+          amount,
+          creditingAccountId: input.creditingAccount.id,
+          debitingAccountId: input.debitingAccount.id,
+        },
+        existing?.id,
+      ),
+    );
+    return;
   }
   if (input.debitingAccount.id === input.creditingAccount.id) {
     throw new SupplierInvoiceError(
@@ -412,6 +479,17 @@ export async function deleteSupplierPayment(
     creditingAccountId: string;
   },
 ) {
+  if (usesApi("ledger")) {
+    await viaApi(() =>
+      ledgerApi.deleteSupplierPayment(
+        companyId,
+        supplier.id,
+        invoiceId,
+        payment.id,
+      ),
+    );
+    return;
+  }
   const invRef = invoiceRef(companyId, supplier.id, invoiceId);
 
   await runTransaction(db, async (tx) => {

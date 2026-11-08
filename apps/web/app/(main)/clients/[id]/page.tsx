@@ -1,79 +1,26 @@
 "use client";
 
-import { doc, onSnapshot } from "firebase/firestore";
 import { ChartColumn, FileText, Plus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
-import type { ClientStatus } from "../components/clients-columns";
+import { useClient } from "@/lib/data/clients";
 import ChangeClientStatusDialog from "./components/change-client-status-dialog";
 import ClientInvoicesSection from "./components/client-invoices-section";
 import EditClientDialog from "./components/edit-client-dialog";
-
-type ClientDetail = {
-  id: string;
-  name: string;
-  address: string;
-  vatNo: string;
-  contactNo: string;
-  status: ClientStatus;
-};
 
 export default function ClientDetailPage() {
   const params = useParams();
   const { activeCompany } = useAuth();
   const clientId = typeof params.id === "string" ? params.id : undefined;
 
-  const [client, setClient] = useState<ClientDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    if (!activeCompany || !clientId) {
-      setLoading(true);
-      return;
-    }
-
-    setLoading(true);
-    setNotFound(false);
-
-    const unsubscribe = onSnapshot(
-      doc(db, "companies", activeCompany, "clients", clientId),
-      (snapshot) => {
-        if (!snapshot.exists() || snapshot.data()?.entityStatus === false) {
-          setClient(null);
-          setNotFound(true);
-          setLoading(false);
-          return;
-        }
-
-        const data = snapshot.data() as Record<string, unknown>;
-        setClient({
-          id: snapshot.id,
-          name: typeof data.name === "string" ? data.name : "Unnamed Client",
-          address: typeof data.address === "string" ? data.address : "",
-          vatNo: typeof data.vatNo === "string" ? data.vatNo : "",
-          contactNo: typeof data.contactNo === "string" ? data.contactNo : "",
-          status: data.status === "inactive" ? "inactive" : "active",
-        });
-        setNotFound(false);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Failed to fetch client:", error);
-        setNotFound(true);
-        setLoading(false);
-      },
-    );
-
-    return unsubscribe;
-  }, [activeCompany, clientId]);
+  const { data: client, isError } = useClient(activeCompany, clientId ?? "");
+  const loading = client === undefined && !isError;
+  const notFound = client === null || isError;
 
   if (loading) {
     return (

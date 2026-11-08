@@ -1,4 +1,7 @@
 "use client";
+// TanStack Table returns a stable table object, so the React Compiler would
+// keep rendering stale rows when the data changes. Opt this file out.
+"use no memo";
 
 import {
   getCoreRowModel,
@@ -9,7 +12,6 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { CircleX, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
@@ -28,8 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { db } from "@/lib/firebase/firebase-client";
-import { toDate } from "@/lib/helpers/to-date";
+import { auditLogs } from "@/lib/data/identity";
 import { type AuditLogRow, auditLogsColumns } from "./audit-logs-columns";
 
 const fuzzyFilter = (
@@ -81,68 +82,7 @@ export default function AuditLogsTable() {
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const [logsSnap, usersSnap, companiesSnap] = await Promise.all([
-        getDocs(
-          query(collection(db, "auditLogs"), orderBy("createdAt", "desc")),
-        ),
-        getDocs(collection(db, "users")),
-        getDocs(collection(db, "companies")),
-      ]);
-
-      const usernames = new Map<string, string>();
-      usersSnap.docs.forEach((userDoc) => {
-        const data = userDoc.data();
-        const name =
-          typeof data.username === "string" && data.username
-            ? data.username
-            : typeof data.email === "string" && data.email
-              ? data.email
-              : typeof data.removedEmail === "string" && data.removedEmail
-                ? data.removedEmail
-                : userDoc.id;
-        // Tell a removed account apart from a new one reusing the name/email.
-        usernames.set(
-          userDoc.id,
-          data.entityStatus === false ? `${name} (removed)` : name,
-        );
-      });
-
-      const companyNames = new Map<string, string>();
-      companiesSnap.docs.forEach((companyDoc) => {
-        const data = companyDoc.data();
-        companyNames.set(
-          companyDoc.id,
-          typeof data.name === "string" && data.name
-            ? data.name
-            : companyDoc.id,
-        );
-      });
-
-      const rows: AuditLogRow[] = logsSnap.docs.map((logDoc) => {
-        const data = logDoc.data() as Record<string, unknown>;
-        const userId = typeof data.userId === "string" ? data.userId : "";
-        const companyId =
-          typeof data.companyId === "string" ? data.companyId : "";
-
-        return {
-          id: logDoc.id,
-          action: typeof data.action === "string" ? data.action : "",
-          description:
-            typeof data.description === "string" ? data.description : "",
-          companyId,
-          companyName: companyId
-            ? (companyNames.get(companyId) ?? companyId)
-            : "",
-          userId,
-          username: userId ? (usernames.get(userId) ?? userId) : "",
-          transactionId:
-            typeof data.transactionId === "string" ? data.transactionId : "",
-          entityStatus: data.entityStatus !== false,
-          createdAt: toDate(data.createdAt) ?? null,
-        };
-      });
-
-      setLogs(rows);
+      setLogs(await auditLogs());
     } catch (error) {
       console.error("Error fetching audit logs:", error);
       setLogs([]);

@@ -1,9 +1,8 @@
 "use client";
 
-import { collection, onSnapshot } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { db } from "@/lib/firebase/firebase-client";
+import { onLiveCollection } from "@/lib/data/live";
 import { toDate } from "@/lib/helpers/to-date";
 import {
   computeVatQuarters,
@@ -26,8 +25,9 @@ function useParties(side: Side) {
   useEffect(() => {
     if (!activeCompany) return;
     setLoading(true);
-    return onSnapshot(
-      collection(db, "companies", activeCompany, side),
+    return onLiveCollection(
+      "vat-reports",
+      ["companies", activeCompany, side],
       (snapshot) => {
         setParties(
           snapshot.docs
@@ -61,8 +61,9 @@ function useSideInvoices(side: Side, parties: Party[]) {
     setByParty({});
     setLoaded(new Set());
     const unsubs = parties.map((party) =>
-      onSnapshot(
-        collection(db, "companies", activeCompany, side, party.id, "invoices"),
+      onLiveCollection(
+        "vat-reports",
+        ["companies", activeCompany, side, party.id, "invoices"],
         (snapshot) => {
           const invoices: VatSourceInvoice[] = [];
           for (const d of snapshot.docs) {
@@ -115,8 +116,9 @@ function useVatPayments() {
   useEffect(() => {
     if (!activeCompany) return;
     setLoading(true);
-    return onSnapshot(
-      collection(db, "companies", activeCompany, "vatPayments"),
+    return onLiveCollection(
+      "vat-reports",
+      ["companies", activeCompany, "vatPayments"],
       (snapshot) => {
         setPayments(
           snapshot.docs

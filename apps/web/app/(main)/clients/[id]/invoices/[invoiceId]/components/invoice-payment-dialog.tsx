@@ -1,14 +1,5 @@
 "use client";
 
-import {
-  collection,
-  deleteField,
-  doc,
-  increment,
-  serverTimestamp,
-  Timestamp,
-  writeBatch,
-} from "firebase/firestore";
 import { ArrowRight, Pencil, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
@@ -33,11 +24,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import type { Account } from "@/hooks/use-accounts";
-import { db } from "@/lib/firebase/firebase-client";
+import { ApiError } from "@/lib/api-client";
+import { saveInvoicePayment } from "@/lib/data/ledger";
 import {
   type ClientInvoiceDocument,
   defaultInvoicePaymentDescription,
-  deriveStatusFromBalances,
   type InvoicePayment,
   roundMoney,
 } from "../../../invoice-model";
@@ -74,22 +65,6 @@ function findAccountByName(accounts: Account[], name: string) {
   if (!target) return undefined;
   return accounts.find(
     (account) => account.name.trim().toLowerCase() === target,
-  );
-}
-
-function accountTxRef(
-  companyId: string,
-  accountId: string,
-  transactionId: string,
-) {
-  return doc(
-    db,
-    "companies",
-    companyId,
-    "accounts",
-    accountId,
-    "transactions",
-    transactionId,
   );
 }
 
@@ -212,206 +187,29 @@ export default function InvoicePaymentDialog({
     try {
       setSaving(true);
       setError("");
-      const batch = writeBatch(db);
-      const invoiceRef = doc(
-        db,
-        "companies",
+      await saveInvoicePayment({
         activeCompany,
-        "clients",
         clientId,
-        "invoices",
-        invoice.id,
-      );
-      const paymentRef = isEditing
-        ? doc(invoiceRef, "payments", payment.id)
-        : doc(collection(invoiceRef, "payments"));
-
-      const nextOutstanding = isEditing
-        ? roundMoney(outstanding + payment.amount - paymentAmount)
-        : roundMoney(outstanding - paymentAmount);
-      const nextStatus = deriveStatusFromBalances(
-        invoice.totalIncludingVat,
-        nextOutstanding,
-        invoice.status === "paid" ? "partial" : invoice.status,
-      );
-
-      const paymentDate = Timestamp.fromDate(new Date(`${date}T00:00:00`));
-      const txDescription = description.trim();
-      const trimmedChequeNo = chequeNo.trim();
-      const transactionId =
-        (isEditing && payment.transactionId) ||
-        doc(collection(db, "transactions")).id;
-
-      const txPayload = {
-        date: paymentDate,
-        amount: paymentAmount,
-        department: "",
-        vehicle: "",
-        voucherNo: 0,
-        description: txDescription,
-        tags: ["invoice-payment", invoice.taxInvoiceNo],
-        invoiceId: invoice.id,
-        invoiceNo: invoice.taxInvoiceNo,
-        chequeNo: trimmedChequeNo,
-        clientId,
-        clientName: invoice.client.name,
-        paymentId: paymentRef.id,
-      };
-
-      if (isEditing && payment.transactionId) {
-        const previousCreditId = payment.creditingAccountId;
-        const previousDebitId = payment.debitingAccountId || debitAccount.id;
-        const previousAmount = payment.amount;
-
-        // Reverse previous balances, then apply the new ones.
-        if (previousCreditId) {
-          batch.update(
-            doc(db, "companies", activeCompany, "accounts", previousCreditId),
-            {
-              balance: increment(-previousAmount),
-            },
-          );
-        }
-        if (previousDebitId) {
-          batch.update(
-            doc(db, "companies", activeCompany, "accounts", previousDebitId),
-            {
-              balance: increment(previousAmount),
-            },
-          );
-        }
-
-        // Remove old transaction docs if the account changed.
-        if (previousCreditId && previousCreditId !== creditAccount.id) {
-          batch.delete(
-            accountTxRef(
-              activeCompany,
-              previousCreditId,
-              payment.transactionId,
-            ),
-          );
-        }
-        if (previousDebitId && previousDebitId !== debitAccount.id) {
-          batch.delete(
-            accountTxRef(activeCompany, previousDebitId, payment.transactionId),
-          );
-        }
-
-        batch.set(
-          accountTxRef(activeCompany, creditAccount.id, transactionId),
-          {
-            ...txPayload,
-            type: "credit",
-            updatedAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-        batch.set(
-          accountTxRef(activeCompany, debitAccount.id, transactionId),
-          {
-            ...txPayload,
-            type: "debit",
-            updatedAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-
-        batch.update(
-          doc(db, "companies", activeCompany, "accounts", creditAccount.id),
-          {
-            balance: increment(paymentAmount),
-          },
-        );
-        batch.update(
-          doc(db, "companies", activeCompany, "accounts", debitAccount.id),
-          {
-            balance: increment(-paymentAmount),
-          },
-        );
-      } else {
-        batch.set(
-          accountTxRef(activeCompany, creditAccount.id, transactionId),
-          {
-            ...txPayload,
-            type: "credit",
-            createdAt: serverTimestamp(),
-          },
-        );
-        batch.set(accountTxRef(activeCompany, debitAccount.id, transactionId), {
-          ...txPayload,
-          type: "debit",
-          createdAt: serverTimestamp(),
-        });
-        batch.update(
-          doc(db, "companies", activeCompany, "accounts", creditAccount.id),
-          {
-            balance: increment(paymentAmount),
-          },
-        );
-        batch.update(
-          doc(db, "companies", activeCompany, "accounts", debitAccount.id),
-          {
-            balance: increment(-paymentAmount),
-          },
-        );
-      }
-
-      const payload = {
-        date: paymentDate,
-        description: txDescription,
-        chequeNo: trimmedChequeNo,
-        amount: paymentAmount,
-        creditingAccountId: creditAccount.id,
-        creditingAccountName: creditAccount.name,
-        debitingAccountId: debitAccount.id,
-        debitingAccountName: debitAccount.name,
-        transactionId,
-        entityStatus: true,
-      };
-
-      if (isEditing) {
-        batch.update(paymentRef, {
-          ...payload,
-          invoiceNo: deleteField(),
-          updatedAt: serverTimestamp(),
-          updatedBy: user.uid,
-        });
-      } else {
-        batch.set(paymentRef, {
-          ...payload,
-          createdAt: serverTimestamp(),
-          createdBy: user.uid,
-        });
-      }
-
-      batch.update(invoiceRef, {
-        outstandingAmount: Math.max(0, nextOutstanding),
-        status: nextStatus,
-        updatedAt: serverTimestamp(),
-        updatedBy: user.uid,
+        invoice,
+        payment,
+        outstanding,
+        paymentAmount,
+        date,
+        description,
+        chequeNo,
+        creditAccount,
+        debitAccount,
+        user,
       });
-
-      const auditRef = doc(collection(db, "auditLogs"));
-      batch.set(auditRef, {
-        userId: user.uid,
-        companyId: activeCompany,
-        action: isEditing ? "update" : "create",
-        description: isEditing
-          ? `Payment on invoice ${invoice.taxInvoiceNo} updated`
-          : `Payment of ${paymentAmount} added to invoice ${invoice.taxInvoiceNo}`,
-        entityStatus: true,
-        transactionId,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
       if (!isEditing) resetForm();
       setOpen(false);
     } catch (saveError) {
       console.error("Failed to save invoice payment", saveError);
-      setError("Failed to save the payment.");
+      setError(
+        saveError instanceof ApiError
+          ? saveError.message
+          : "Failed to save the payment.",
+      );
     } finally {
       setSaving(false);
     }

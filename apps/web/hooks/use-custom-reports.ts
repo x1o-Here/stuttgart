@@ -1,8 +1,9 @@
 "use client";
 
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { onLiveCollection, onLiveDoc } from "@/lib/data/live";
 import { db } from "@/lib/firebase/firebase-client";
 import { toDate } from "@/lib/helpers/to-date";
 
@@ -27,6 +28,7 @@ export type CustomReport = {
   entityStatus?: boolean;
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: untyped Firestore-shaped document; each field is checked below
 function mapReportDoc(id: string, data: Record<string, any>): CustomReport {
   return {
     id,
@@ -71,8 +73,10 @@ export function useCustomReports() {
 
     const reportsRef = collection(db, "companies", activeCompany, "reports");
 
-    const unsubscribe = onSnapshot(
-      reportsRef,
+    void reportsRef;
+    const unsubscribe = onLiveCollection(
+      "vat-reports",
+      ["companies", activeCompany, "reports"],
       (snapshot) => {
         const next = snapshot.docs
           .map((docSnap) => mapReportDoc(docSnap.id, docSnap.data()))
@@ -120,8 +124,10 @@ export function useCustomReport(reportId: string | undefined) {
 
     const reportRef = doc(db, "companies", activeCompany, "reports", reportId);
 
-    const unsubscribe = onSnapshot(
-      reportRef,
+    void reportRef;
+    const unsubscribe = onLiveDoc(
+      "vat-reports",
+      ["companies", activeCompany, "reports", reportId],
       (snapshot) => {
         if (!snapshot.exists()) {
           setReport(null);

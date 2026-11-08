@@ -10,7 +10,6 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import { Chrome, Regex } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -29,7 +28,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
-import { auth, db } from "@/lib/firebase/firebase-client";
+import { hasProfile } from "@/lib/data/identity";
+import { auth } from "@/lib/firebase/firebase-client";
 
 const formSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -108,9 +108,9 @@ function SignInForm() {
       const user = result.user;
 
       // Admin-provisioned users are stored under users/{uid}
-      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const provisioned = await hasProfile(user.uid);
 
-      if (!userDoc.exists()) {
+      if (!provisioned) {
         await deleteUser(user);
         await auth.signOut();
 

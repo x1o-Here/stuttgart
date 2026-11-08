@@ -1,17 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { meUpdateSchema } from "@stuttgart/shared/schemas/identity";
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
 } from "firebase/auth";
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  writeBatch,
-} from "firebase/firestore";
 import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -40,11 +35,11 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { roleLabel } from "@/lib/auth/roles";
-import { auth, db } from "@/lib/firebase/firebase-client";
+import { logPasswordChange, updateUsername } from "@/lib/data/identity";
+import { auth } from "@/lib/firebase/firebase-client";
 
-const usernameSchema = z.object({
-  username: z.string().min(1, "Username is required").max(80, "Too long"),
-});
+/** Same rules the server checks (packages/shared). */
+const usernameSchema = meUpdateSchema;
 
 const passwordSchema = z
   .object({
@@ -124,19 +119,7 @@ export default function ProfilePage() {
     setUsernameError(null);
 
     try {
-      const batch = writeBatch(db);
-      batch.update(doc(db, "users", user.uid), {
-        username: nextUsername,
-        updatedAt: serverTimestamp(),
-      });
-      batch.set(doc(collection(db, "auditLogs")), {
-        userId: user.uid,
-        action: "update",
-        description: `Username changed to ${nextUsername}`,
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-      await batch.commit();
+      await updateUsername(user, nextUsername);
       await refreshProfile();
       setUsernameMessage("Username updated.");
     } catch (error) {
@@ -166,15 +149,7 @@ export default function ProfilePage() {
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, data.newPassword);
 
-      const batch = writeBatch(db);
-      batch.set(doc(collection(db, "auditLogs")), {
-        userId: currentUser.uid,
-        action: "update",
-        description: "Password changed",
-        entityStatus: true,
-        createdAt: serverTimestamp(),
-      });
-      await batch.commit();
+      await logPasswordChange(currentUser);
 
       passwordForm.reset();
       setPasswordMessage("Password updated.");
