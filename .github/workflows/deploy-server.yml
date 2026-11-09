@@ -66,11 +66,16 @@ jobs:
       # Schema changes go in before the new code that needs them.
       - name: Apply database migrations
         run: |
-          gcloud run jobs update stuttgart-migrate-schema --region $REGION --image $REPO/server-tools:$TAG
-          gcloud run jobs execute stuttgart-migrate-schema --region $REGION --wait
+          set -o pipefail
+          { gcloud run jobs update stuttgart-migrate-schema --region $REGION --image $REPO/server-tools:$TAG &&
+            gcloud run jobs execute stuttgart-migrate-schema --region $REGION --wait; } 2>&1 | tee step.log ||
+            { echo "::error title=Database migrations::$(grep -E 'ERROR' step.log | tail -3 | tr '\n' ' ')"; exit 1; }
 
       - name: Deploy to Cloud Run
-        run: gcloud run services update stuttgart-server --region $REGION --image $REPO/server:$TAG
+        run: |
+          set -o pipefail
+          gcloud run services update stuttgart-server --region $REGION --image $REPO/server:$TAG 2>&1 | tee step.log ||
+            { echo "::error title=Cloud Run deploy::$(grep -E 'ERROR' step.log | tail -3 | tr '\n' ' ')"; exit 1; }
 
       - name: Health check
         run: |
