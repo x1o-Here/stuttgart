@@ -51,12 +51,14 @@ jobs:
       - name: Show gcloud identity
         run: gcloud config list
 
-      # On failure, the gcloud error is repeated as an annotation (visible on the
-      # run summary without opening the log).
+      # The explicit staging dir skips gcloud's default-bucket ownership check,
+      # which would need project-wide storage.buckets.list. On failure, the
+      # gcloud error is repeated as an annotation (visible without the log).
       - name: Build and push images
         run: |
           set -o pipefail
-          if ! gcloud builds submit --config apps/server/cloudbuild.yaml --substitutions=_TAG=$TAG . 2>&1 | tee build.log; then
+          if ! gcloud builds submit --config apps/server/cloudbuild.yaml --substitutions=_TAG=$TAG \
+              --gcs-source-staging-dir=gs://stuttgart-cf43e_cloudbuild/source . 2>&1 | tee build.log; then
             echo "::error title=gcloud builds submit::$(grep -E 'ERROR|denied|forbidden' build.log | tail -3 | tr '\n' ' ')"
             exit 1
           fi
