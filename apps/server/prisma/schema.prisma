@@ -1,0 +1,613 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Conventions
+// - IDs are text: migrated rows keep their Firestore document ID, new rows get a cuid.
+// - Money is numeric(14,2), never float.
+// - entityStatus = false is a soft delete (row kept for history), as in Firestore.
+// - Every company-owned table has company_id, so each API route can filter by it.
+
+// ════════════════════════════════════════════════════════════════════════
+// Enums
+// ════════════════════════════════════════════════════════════════════════
+
+enum Role {
+  admin
+  manager
+  general
+  technician
+}
+
+/// Clients and suppliers.
+enum PartyStatus {
+  active
+  inactive
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  partial
+  paid
+  overdue
+  cancelled
+}
+
+enum SupplierInvoiceStatus {
+  issued
+  partial
+  paid
+}
+
+enum SparePartStatus {
+  in_stock
+  assigned
+  scrapped
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Identity & tenancy
+// ════════════════════════════════════════════════════════════════════════
+
+model User {
+  id           String        @id // Firebase Auth uid
+  username     String
+  email        String
+  role         Role          @default(general)
+  firstSignIn  Boolean       @default(true) @map("first_sign_in")
+  entityStatus Boolean       @default(true) @map("entity_status")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  companies    UserCompany[]
+  auditLogs    AuditLog[]
+
+  // Back-relations for created_by / updated_by columns elsewhere
+  companiesUpdated        Company[]         @relation("CompanyUpdatedBy")
+  invoiceTemplatesCreated InvoiceTemplate[] @relation("InvoiceTemplateCreatedBy")
+  invoiceTemplatesUpdated InvoiceTemplate[] @relation("InvoiceTemplateUpdatedBy")
+  invoicesCreated         Invoice[]         @relation("InvoiceCreatedBy")
+  invoicesUpdated         Invoice[]         @relation("InvoiceUpdatedBy")
+  invoicePaymentsCreated  InvoicePayment[]  @relation("InvoicePaymentCreatedBy")
+  invoicePaymentsUpdated  InvoicePayment[]  @relation("InvoicePaymentUpdatedBy")
+  supplierInvoicesCreated SupplierInvoice[] @relation("SupplierInvoiceCreatedBy")
+  supplierInvoicesUpdated SupplierInvoice[] @relation("SupplierInvoiceUpdatedBy")
+  supplierPaymentsCreated SupplierPayment[] @relation("SupplierPaymentCreatedBy")
+  supplierPaymentsUpdated SupplierPayment[] @relation("SupplierPaymentUpdatedBy")
+  vatPaymentsCreated      VatPayment[]      @relation("VatPaymentCreatedBy")
+  vatPaymentsUpdated      VatPayment[]      @relation("VatPaymentUpdatedBy")
+  sparePartsCreated       SparePart[]       @relation("SparePartCreatedBy")
+  sparePartsUpdated       SparePart[]       @relation("SparePartUpdatedBy")
+  reportsCreated          Report[]          @relation("ReportCreatedBy")
+
+  @@index([email])
+  @@map("users")
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  address      String   @default("")
+  telephoneNo  String   @default("") @map("telephone_no")
+  tin          String   @default("")
+  entityStatus Boolean  @default(true) @map("entity_status")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById  String?  @map("updated_by_id")
+  updatedBy    User?    @relation("CompanyUpdatedBy", fields: [updatedById], references: [id])
+
+  users            UserCompany[]
+  accountTypes     AccountType[]
+  departments      Department[]
+  supplierTypes    SupplierType[]
+  vehicles         Vehicle[]
+  accounts         Account[]
+  transactions     Transaction[]
+  clients          Client[]
+  invoices         Invoice[]
+  suppliers        Supplier[]
+  supplierInvoices SupplierInvoice[]
+  vatPayments      VatPayment[]
+  spareParts       SparePart[]
+  reports          Report[]
+  auditLogs        AuditLog[]
+
+  @@map("companies")
+}
+
+/// Was the `companies` array on each Firestore user document.
+model UserCompany {
+  userId    String  @map("user_id")
+  companyId String  @map("company_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@id([userId, companyId])
+  @@index([companyId])
+  @@map("user_companies")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Lookup lists (Settings)  — were lookup-lists/{companyId}/... and companies/{id}/vehicles
+// ════════════════════════════════════════════════════════════════════════
+
+model AccountType {
+  id           String    @id @default(cuid())
+  companyId    String    @map("company_id")
+  company      Company   @relation(fields: [companyId], references: [id])
+  name         String
+  shortForm    String    @default("") @map("short_form")
+  /// System types ("Client", "Supplier") are created by the app and can't be edited.
+  isSystem     Boolean   @default(false) @map("is_system")
+  entityStatus Boolean   @default(true) @map("entity_status")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  accounts     Account[]
+
+  @@unique([companyId, name])
+  @@map("account_types")
+}
+
+model Department {
+  id           String        @id @default(cuid())
+  companyId    String        @map("company_id")
+  company      Company       @relation(fields: [companyId], references: [id])
+  name         String
+  shortForm    String        @default("") @map("short_form")
+  entityStatus Boolean       @default(true) @map("entity_status")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  transactions Transaction[]
+
+  @@unique([companyId, name])
+  @@map("departments")
+}
+
+model SupplierType {
+  id           String     @id @default(cuid())
+  companyId    String     @map("company_id")
+  company      Company    @relation(fields: [companyId], references: [id])
+  name         String
+  shortForm    String     @default("") @map("short_form")
+  entityStatus Boolean    @default(true) @map("entity_status")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  suppliers    Supplier[]
+
+  @@unique([companyId, name])
+  @@map("supplier_types")
+}
+
+/// Fleet. `name` is the vehicle number.
+model Vehicle {
+  id           String        @id @default(cuid())
+  companyId    String        @map("company_id")
+  company      Company       @relation(fields: [companyId], references: [id])
+  name         String
+  shortForm    String        @default("") @map("short_form")
+  description  String        @default("")
+  entityStatus Boolean       @default(true) @map("entity_status")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  transactions Transaction[]
+  spareParts   SparePart[]
+
+  @@unique([companyId, name])
+  @@map("vehicles")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Ledger
+// ════════════════════════════════════════════════════════════════════════
+
+model Account {
+  id             String      @id @default(cuid())
+  companyId      String      @map("company_id")
+  company        Company     @relation(fields: [companyId], references: [id])
+  name           String
+  accountTypeId  String      @map("account_type_id")
+  accountType    AccountType @relation(fields: [accountTypeId], references: [id])
+  initialBalance Decimal     @default(0) @map("initial_balance") @db.Decimal(14, 2)
+  /// Kept in step with transactions inside the same SQL transaction (was Firestore increment()).
+  balance        Decimal     @default(0) @db.Decimal(14, 2)
+  /// Set on a client's own ledger account (one per client).
+  clientId       String?     @unique @map("client_id")
+  client         Client?     @relation(fields: [clientId], references: [id])
+  /// Set on a supplier's own ledger account (one per supplier).
+  supplierId     String?     @unique @map("supplier_id")
+  supplier       Supplier?   @relation(fields: [supplierId], references: [id])
+  entityStatus   Boolean     @default(true) @map("entity_status")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  debitTransactions  Transaction[]   @relation("TransactionDebitAccount")
+  creditTransactions Transaction[]   @relation("TransactionCreditAccount")
+  vatPayments        VatPayment[]
+  reports            ReportAccount[]
+
+  @@index([companyId, accountTypeId])
+  @@map("accounts")
+}
+
+/// One row per ledger transaction. In Firestore each transaction was stored
+/// twice (a "debit" doc under one account and a "credit" doc under the other)
+/// sharing the same ID; here it is a single row pointing at both accounts.
+/// VAT payments only have a debit side, so either account may be null (a
+/// CHECK constraint requires at least one).
+model Transaction {
+  id              String      @id @default(cuid())
+  companyId       String      @map("company_id")
+  company         Company     @relation(fields: [companyId], references: [id])
+  date            DateTime    @db.Timestamptz(3)
+  amount          Decimal     @db.Decimal(14, 2)
+  description     String      @default("")
+  chequeNo        String      @default("") @map("cheque_no")
+  /// Firestore stored 0 for "no voucher"; that becomes null.
+  voucherNo       Int?        @map("voucher_no")
+  debitAccountId  String?     @map("debit_account_id")
+  debitAccount    Account?    @relation("TransactionDebitAccount", fields: [debitAccountId], references: [id])
+  creditAccountId String?     @map("credit_account_id")
+  creditAccount   Account?    @relation("TransactionCreditAccount", fields: [creditAccountId], references: [id])
+  /// Firestore stored the department/vehicle *name*; migration resolves it to the row.
+  /// onDelete: Restrict — a lookup item used by history can only be hidden, never deleted.
+  departmentId    String?     @map("department_id")
+  department      Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  vehicleId       String?     @map("vehicle_id")
+  vehicle         Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  /// e.g. ["reversal"], ["corrected"], ["invoice-payment", "<tax no>"]
+  tags            String[]    @default([])
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invoicePayment  InvoicePayment?
+  supplierPayment SupplierPayment?
+  vatPayment      VatPayment?
+
+  @@index([companyId, date])
+  @@index([debitAccountId, date])
+  @@index([creditAccountId, date])
+  @@map("transactions")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Clients & sales invoices
+// ════════════════════════════════════════════════════════════════════════
+
+model Client {
+  id              String           @id @default(cuid())
+  companyId       String           @map("company_id")
+  company         Company          @relation(fields: [companyId], references: [id])
+  name            String
+  address         String           @default("")
+  contactNo       String           @default("") @map("contact_no")
+  vatNo           String           @default("") @map("vat_no")
+  status          PartyStatus      @default(active)
+  entityStatus    Boolean          @default(true) @map("entity_status")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  account         Account?
+  invoiceTemplate InvoiceTemplate?
+  invoices        Invoice[]
+
+  @@index([companyId])
+  @@map("clients")
+}
+
+/// Per-client invoice layout (was companies/{c}/clients/{id}/invoice-template).
+model InvoiceTemplate {
+  id           String   @id @default(cuid())
+  clientId     String   @unique @map("client_id")
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// [{ id, key, label, type, required, system }]
+  columns      Json     @default("[]")
+  /// { leftLabel, leftName, rightLabel, rightName }
+  signing      Json     @default("{}")
+  /// Our own company details printed as the supplier: { name, address, contactNo, vatNo }
+  supplier     Json     @default("{}")
+  entityStatus Boolean  @default(true) @map("entity_status")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?  @map("created_by_id")
+  createdBy    User?    @relation("InvoiceTemplateCreatedBy", fields: [createdById], references: [id])
+  updatedById  String?  @map("updated_by_id")
+  updatedBy    User?    @relation("InvoiceTemplateUpdatedBy", fields: [updatedById], references: [id])
+
+  @@map("invoice_templates")
+}
+
+model Invoice {
+  id                String            @id @default(cuid())
+  companyId         String            @map("company_id")
+  company           Company           @relation(fields: [companyId], references: [id])
+  clientId          String            @map("client_id")
+  client            Client            @relation(fields: [clientId], references: [id])
+  taxInvoiceNo      String            @map("tax_invoice_no")
+  date              DateTime          @db.Timestamptz(3)
+  deliveryAddress   String            @default("") @map("delivery_address")
+  deliveryDate      DateTime?         @map("delivery_date") @db.Timestamptz(3)
+  deliveryReference String            @default("") @map("delivery_reference")
+  /// Client details as printed on the invoice (kept even if the client changes later).
+  clientSnapshot    Json              @map("client_snapshot")
+  /// Template as it was when the invoice was issued.
+  templateSnapshot  Json              @map("template_snapshot")
+  /// Value of supply before VAT (sum of line amounts).
+  totalAmount       Decimal           @map("total_amount") @db.Decimal(14, 2)
+  vatAmount         Decimal           @map("vat_amount") @db.Decimal(14, 2)
+  totalIncludingVat Decimal           @map("total_including_vat") @db.Decimal(14, 2)
+  outstandingAmount Decimal           @map("outstanding_amount") @db.Decimal(14, 2)
+  status            InvoiceStatus     @default(issued)
+  entityStatus      Boolean           @default(true) @map("entity_status")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?           @map("created_by_id")
+  createdBy         User?             @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  updatedById       String?           @map("updated_by_id")
+  updatedBy         User?             @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id])
+  lineItems         InvoiceLineItem[]
+  payments          InvoicePayment[]
+
+  @@index([companyId, taxInvoiceNo])
+  @@index([clientId, date])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id           String   @id @default(cuid())
+  invoiceId    String   @map("invoice_id")
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  /// Row number on the printed invoice (Firestore `no`).
+  position     Int
+  date         DateTime @db.Timestamptz(3)
+  vehicleNo    String   @default("") @map("vehicle_no")
+  rate         Decimal  @db.Decimal(14, 2)
+  amount       Decimal  @db.Decimal(14, 2)
+  /// Values for the client's custom template columns, keyed by column key.
+  customValues Json     @default("{}") @map("custom_values")
+
+  @@index([invoiceId, position])
+  @@map("invoice_line_items")
+}
+
+/// A payment against a sales invoice. Its ledger entry is `transaction`;
+/// deleting a payment soft-deletes this row and removes the transaction.
+model InvoicePayment {
+  id            String       @id @default(cuid())
+  invoiceId     String       @map("invoice_id")
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id])
+  transactionId String?      @unique @map("transaction_id")
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  date          DateTime     @db.Timestamptz(3)
+  amount        Decimal      @db.Decimal(14, 2)
+  description   String       @default("")
+  chequeNo      String       @default("") @map("cheque_no")
+  entityStatus  Boolean      @default(true) @map("entity_status")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?      @map("created_by_id")
+  createdBy     User?        @relation("InvoicePaymentCreatedBy", fields: [createdById], references: [id])
+  updatedById   String?      @map("updated_by_id")
+  updatedBy     User?        @relation("InvoicePaymentUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_payments")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Suppliers & purchase invoices
+// ════════════════════════════════════════════════════════════════════════
+
+model Supplier {
+  id             String            @id @default(cuid())
+  companyId      String            @map("company_id")
+  company        Company           @relation(fields: [companyId], references: [id])
+  name           String
+  tin            String            @default("")
+  address        String            @default("")
+  contactNo      String            @default("") @map("contact_no")
+  supplierTypeId String?           @map("supplier_type_id")
+  supplierType   SupplierType?     @relation(fields: [supplierTypeId], references: [id], onDelete: Restrict)
+  status         PartyStatus       @default(active)
+  entityStatus   Boolean           @default(true) @map("entity_status")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  account        Account?
+  invoices       SupplierInvoice[]
+
+  @@index([companyId])
+  @@map("suppliers")
+}
+
+model SupplierInvoice {
+  id                String                @id @default(cuid())
+  companyId         String                @map("company_id")
+  company           Company               @relation(fields: [companyId], references: [id])
+  supplierId        String                @map("supplier_id")
+  supplier          Supplier              @relation(fields: [supplierId], references: [id])
+  /// Normalized (trimmed, upper-case), exactly 15 characters.
+  taxInvoiceNo      String                @map("tax_invoice_no")
+  date              DateTime              @db.Timestamptz(3)
+  billAmount        Decimal               @map("bill_amount") @db.Decimal(14, 2)
+  vatAmount         Decimal               @map("vat_amount") @db.Decimal(14, 2)
+  totalIncludingVat Decimal               @map("total_including_vat") @db.Decimal(14, 2)
+  outstandingAmount Decimal               @map("outstanding_amount") @db.Decimal(14, 2)
+  status            SupplierInvoiceStatus @default(issued)
+  entityStatus      Boolean               @default(true) @map("entity_status")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?               @map("created_by_id")
+  createdBy         User?                 @relation("SupplierInvoiceCreatedBy", fields: [createdById], references: [id])
+  updatedById       String?               @map("updated_by_id")
+  updatedBy         User?                 @relation("SupplierInvoiceUpdatedBy", fields: [updatedById], references: [id])
+  lines             SupplierInvoiceLine[]
+  payments          SupplierPayment[]
+
+  /// Replaces the supplierInvoiceNos claim docs: one live invoice per tax number
+  /// per company (a deleted invoice frees its number, as before).
+  @@unique([companyId, taxInvoiceNo], where: raw("entity_status"))
+  @@index([supplierId, date])
+  @@map("supplier_invoices")
+}
+
+model SupplierInvoiceLine {
+  id                String          @id @default(cuid())
+  supplierInvoiceId String          @map("supplier_invoice_id")
+  supplierInvoice   SupplierInvoice @relation(fields: [supplierInvoiceId], references: [id], onDelete: Cascade)
+  position          Int
+  description       String
+  quantity          Int
+
+  @@index([supplierInvoiceId, position])
+  @@map("supplier_invoice_lines")
+}
+
+model SupplierPayment {
+  id                String          @id @default(cuid())
+  supplierInvoiceId String          @map("supplier_invoice_id")
+  supplierInvoice   SupplierInvoice @relation(fields: [supplierInvoiceId], references: [id])
+  transactionId     String?         @unique @map("transaction_id")
+  transaction       Transaction?    @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  date              DateTime        @db.Timestamptz(3)
+  amount            Decimal         @db.Decimal(14, 2)
+  description       String          @default("")
+  chequeNo          String          @default("") @map("cheque_no")
+  entityStatus      Boolean         @default(true) @map("entity_status")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?         @map("created_by_id")
+  createdBy         User?           @relation("SupplierPaymentCreatedBy", fields: [createdById], references: [id])
+  updatedById       String?         @map("updated_by_id")
+  updatedBy         User?           @relation("SupplierPaymentUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([supplierInvoiceId])
+  @@map("supplier_payments")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// VAT
+// ════════════════════════════════════════════════════════════════════════
+
+model VatPayment {
+  id            String       @id @default(cuid())
+  companyId     String       @map("company_id")
+  company       Company      @relation(fields: [companyId], references: [id])
+  /// Tax quarter, e.g. "2026-27-Q1" (see packages/shared vat/quarters).
+  quarterKey    String       @map("quarter_key")
+  date          DateTime     @db.Timestamptz(3)
+  amount        Decimal      @db.Decimal(14, 2)
+  reference     String       @default("")
+  /// The account the VAT was paid from (kept after the transaction is removed).
+  accountId     String       @map("account_id")
+  account       Account      @relation(fields: [accountId], references: [id])
+  transactionId String?      @unique @map("transaction_id")
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  entityStatus  Boolean      @default(true) @map("entity_status")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?      @map("created_by_id")
+  createdBy     User?        @relation("VatPaymentCreatedBy", fields: [createdById], references: [id])
+  updatedById   String?      @map("updated_by_id")
+  updatedBy     User?        @relation("VatPaymentUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([companyId, quarterKey])
+  @@map("vat_payments")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Inventory
+// ════════════════════════════════════════════════════════════════════════
+
+model SparePart {
+  id           String          @id @default(cuid())
+  companyId    String          @map("company_id")
+  company      Company         @relation(fields: [companyId], references: [id])
+  /// Part ID as typed by the user.
+  partId       String          @map("part_id")
+  /// Normalized part ID used for uniqueness.
+  partIdKey    String          @map("part_id_key")
+  description  String          @default("")
+  status       SparePartStatus @default(in_stock)
+  vehicleId    String?         @map("vehicle_id")
+  vehicle      Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  assignedAt   DateTime?       @map("assigned_at") @db.Timestamptz(3)
+  entityStatus Boolean         @default(true) @map("entity_status")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?         @map("created_by_id")
+  createdBy    User?           @relation("SparePartCreatedBy", fields: [createdById], references: [id])
+  updatedById  String?         @map("updated_by_id")
+  updatedBy    User?           @relation("SparePartUpdatedBy", fields: [updatedById], references: [id])
+
+  /// Replaces the sparePartIds claim docs (a deleted part frees its ID, as before).
+  @@unique([companyId, partIdKey], where: raw("entity_status"))
+  @@index([companyId, status])
+  @@index([vehicleId])
+  @@map("spare_parts")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Reports
+// ════════════════════════════════════════════════════════════════════════
+
+model Report {
+  id           String          @id @default(cuid())
+  companyId    String          @map("company_id")
+  company      Company         @relation(fields: [companyId], references: [id])
+  name         String
+  description  String          @default("")
+  fromDate     DateTime?       @map("from_date") @db.Timestamptz(3)
+  toDate       DateTime?       @map("to_date") @db.Timestamptz(3)
+  /// Saved UI filters: { accountFilter, typeFilter, departmentFilter, vehicleFilter, tagFilter[] }
+  filters      Json?
+  entityStatus Boolean         @default(true) @map("entity_status")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?         @map("created_by_id")
+  createdBy    User?           @relation("ReportCreatedBy", fields: [createdById], references: [id])
+  accounts     ReportAccount[]
+
+  @@index([companyId])
+  @@map("reports")
+}
+
+/// Was the `accountIds` array on each report.
+model ReportAccount {
+  reportId  String  @map("report_id")
+  report    Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  accountId String  @map("account_id")
+  account   Account @relation(fields: [accountId], references: [id])
+
+  @@id([reportId, accountId])
+  @@index([accountId])
+  @@map("report_accounts")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Audit
+// ════════════════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  companyId    String?  @map("company_id")
+  company      Company? @relation(fields: [companyId], references: [id])
+  userId       String?  @map("user_id")
+  user         User?    @relation(fields: [userId], references: [id])
+  action       String
+  description  String
+  /// ID of the record the entry is about (Firestore `transactionId`, which
+  /// also held invoice IDs). Not a foreign key: it can point at any table.
+  entityId     String?  @map("entity_id")
+  entityStatus Boolean  @default(true) @map("entity_status")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([companyId, createdAt])
+  @@index([userId])
+  @@map("audit_logs")
+}

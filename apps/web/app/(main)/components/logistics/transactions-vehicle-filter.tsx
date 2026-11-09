@@ -1,0 +1,46 @@
+// Receives a TanStack table object whose identity never changes, so the React
+// Compiler would keep showing stale rows/filters. Opt this file out.
+"use no memo";
+import type { Table } from "@tanstack/react-table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useLookupStore } from "@/stores/use-lookup-store";
+
+interface TransactionsVehicleFilterProps<TData> {
+  table: Table<TData>;
+}
+
+export default function TransactionsVehicleFilter<TData>({
+  table,
+}: TransactionsVehicleFilterProps<TData>) {
+  const vehicles = useLookupStore((s) => s.vehicles);
+
+  return (
+    <Select
+      onValueChange={(value) => {
+        table
+          .getColumn("vehicle")
+          ?.setFilterValue(value === "all" ? undefined : value);
+      }}
+    >
+      <SelectTrigger className="w-full bg-card sm:w-44" aria-label="Vehicle">
+        <SelectValue placeholder="Vehicle" />
+      </SelectTrigger>
+
+      <SelectContent position="popper" side="bottom">
+        <SelectItem value="all">All Vehicles</SelectItem>
+
+        {vehicles.map((vehicle) => (
+          <SelectItem key={vehicle.id} value={vehicle.name}>
+            {vehicle.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
