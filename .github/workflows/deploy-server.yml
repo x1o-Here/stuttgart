@@ -1,0 +1,64 @@
+# Deploys apps/server to Cloud Run when production-live changes.
+# Flow: feature → main → merge main into production-live → this workflow
+# (Vercel deploys the web app from production-live on its own).
+#
+# One-time Google Cloud setup: apps/server/scripts/setup-github-deploy.sh
+name: Deploy server
+
+on:
+  push:
+    branches: [production-live]
+    paths:
+      - apps/server/**
+      - packages/shared/**
+      - package.json
+      - package-lock.json
+      - turbo.json
+      - .dockerignore
+      - .github/workflows/deploy-server.yml
+  workflow_dispatch:
+
+# Never run two deploys at once; a newer push waits for the current one.
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # keyless sign-in to Google Cloud
+
+env:
+  REGION: asia-south1
+  REPO: asia-south1-docker.pkg.dev/stuttgart-cf43e/stuttgart
+  TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/1086590307586/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@stuttgart-cf43e.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push images
+        run: gcloud builds submit --config apps/server/cloudbuild.yaml --substitutions=_TAG=$TAG .
+
+      # Schema changes go in before the new code that needs them.
+      - name: Apply database migrations
+        run: |
+          gcloud run jobs update stuttgart-migrate-schema --region $REGION --image $REPO/server-tools:$TAG
+          gcloud run jobs execute stuttgart-migrate-schema --region $REGION --wait
+
+      - name: Deploy to Cloud Run
+        run: gcloud run services update stuttgart-server --region $REGION --image $REPO/server:$TAG
+
+      - name: Health check
+        run: |
+          url=$(gcloud run services describe stuttgart-server --region $REGION --format='value(status.url)')
+          curl -fsS --retry 5 --retry-delay 5 "$url/health"
