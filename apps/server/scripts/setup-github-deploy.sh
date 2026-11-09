@@ -28,9 +28,12 @@ for role in roles/cloudbuild.builds.editor roles/run.developer roles/logging.vie
     && echo "granted $role"
 done
 
-# Upload the build source.
+# Upload the build source. `gcloud builds submit` also reads the bucket itself
+# (storage.buckets.get), which objectAdmin alone does not allow.
 gcloud storage buckets add-iam-policy-binding "gs://${P}_cloudbuild" \
   --member="serviceAccount:$SA" --role=roles/storage.objectAdmin -q >/dev/null && echo "granted source bucket"
+gcloud storage buckets add-iam-policy-binding "gs://${P}_cloudbuild" \
+  --member="serviceAccount:$SA" --role=roles/storage.legacyBucketReader -q >/dev/null && echo "granted source bucket read"
 
 # Cloud Build, Cloud Run and the migration job all run as the default compute SA.
 gcloud iam service-accounts add-iam-policy-binding "$N-compute@developer.gserviceaccount.com" \
