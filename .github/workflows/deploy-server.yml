@@ -28,6 +28,7 @@ permissions:
   id-token: write # keyless sign-in to Google Cloud
 
 env:
+  CLOUDSDK_CORE_PROJECT: stuttgart-cf43e
   REGION: asia-south1
   REPO: asia-south1-docker.pkg.dev/stuttgart-cf43e/stuttgart
   TAG: ${{ github.sha }}
@@ -41,13 +42,24 @@ jobs:
 
       - uses: google-github-actions/auth@v2
         with:
+          project_id: stuttgart-cf43e
           workload_identity_provider: projects/1086590307586/locations/global/workloadIdentityPools/github/providers/github-oidc
           service_account: github-deployer@stuttgart-cf43e.iam.gserviceaccount.com
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Show gcloud identity
+        run: gcloud config list
+
+      # On failure, the gcloud error is repeated as an annotation (visible on the
+      # run summary without opening the log).
       - name: Build and push images
-        run: gcloud builds submit --config apps/server/cloudbuild.yaml --substitutions=_TAG=$TAG .
+        run: |
+          set -o pipefail
+          if ! gcloud builds submit --config apps/server/cloudbuild.yaml --substitutions=_TAG=$TAG . 2>&1 | tee build.log; then
+            echo "::error title=gcloud builds submit::$(grep -E 'ERROR|denied|forbidden' build.log | tail -3 | tr '\n' ' ')"
+            exit 1
+          fi
 
       # Schema changes go in before the new code that needs them.
       - name: Apply database migrations
