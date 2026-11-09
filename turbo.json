@@ -10,6 +10,18 @@
         "$TURBO_DEFAULT$",
         ".env*"
       ],
+      "env": [
+        "NEXT_PUBLIC_*",
+        "STUTTGART_CUTOVER",
+        "APP_ENV",
+        "VERCEL_ENV"
+      ],
+      "passThroughEnv": [
+        "FIREBASE_PROJECT_ID",
+        "FIREBASE_CLIENT_EMAIL",
+        "FIREBASE_PRIVATE_KEY",
+        "SMTP_*"
+      ],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
