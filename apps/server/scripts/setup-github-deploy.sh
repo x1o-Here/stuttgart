@@ -35,6 +35,11 @@ gcloud storage buckets add-iam-policy-binding "gs://${P}_cloudbuild" \
 gcloud storage buckets add-iam-policy-binding "gs://${P}_cloudbuild" \
   --member="serviceAccount:$SA" --role=roles/storage.legacyBucketReader -q >/dev/null && echo "granted source bucket read"
 
+# Cloud Run only deploys an image the deployer itself can read.
+gcloud artifacts repositories add-iam-policy-binding stuttgart --location=asia-south1 \
+  --member="serviceAccount:$SA" --role=roles/artifactregistry.reader --project "$P" -q >/dev/null \
+  && echo "granted image read"
+
 # Cloud Build, Cloud Run and the migration job all run as the default compute SA.
 gcloud iam service-accounts add-iam-policy-binding "$N-compute@developer.gserviceaccount.com" \
   --member="serviceAccount:$SA" --role=roles/iam.serviceAccountUser --project "$P" -q >/dev/null && echo "granted actAs"
