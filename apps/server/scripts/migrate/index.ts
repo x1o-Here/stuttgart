@@ -27,10 +27,14 @@ const reset = args.includes("--reset");
 async function main() {
     const { fs, db, databaseUrl } = createClients();
     const target = new URL(databaseUrl);
-    const isLocal = ["localhost", "127.0.0.1", "::1"].includes(target.hostname);
+    // A Cloud SQL socket URL also says "localhost" (…@localhost/db?host=/cloudsql/…),
+    // so any URL with a socket "host" parameter counts as remote.
+    const isLocal =
+        ["localhost", "127.0.0.1", "::1"].includes(target.hostname) && !target.searchParams.has("host");
 
     console.log(`Firestore project: ${process.env.FIREBASE_PROJECT_ID}`);
-    console.log(`Postgres target:   ${target.hostname}:${target.port}${target.pathname}`);
+    const socket = target.searchParams.get("host");
+    console.log(`Postgres target:   ${socket ? `socket ${socket}` : `${target.hostname}:${target.port}`}${target.pathname}`);
     console.log(`Mode:              ${dryRun ? "DRY RUN (no writes)" : reset ? "RESET + IMPORT" : "UPSERT"}\n`);
 
     if (reset && !dryRun) {

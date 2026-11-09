@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && npm ci --workspace @stuttgart/web --workspace @stuttgart/shared --include-workspace-root",
+  "buildCommand": "cd ../.. && npx turbo run build --filter=@stuttgart/web"
+}

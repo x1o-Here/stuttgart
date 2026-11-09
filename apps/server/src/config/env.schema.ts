@@ -8,6 +8,8 @@ const envSchema = z.object({
     FIREBASE_PROJECT_ID: z.string().min(1),
     FIREBASE_CLIENT_EMAIL: z.email(),
     FIREBASE_PRIVATE_KEY: z.string().min(1),
+    /** "1" during the cutover window: every write is refused with 503, reads keep working. */
+    MAINTENANCE_MODE: z.enum(["0", "1"]).default("0"),
 });
 
 export type Env = z.infer<typeof envSchema>;

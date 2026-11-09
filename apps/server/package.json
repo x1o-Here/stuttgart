@@ -22,7 +22,8 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "migrate:firestore": "tsx scripts/migrate/index.ts",
-    "migrate:selftest": "tsx scripts/migrate/selftest.ts"
+    "migrate:selftest": "tsx scripts/migrate/selftest.ts",
+    "backup:firestore": "tsx scripts/backup-firestore.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

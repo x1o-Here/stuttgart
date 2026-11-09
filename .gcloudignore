@@ -1,0 +1,2 @@
+# Cloud Build uploads: same rules as .dockerignore
+#!include:.dockerignore

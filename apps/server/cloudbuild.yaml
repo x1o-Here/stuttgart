@@ -1,0 +1,15 @@
+# Builds both server images from the repo root and pushes them to Artifact Registry:
+#   server:<tag>        the API (Cloud Run service)
+#   server-tools:<tag>  Prisma CLI + scripts (Cloud Run Jobs: migrations, Firestore import)
+#   gcloud builds submit --config apps/server/cloudbuild.yaml --substitutions=_TAG=<tag> .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "apps/server/Dockerfile", "--target", "runtime", "-t", "${_REPO}/server:${_TAG}", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "apps/server/Dockerfile", "--target", "tools", "-t", "${_REPO}/server-tools:${_TAG}", "."]
+images: ["${_REPO}/server:${_TAG}", "${_REPO}/server-tools:${_TAG}"]
+substitutions:
+  _REPO: asia-south1-docker.pkg.dev/stuttgart-cf43e/stuttgart
+  _TAG: latest
+options:
+  logging: CLOUD_LOGGING_ONLY

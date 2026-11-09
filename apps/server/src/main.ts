@@ -8,7 +8,12 @@ async function bootstrap() {
     const config = app.get(ConfigService);
 
     app.enableCors({
-        origin: config.getOrThrow<string>("WEB_ORIGIN").split(",").map((o) => o.trim()),
+        // Browsers send the origin without a trailing slash, so ignore one in the setting.
+        origin: config
+            .getOrThrow<string>("WEB_ORIGIN")
+            .split(",")
+            .map((o) => o.trim().replace(/\/+$/, ""))
+            .filter(Boolean),
         allowedHeaders: ["Authorization", "Content-Type"],
     });
     // Validates any @Body({ schema }) / @Param(name, { schema }) with Zod.

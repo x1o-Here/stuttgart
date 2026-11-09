@@ -5,6 +5,10 @@ import {
   Geist_Mono,
   Instrument_Sans,
 } from "next/font/google";
+import {
+  MaintenanceScreen,
+  maintenanceMode,
+} from "@/components/layout/maintenance-screen";
 import { AuthProvider } from "@/contexts/auth-context";
 import { QueryProvider } from "@/lib/data/query-provider";
 import "./globals.css";
@@ -46,9 +50,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bodoniModa.variable} ${instrumentSans.variable} antialiased bg-canvas text-foreground`}
       >
-        <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </QueryProvider>
+        {maintenanceMode ? (
+          <MaintenanceScreen />
+        ) : (
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
+        )}
       </body>
     </html>
   );

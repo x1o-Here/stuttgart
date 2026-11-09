@@ -1,0 +1,12 @@
+# Keep secrets, data and build output out of container builds.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.env*
+**/env
+**/backups
+**/migration-logs
+**/*.tsbuildinfo
+apps/server/src/generated
+.git

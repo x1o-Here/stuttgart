@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Firestore → Postgres migration reports
 migration-logs/
+
+# Firestore backups (contain production data)
+backups/
