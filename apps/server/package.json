@@ -23,6 +23,7 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "migrate:firestore": "tsx scripts/migrate/index.ts",
     "migrate:selftest": "tsx scripts/migrate/selftest.ts",
+    "backfill:ledger": "tsx scripts/backfill-ledger.ts",
     "backup:firestore": "tsx scripts/backup-firestore.ts"
   },
   "dependencies": {
