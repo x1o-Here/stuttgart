@@ -7,7 +7,15 @@ import {
 // Shared money helpers now live in lib/invoices/money; re-exported for callers.
 export { outstandingFromPayments, roundMoney, VAT_RATE };
 
+import {
+  DEFAULT_AMOUNT_FORMULA,
+  evaluateAmountFormula,
+  type FormulaNode,
+  parseAmountFormula,
+} from "@stuttgart/shared/invoices/amount-formula";
 import { toDate } from "@/lib/helpers/to-date";
+
+export { DEFAULT_AMOUNT_FORMULA };
 
 export type TemplateColumnType =
   | "text"
@@ -47,10 +55,21 @@ export type SigningInformation = {
   rightName: string;
 };
 
+export type InvoiceTemplateSettings = {
+  /**
+   * Row amount formula referring to columns as `{key}`, e.g.
+   * `{quantity} * {rate}`. `null` means the amount is typed in by hand
+   * (invoices issued before formulas existed).
+   */
+  amountFormula: string | null;
+};
+
 export type InvoiceTemplate = {
   supplier: SupplierInformation;
   signing: SigningInformation;
+  /** In display order. */
   columns: TemplateColumn[];
+  settings: InvoiceTemplateSettings;
 };
 
 export type ClientSnapshot = {
@@ -69,8 +88,9 @@ export type DeliveryDetails = {
   reference: string;
 };
 
-export const LEADING_SYSTEM_COLUMN_KEYS = ["no", "date", "vehicleNo"] as const;
-export const TRAILING_SYSTEM_COLUMN_KEYS = ["rate", "amount"] as const;
+/** Display order of templates saved before columns could be reordered. */
+const LEGACY_LEADING_KEYS = ["no", "date", "vehicleNo"];
+const LEGACY_TRAILING_KEYS = ["quantity", "rate", "amount"];
 
 export function supplierFromCompany(
   company?: CompanySupplierSource | null,
@@ -94,19 +114,70 @@ export function withCompanySupplier(
   };
 }
 
-/** No, Date, Vehicle No → custom columns → Rate, Amount */
-export function orderedTemplateColumns(
+// ── Amount formula ───────────────────────────────────────────────────────
+
+/** Columns a formula may use: numbers and decimals, except No and Amount. */
+export function formulaColumns(columns: TemplateColumn[]): TemplateColumn[] {
+  return columns.filter(
+    (column) =>
+      (column.type === "number" || column.type === "decimal") &&
+      column.key !== "amount" &&
+      column.key !== "no",
+  );
+}
+
+/** `{key}` → `[Label]` for editing. */
+export function formulaToDisplay(
+  formula: string,
   columns: TemplateColumn[],
-): TemplateColumn[] {
-  const byKey = new Map(columns.map((column) => [column.key, column]));
-  const leading = LEADING_SYSTEM_COLUMN_KEYS.map((key) =>
-    byKey.get(key),
-  ).filter((column): column is TemplateColumn => !!column);
-  const trailing = TRAILING_SYSTEM_COLUMN_KEYS.map((key) =>
-    byKey.get(key),
-  ).filter((column): column is TemplateColumn => !!column);
-  const custom = columns.filter((column) => !column.system);
-  return [...leading, ...custom, ...trailing];
+): string {
+  const labels = new Map(columns.map((column) => [column.key, column.label]));
+  return formula.replace(
+    /\{([^}]*)\}/g,
+    (_match, key: string) => `[${labels.get(key.trim()) ?? key.trim()}]`,
+  );
+}
+
+/** `[Label]` → `{key}` for storage; unknown labels are kept as-is so parsing reports them. */
+export function formulaFromDisplay(
+  display: string,
+  columns: TemplateColumn[],
+): string {
+  const keys = new Map(
+    columns.map((column) => [column.label.trim().toLowerCase(), column.key]),
+  );
+  return display.replace(
+    /\[([^\]]*)\]/g,
+    (_match, label: string) =>
+      `{${keys.get(label.trim().toLowerCase()) ?? label.trim()}}`,
+  );
+}
+
+export type AmountCalculator = {
+  /** Column keys the formula reads. */
+  refs: string[];
+  calculate: (values: Record<string, number>) => number;
+};
+
+/**
+ * The template's row amount calculator, or null when the amount is entered
+ * by hand (no formula, or a formula that no longer parses).
+ */
+export function amountCalculator(
+  template: InvoiceTemplate,
+): AmountCalculator | null {
+  const formula = template.settings.amountFormula;
+  if (!formula) return null;
+  const parsed = parseAmountFormula(
+    formula,
+    formulaColumns(template.columns).map((column) => column.key),
+  );
+  if (!parsed.ok) return null;
+  const ast: FormulaNode = parsed.ast;
+  return {
+    refs: parsed.refs,
+    calculate: (values) => evaluateAmountFormula(ast, values),
+  };
 }
 
 export function getDefaultInvoiceTemplate(
@@ -121,7 +192,31 @@ export function getDefaultInvoiceTemplate(
     supplier,
     signing: { ...EMPTY_SIGNING_INFORMATION },
     columns: DEFAULT_TEMPLATE_COLUMNS.map((column) => ({ ...column })),
+    settings: { amountFormula: DEFAULT_AMOUNT_FORMULA },
   };
+}
+
+/**
+ * VAT stored on an invoice. A stored 0 is kept (invoices of companies not
+ * registered for VAT); only records missing the field fall back to 18%.
+ */
+export function storedVatAmount(raw: unknown, supplyValue: number): number {
+  if (raw !== undefined && raw !== null && raw !== "") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return roundMoney(parsed);
+  }
+  return calculateInvoiceTotals(supplyValue).vatAmount;
+}
+
+/**
+ * Whether an issued invoice was charged VAT. Invoices of companies not
+ * registered for VAT carry 0 VAT with a non-zero value of supply.
+ */
+export function invoiceHasVat(invoice: {
+  totalAmount: number;
+  vatAmount: number;
+}): boolean {
+  return invoice.vatAmount !== 0 || invoice.totalAmount === 0;
 }
 
 export type InvoiceTotals = {
@@ -130,9 +225,15 @@ export type InvoiceTotals = {
   totalIncludingVat: number;
 };
 
-export function calculateInvoiceTotals(supplyValue: number): InvoiceTotals {
+/** Companies not registered for VAT (`vatRegistered` false) charge none. */
+export function calculateInvoiceTotals(
+  supplyValue: number,
+  vatRegistered = true,
+): InvoiceTotals {
   const safeSupply = Number.isFinite(supplyValue) ? supplyValue : 0;
-  const vatAmount = Math.round(safeSupply * VAT_RATE * 100) / 100;
+  const vatAmount = vatRegistered
+    ? Math.round(safeSupply * VAT_RATE * 100) / 100
+    : 0;
   const totalIncludingVat = Math.round((safeSupply + vatAmount) * 100) / 100;
   return {
     supplyValue: Math.round(safeSupply * 100) / 100,
@@ -221,6 +322,7 @@ export type InvoiceLineItem = {
   no: number;
   date: Date;
   vehicleNo: string;
+  quantity: number;
   rate: number;
   amount: number;
   customValues: Record<string, string | number>;
@@ -385,6 +487,14 @@ export const DEFAULT_TEMPLATE_COLUMNS: TemplateColumn[] = [
     system: true,
   },
   {
+    id: "system-quantity",
+    key: "quantity",
+    label: "Quantity",
+    type: "decimal",
+    required: true,
+    system: true,
+  },
+  {
     id: "system-rate",
     key: "rate",
     label: "Rate",
@@ -436,17 +546,72 @@ function mapColumn(value: unknown): TemplateColumn | null {
   };
 }
 
+/**
+ * Stored order, with system columns restored to their canonical definition.
+ * Templates saved before Quantity existed get their old display order
+ * (No, Date, Vehicle No, custom…, Quantity, Rate, Amount); any system column
+ * missing from storage is appended so none can be lost. Invoice snapshots
+ * from before Quantity existed don't get one, so old invoices print as issued.
+ */
+function normalizeColumns(
+  stored: TemplateColumn[],
+  snapshot: boolean,
+): TemplateColumn[] {
+  const defaults = new Map(
+    DEFAULT_TEMPLATE_COLUMNS.map((column) => [column.key, column]),
+  );
+  const seen = new Set<string>();
+  const columns: TemplateColumn[] = [];
+  for (const column of stored) {
+    if (seen.has(column.key)) continue;
+    const systemColumn = defaults.get(column.key);
+    if (column.system && !systemColumn) continue;
+    seen.add(column.key);
+    columns.push(systemColumn ? { ...systemColumn } : column);
+  }
+
+  if (!seen.has("quantity")) {
+    const custom = columns.filter((column) => !column.system);
+    const pick = (keys: string[]) =>
+      keys
+        .filter((key) => !(snapshot && key === "quantity"))
+        .map((key) => ({ ...(defaults.get(key) as TemplateColumn) }));
+    return [
+      ...pick(LEGACY_LEADING_KEYS),
+      ...custom,
+      ...pick(LEGACY_TRAILING_KEYS),
+    ];
+  }
+
+  for (const column of DEFAULT_TEMPLATE_COLUMNS) {
+    if (!seen.has(column.key)) columns.push({ ...column });
+  }
+  return columns;
+}
+
+/**
+ * `snapshot`: the template copy stored on an invoice. Snapshots from before
+ * formulas existed keep hand-entered amounts; client templates default to
+ * Quantity × Rate.
+ */
 export function mapInvoiceTemplate(
   data: Record<string, unknown>,
+  { snapshot = false }: { snapshot?: boolean } = {},
 ): InvoiceTemplate {
   const supplier = (data.supplier ?? {}) as Record<string, unknown>;
   const signing = (data.signing ?? {}) as Record<string, unknown>;
+  const settings = (data.settings ?? {}) as Record<string, unknown>;
   const storedColumns = Array.isArray(data.columns)
     ? data.columns
         .map(mapColumn)
         .filter((column): column is TemplateColumn => !!column)
     : [];
-  const customColumns = storedColumns.filter((column) => !column.system);
+  const amountFormula =
+    typeof settings.amountFormula === "string" && settings.amountFormula.trim()
+      ? settings.amountFormula
+      : "amountFormula" in settings || snapshot
+        ? null
+        : DEFAULT_AMOUNT_FORMULA;
 
   return {
     supplier: {
@@ -468,7 +633,8 @@ export function mapInvoiceTemplate(
           : EMPTY_SIGNING_INFORMATION.rightLabel,
       rightName: typeof signing.rightName === "string" ? signing.rightName : "",
     },
-    columns: [...DEFAULT_TEMPLATE_COLUMNS, ...customColumns],
+    columns: normalizeColumns(storedColumns, snapshot),
+    settings: { amountFormula },
   };
 }
 
@@ -502,6 +668,7 @@ export function mapClientInvoiceDocument(
     },
     template: mapInvoiceTemplate(
       (data.template ?? {}) as Record<string, unknown>,
+      { snapshot: true },
     ),
     lineItems: lineItems.map((value, index) => {
       const item = value as Record<string, unknown>;
@@ -509,6 +676,10 @@ export function mapClientInvoiceDocument(
         no: Number(item.no) || index + 1,
         date: toDate(item.date) ?? new Date(0),
         vehicleNo: typeof item.vehicleNo === "string" ? item.vehicleNo : "",
+        quantity:
+          item.quantity === undefined || item.quantity === null
+            ? 1
+            : Number(item.quantity) || 0,
         rate: Number(item.rate) || 0,
         amount: Number(item.amount) || 0,
         customValues:
@@ -518,7 +689,7 @@ export function mapClientInvoiceDocument(
       };
     }),
     totalAmount: supplyValue,
-    vatAmount: Number(data.vatAmount) || totals.vatAmount,
+    vatAmount: storedVatAmount(data.vatAmount, supplyValue),
     totalIncludingVat:
       Number(data.totalIncludingVat) || totals.totalIncludingVat,
     outstandingAmount: (() => {

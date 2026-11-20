@@ -302,6 +302,32 @@ export async function setCompanyActive({
   await batch.commit();
 }
 
+export async function setCompanyVatRegistered({
+  company,
+  vatRegistered,
+  user,
+}: {
+  company: { id: string; name: string };
+  vatRegistered: boolean;
+  user: User;
+}) {
+  const batch = writeBatch(db);
+  batch.update(doc(db, "companies", company.id), {
+    vatRegistered,
+    updatedAt: serverTimestamp(),
+    updatedBy: user.uid,
+  });
+  batch.set(doc(collection(db, "auditLogs")), {
+    userId: user.uid,
+    action: "update",
+    description: `VAT ${vatRegistered ? "turned on" : "turned off"}: ${company.name}`,
+    companyId: company.id,
+    entityStatus: true,
+    createdAt: serverTimestamp(),
+  });
+  await batch.commit();
+}
+
 /**
  * Creates the sign-in through a second Firebase app, writes users/{uid},
  * sends the welcome email, and rolls everything back if any step fails.

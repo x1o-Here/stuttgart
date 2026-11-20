@@ -159,7 +159,12 @@ export default function ClientInvoiceTemplatePage() {
 
       <div className="flex-1 bg-canvas px-4 py-6 md:px-8 md:py-10">
         <div className="mx-auto w-fit max-w-full overflow-x-auto rounded-md border bg-white shadow-card">
-          <InvoicePreview template={previewTemplate} client={client} preview />
+          <InvoicePreview
+            template={previewTemplate}
+            client={client}
+            vatRegistered={company?.vatRegistered ?? true}
+            preview
+          />
         </div>
       </div>
     </div>

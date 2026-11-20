@@ -125,8 +125,8 @@ export class PurchasesService {
     createInvoice(companyId: string, user: AuthUser, supplierId: string, input: SupplierInvoiceBody) {
         const lines = this.validate(input);
         const taxNo = normalizeTaxInvoiceNo(input.taxInvoiceNo);
-        const split = splitVatInclusive(input.totalIncludingVat);
         return this.withTaxNoCheck(companyId, taxNo, async (tx) => {
+            const split = splitVatInclusive(input.totalIncludingVat, await this.vatRegistered(tx, companyId));
             const supplier = await this.supplier(tx, companyId, supplierId);
             const invoice = await tx.supplierInvoice.create({
                 data: {
@@ -157,8 +157,8 @@ export class PurchasesService {
     updateInvoice(companyId: string, user: AuthUser, supplierId: string, invoiceId: string, input: SupplierInvoiceBody) {
         const lines = this.validate(input);
         const taxNo = normalizeTaxInvoiceNo(input.taxInvoiceNo);
-        const split = splitVatInclusive(input.totalIncludingVat);
         return this.withTaxNoCheck(companyId, taxNo, async (tx) => {
+            const split = splitVatInclusive(input.totalIncludingVat, await this.vatRegistered(tx, companyId));
             const supplier = await this.supplier(tx, companyId, supplierId);
             const invoice = await this.invoice(tx, companyId, supplierId, invoiceId);
             const paid = roundMoney(money(invoice.totalIncludingVat) - money(invoice.outstandingAmount));
@@ -320,6 +320,11 @@ export class PurchasesService {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    private async vatRegistered(tx: Tx, companyId: string) {
+        const company = await tx.company.findUniqueOrThrow({ where: { id: companyId }, select: { vatRegistered: true } });
+        return company.vatRegistered;
+    }
 
     private async supplier(tx: Tx, companyId: string, supplierId: string) {
         const supplier = await tx.supplier.findFirst({ where: { id: supplierId, companyId, entityStatus: true } });

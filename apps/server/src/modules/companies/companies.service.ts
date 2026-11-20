@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import type { CompanyDto, CompanyInput } from "@stuttgart/shared/schemas/identity";
+import type { CompanyDto, CompanyInput, CompanySettingsInput } from "@stuttgart/shared/schemas/identity";
 import type { Company } from "../../generated/prisma/client.js";
 import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit } from "../audit/audit.js";
@@ -11,6 +11,7 @@ const toDto = (c: Company): CompanyDto => ({
     address: c.address,
     telephoneNo: c.telephoneNo,
     tin: c.tin,
+    vatRegistered: c.vatRegistered,
     entityStatus: c.entityStatus,
 });
 
@@ -70,6 +71,25 @@ export class CompaniesService {
                 companyId,
                 action: "update",
                 description: `Company updated: ${company.name}`,
+                entityId: companyId,
+            });
+            return toDto(company);
+        });
+    }
+
+    /** Settings → Organization (VAT registration). */
+    updateSettings(user: AuthUser, companyId: string, input: CompanySettingsInput): Promise<CompanyDto> {
+        return this.prisma.$transaction(async (tx) => {
+            await this.assertCanManage(user, companyId);
+            const company = await tx.company.update({
+                where: { id: companyId },
+                data: { vatRegistered: input.vatRegistered, updatedById: user.uid },
+            });
+            await audit(tx, {
+                userId: user.uid,
+                companyId,
+                action: "update",
+                description: `VAT ${input.vatRegistered ? "turned on" : "turned off"}: ${company.name}`,
                 entityId: companyId,
             });
             return toDto(company);

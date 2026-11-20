@@ -117,6 +117,7 @@ export default function EditClientInvoicePage() {
         client={invoice.client}
         template={editTemplate}
         invoice={invoice}
+        vatRegistered={company?.vatRegistered ?? true}
       />
     </div>
   );

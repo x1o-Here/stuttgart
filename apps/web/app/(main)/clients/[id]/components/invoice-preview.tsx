@@ -7,11 +7,7 @@ import type {
   InvoiceTemplate,
   TemplateColumn,
 } from "../invoice-model";
-import {
-  amountInWords,
-  calculateInvoiceTotals,
-  orderedTemplateColumns,
-} from "../invoice-model";
+import { amountInWords, calculateInvoiceTotals } from "../invoice-model";
 
 type InvoicePreviewProps = {
   template: InvoiceTemplate;
@@ -26,6 +22,8 @@ type InvoicePreviewProps = {
   preview?: boolean;
   /** Adds a top gap used only while exporting PDF. */
   exportTopGap?: boolean;
+  /** false: no VAT lines, titled "Invoice" (company not registered for VAT). */
+  vatRegistered?: boolean;
 };
 
 function formatAmount(value: number) {
@@ -71,6 +69,10 @@ function displayCell(
       return formatDate(item.date);
     case "vehicleNo":
       return item.vehicleNo || "—";
+    case "quantity":
+      return item.quantity.toLocaleString(undefined, {
+        maximumFractionDigits: 4,
+      });
     case "rate":
       return formatAmount(item.rate);
     case "amount":
@@ -101,13 +103,7 @@ function InvoiceBox({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[auto_1fr] gap-x-2 text-[11px] leading-relaxed">
       <span className="text-zinc-600">{label}:</span>
@@ -127,11 +123,14 @@ export default function InvoicePreview({
   status,
   preview = false,
   exportTopGap = false,
+  vatRegistered = true,
 }: InvoicePreviewProps) {
-  const columns = orderedTemplateColumns(template.columns);
+  const columns = template.columns;
   const rows =
-    preview && lineItems.length === 0 ? [null, null, null, null, null] : lineItems;
-  const totals = calculateInvoiceTotals(totalAmount);
+    preview && lineItems.length === 0
+      ? [null, null, null, null, null]
+      : lineItems;
+  const totals = calculateInvoiceTotals(totalAmount, vatRegistered);
 
   return (
     <div className="mx-auto w-full max-w-[210mm]">
@@ -154,7 +153,7 @@ export default function InvoicePreview({
 
         <div className="mb-3 px-2 py-2">
           <h1 className="text-center text-base font-bold tracking-wide uppercase">
-            Tax Invoice
+            {vatRegistered ? "Tax Invoice" : "Invoice"}
           </h1>
         </div>
 
@@ -166,7 +165,10 @@ export default function InvoicePreview({
             />
           </InvoiceBox>
           <InvoiceBox>
-            <DetailRow label="Tax Invoice No" value={taxInvoiceNo || "—"} />
+            <DetailRow
+              label={vatRegistered ? "Tax Invoice No" : "Invoice No"}
+              value={taxInvoiceNo || "—"}
+            />
           </InvoiceBox>
         </div>
 
@@ -226,9 +228,7 @@ export default function InvoicePreview({
           ) : null}
         </div>
 
-        <div
-          className={`mt-8 mb-6 ${exportTopGap ? "" : "overflow-x-auto"}`}
-        >
+        <div className={`mt-8 mb-6 ${exportTopGap ? "" : "overflow-x-auto"}`}>
           <table
             data-invoice-table
             className="w-full border-collapse text-[11px]"
@@ -273,14 +273,18 @@ export default function InvoicePreview({
               {formatAmount(totals.supplyValue)}
             </span>
           </div>
-          <div className="flex justify-between gap-4 border-b border-zinc-200 py-1">
-            <span>VAT Amount (Total value of supply @ 18%)</span>
-            <span className="tabular-nums">
-              {formatAmount(totals.vatAmount)}
-            </span>
-          </div>
+          {vatRegistered ? (
+            <div className="flex justify-between gap-4 border-b border-zinc-200 py-1">
+              <span>VAT Amount (Total value of supply @ 18%)</span>
+              <span className="tabular-nums">
+                {formatAmount(totals.vatAmount)}
+              </span>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4 border-b border-zinc-800 py-1.5 font-semibold">
-            <span>Total amount including VAT</span>
+            <span>
+              {vatRegistered ? "Total amount including VAT" : "Total amount"}
+            </span>
             <span className="tabular-nums">
               {formatAmount(totals.totalIncludingVat)}
             </span>
@@ -297,7 +301,8 @@ export default function InvoicePreview({
           <p className="mb-10 text-[11px] leading-relaxed text-zinc-700">
             Please make an arrangement to pay the above mentioned bill amount.
             <br />
-            Cheques should be drawn in favour &quot;D.M.K TRANSPORT (PVT) LTD&quot;
+            Cheques should be drawn in favour &quot;D.M.K TRANSPORT (PVT)
+            LTD&quot;
             <br />
             <br />
             Thanking you

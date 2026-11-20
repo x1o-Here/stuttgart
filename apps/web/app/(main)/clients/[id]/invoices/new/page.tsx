@@ -125,7 +125,11 @@ export default function CreateClientInvoicePage() {
 
   return (
     <div className="h-full overflow-y-auto bg-card font-sans">
-      <CreateInvoiceForm client={client} template={effectiveTemplate} />
+      <CreateInvoiceForm
+        client={client}
+        template={effectiveTemplate}
+        vatRegistered={company?.vatRegistered ?? true}
+      />
     </div>
   );
 }

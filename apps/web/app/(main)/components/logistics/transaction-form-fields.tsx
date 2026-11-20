@@ -1,10 +1,11 @@
 "use client";
 
 import { ArrowRight, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Controller, type UseFormReturn } from "react-hook-form";
 import z from "zod";
 import CalendarPopover from "@/components/shared/calendar-popover";
+import { QuickAddLookupDialog } from "@/components/shared/quick-add-lookup-dialog";
 import { SectionLabel } from "@/components/shared/ruled-dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import { useLookupStore } from "@/stores/use-lookup-store";
+import VehicleFormDialog from "../../fleet/components/vehicle-form-dialog";
 
 export const transactionFormSchema = z.object({
   date: z.date(),
@@ -58,7 +60,7 @@ export function useTransactionSummary({ form }: TransactionFormProps) {
 /** The three ruled sections shared by the add and edit transaction dialogs. */
 export function TransactionFormSections({ form }: TransactionFormProps) {
   const { accounts } = useAccountsContext();
-  const router = useRouter();
+  const [adding, setAdding] = useState<"department" | "vehicle" | null>(null);
   const departments = useLookupStore((state) => state.departments);
   const vehicles = useLookupStore((state) => state.vehicles);
 
@@ -136,7 +138,7 @@ export function TransactionFormSections({ form }: TransactionFormProps) {
               <Select
                 onValueChange={(value) => {
                   if (value === "__new__") {
-                    router.push("/settings/departments");
+                    setAdding("department");
                     return;
                   }
 
@@ -174,7 +176,7 @@ export function TransactionFormSections({ form }: TransactionFormProps) {
               <Select
                 onValueChange={(value) => {
                   if (value === "__new__") {
-                    router.push("/fleet");
+                    setAdding("vehicle");
                     return;
                   }
 
@@ -202,6 +204,28 @@ export function TransactionFormSections({ form }: TransactionFormProps) {
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
+        />
+        <QuickAddLookupDialog
+          collectionKey="departments"
+          entityLabel="Department"
+          open={adding === "department"}
+          onOpenChange={(open) => setAdding(open ? "department" : null)}
+          onCreated={(name) =>
+            form.setValue("department", name, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        />
+        <VehicleFormDialog
+          open={adding === "vehicle"}
+          onOpenChange={(open) => setAdding(open ? "vehicle" : null)}
+          onSaved={(name) =>
+            form.setValue("vehicle", name, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
         />
       </section>
 

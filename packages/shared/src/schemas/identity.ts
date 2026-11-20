@@ -54,6 +54,10 @@ export const companyInputSchema = z.object({
 });
 export type CompanyInput = z.infer<typeof companyInputSchema>;
 
+/** PATCH /companies/:id/settings (Settings → Organization). */
+export const companySettingsSchema = z.object({ vatRegistered: z.boolean() });
+export type CompanySettingsInput = z.infer<typeof companySettingsSchema>;
+
 export const companyStatusSchema = z.object({ active: z.boolean() });
 export type CompanyStatusInput = z.infer<typeof companyStatusSchema>;
 
@@ -63,6 +67,7 @@ export type CompanyDto = {
   address: string;
   telephoneNo: string;
   tin: string;
+  vatRegistered: boolean;
   entityStatus: boolean;
 };
 

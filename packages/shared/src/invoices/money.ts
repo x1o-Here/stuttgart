@@ -20,9 +20,14 @@ export type VatSplit = { billAmount: number; vatAmount: number; total: number };
 /**
  * Splits a VAT-inclusive total into bill amount + VAT. VAT is derived as
  * total − bill so the two parts always add back to the total exactly.
+ * Companies not registered for VAT claim none: the whole total is the bill.
  */
-export function splitVatInclusive(totalIncludingVat: number): VatSplit {
+export function splitVatInclusive(
+  totalIncludingVat: number,
+  vatRegistered = true,
+): VatSplit {
   const total = roundMoney(Math.max(0, totalIncludingVat));
+  if (!vatRegistered) return { billAmount: total, vatAmount: 0, total };
   const billAmount = roundMoney(total / (1 + VAT_RATE));
   return { billAmount, vatAmount: roundMoney(total - billAmount), total };
 }

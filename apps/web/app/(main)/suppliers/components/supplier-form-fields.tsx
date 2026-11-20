@@ -2,9 +2,10 @@
 
 import { supplierInputSchema } from "@stuttgart/shared/schemas/ledger";
 import { Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type z from "zod";
+import { QuickAddLookupDialog } from "@/components/shared/quick-add-lookup-dialog";
 import { RuledDialogSection } from "@/components/shared/ruled-dialog";
 import {
   FormControl,
@@ -43,7 +44,7 @@ export function SupplierFormSections({
 }: {
   form: UseFormReturn<SupplierFormValues>;
 }) {
-  const router = useRouter();
+  const [addingType, setAddingType] = useState(false);
   const supplierTypes = useLookupStore((s) => s.supplierTypes);
   const typesLoading = useLookupStore((s) => s.loading["supplier-types"]);
 
@@ -90,7 +91,7 @@ export function SupplierFormSections({
                 value={field.value}
                 onValueChange={(value) => {
                   if (value === "__new__") {
-                    router.push("/settings/supplier-types");
+                    setAddingType(true);
                     return;
                   }
                   field.onChange(value);
@@ -121,6 +122,18 @@ export function SupplierFormSections({
               <FormMessage />
             </FormItem>
           )}
+        />
+        <QuickAddLookupDialog
+          collectionKey="supplier-types"
+          entityLabel="Supplier type"
+          open={addingType}
+          onOpenChange={setAddingType}
+          onCreated={(name) =>
+            form.setValue("supplierType", name, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
         />
       </RuledDialogSection>
 

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import {
@@ -30,13 +30,31 @@ export type FormSchema = z.infer<typeof formSchema>;
 interface CreateModalProps {
   entityLabel: string;
   onCreate?: (data: { name: string; shortForm?: string }) => Promise<void>;
+  /**
+   * Controlled mode (opened from a select's "Create new …" item): no
+   * trigger button is rendered.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Called with the new entry's name after it is created. */
+  onCreated?: (name: string) => void;
 }
 
 export default function CreateModal({
   entityLabel,
   onCreate,
+  open: controlledOpen,
+  onOpenChange,
+  onCreated,
 }: CreateModalProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+  const formId = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const isAccountType = entityLabel.toLowerCase() === "account type";
@@ -66,6 +84,7 @@ export default function CreateModal({
       });
       form.reset();
       setOpen(false);
+      onCreated?.(data.name.trim());
     } catch (error) {
       console.error(`Failed to create ${entityLabel}`, error);
       setFormError(
@@ -93,12 +112,14 @@ export default function CreateModal({
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button>
-          <Plus />
-          New {lower}
-        </Button>
-      </DialogTrigger>
+      {isControlled ? null : (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus />
+            New {lower}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className={`${ruledDialogContentClass} sm:max-w-lg`}>
         <RuledDialogHeader
           eyebrow={`( Settings · ${entityLabel}s )`}
@@ -106,7 +127,14 @@ export default function CreateModal({
           title={`${lower}.`}
           description={`New ${lower}s appear in the pickers across the app straight away.`}
         />
-        <form id="create-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <form
+          id={formId}
+          onSubmit={(event) => {
+            // Opened inside another form's dialog: don't submit that form too.
+            event.stopPropagation();
+            void form.handleSubmit(onSubmit)(event);
+          }}
+        >
           <LookupFormFields
             form={form}
             entityLabel={entityLabel}
@@ -125,7 +153,7 @@ export default function CreateModal({
               Cancel
             </Button>
           </DialogClose>
-          <Button type="submit" form="create-form" disabled={isSubmitting}>
+          <Button type="submit" form={formId} disabled={isSubmitting}>
             {isSubmitting ? "Adding…" : `Add ${lower}`}
           </Button>
         </RuledDialogFooter>

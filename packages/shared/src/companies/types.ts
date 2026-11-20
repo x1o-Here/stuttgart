@@ -4,6 +4,8 @@ export type CompanyRecord = {
   address: string;
   telephoneNo: string;
   tin: string;
+  /** Organization setting; false = no VAT on this company's invoices. */
+  vatRegistered: boolean;
   entityStatus: boolean;
 };
 
@@ -17,6 +19,7 @@ export function mapCompanyDoc(
     address: typeof data.address === "string" ? data.address : "",
     telephoneNo: typeof data.telephoneNo === "string" ? data.telephoneNo : "",
     tin: typeof data.tin === "string" ? data.tin : "",
+    vatRegistered: data.vatRegistered !== false,
     entityStatus: data.entityStatus !== false,
   };
 }

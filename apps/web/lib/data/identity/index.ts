@@ -93,6 +93,17 @@ export function setCompanyActive(
     : firestore.setCompanyActive({ company, nextActive, user });
 }
 
+/** Settings → Organization: whether the company charges and claims VAT. */
+export function setCompanyVatRegistered(
+  user: User,
+  company: { id: string; name: string },
+  vatRegistered: boolean,
+) {
+  return api()
+    ? identityApi.setCompanyVatRegistered(company.id, vatRegistered)
+    : firestore.setCompanyVatRegistered({ company, vatRegistered, user });
+}
+
 /**
  * Creates the user and emails them a "set your password" link.
  * Firestore mode: any failure rolls the new account back and throws.
