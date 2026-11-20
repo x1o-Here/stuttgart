@@ -1,6 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import type { PrismaService } from "../../src/infra/prisma/prisma.service.js";
-import { as, balance, brokenBalances, CO, createApp, ids, seed, today } from "./helpers.js";
+import { as, balance, brokenBalances, CO, createApp, ids, OTHER_CO, seed, today } from "./helpers.js";
 
 /** Clients, client invoices and their payments. */
 describe("sales", () => {
@@ -195,5 +195,61 @@ describe("sales", () => {
         expect((await api.put(`${base()}/template`, body)).status).toBe(200);
         const row = await db.invoiceTemplate.findUniqueOrThrow({ where: { clientId } });
         expect(row.settings).toEqual(settings);
+    });
+
+    describe("invoice numbers", () => {
+        const nextNumber = async (company = CO, user = ids.general) =>
+            (await as(app, user).get(`/companies/${company}/invoices/next-number`)).body.sequence;
+
+        /** A client and invoice in the other company, created by its only member. */
+        const otherCompanyInvoice = async (taxInvoiceNo: string) => {
+            const api = as(app, ids.outsider);
+            const client = await api.post(`/companies/${OTHER_CO}/clients`, {
+                name: "Their client",
+                address: "Galle",
+                vatNo: "V2",
+                contactNo: "071",
+            });
+            return api.post(
+                `/companies/${OTHER_CO}/clients/${client.body.id}/invoices`,
+                invoiceBody({ taxInvoiceNo, client: { id: client.body.id, name: "Their client" } }),
+            );
+        };
+
+        it("stores the running number and suggests the next one across companies", async () => {
+            expect((await invoice()).sequenceNo).toBe(1);
+            expect(await nextNumber()).toBe(2);
+            expect((await otherCompanyInvoice("26JUL_DMKT_0240")).status).toBe(201);
+            expect(await nextNumber()).toBe(241);
+            expect(await nextNumber(OTHER_CO, ids.outsider)).toBe(241);
+        });
+
+        it("rejects a running number already used in any company", async () => {
+            const res = await otherCompanyInvoice("26JUL_DMKT_0001");
+            expect(res.status).toBe(409);
+            expect(res.body.message).toBe(
+                "Invoice number 0001 is already used by another invoice. The next free number is 0002.",
+            );
+        });
+
+        it("rejects a number without a running number", async () => {
+            const res = await as(app, ids.general).post(`${base()}/invoices`, invoiceBody({ taxInvoiceNo: "INV-ABC" }));
+            expect(res.status).toBe(400);
+        });
+
+        it("editing an invoice can keep its own number", async () => {
+            const res = await as(app, ids.general).put(`${base()}/invoices/${invoiceId}`, invoiceBody({ taxInvoiceNo: "26JUL_DMKT_0001" }));
+            expect(res.status).toBe(200);
+            expect((await invoice()).taxInvoiceNo).toBe("26JUL_DMKT_0001");
+        });
+
+        it("deleting the newest invoice frees its number", async () => {
+            const api = as(app, ids.general);
+            const second = await api.post(`${base()}/invoices`, invoiceBody({ taxInvoiceNo: "26JUL_DMKT_0002" }));
+            expect(await nextNumber()).toBe(3);
+            await api.delete(`${base()}/invoices/${second.body.id}`);
+            expect(await nextNumber()).toBe(2);
+            expect((await api.post(`${base()}/invoices`, invoiceBody({ taxInvoiceNo: "26AUG_DMKT_0002" }))).status).toBe(201);
+        });
     });
 });

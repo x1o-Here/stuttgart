@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { formatSequence, invoiceSequence } from "@stuttgart/shared/invoices/invoice-number";
 import { roundMoney } from "@stuttgart/shared/invoices/money";
 import { type ClientInvoiceStatus, deriveStatusFromBalances } from "@stuttgart/shared/invoices/status";
 import type { invoiceInputSchema, invoiceTemplateInputSchema, paymentInputSchema } from "@stuttgart/shared/schemas/ledger";
 import type { z } from "zod";
-import type { Prisma } from "../../generated/prisma/client.js";
+import { Prisma } from "../../generated/prisma/client.js";
 import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit, type Tx } from "../audit/audit.js";
 import type { AuthUser } from "../auth/index.js";
@@ -49,7 +50,7 @@ export class SalesService {
 
     /** Was create-invoice-form.tsx (new invoice). */
     createInvoice(companyId: string, user: AuthUser, clientId: string, input: InvoiceBody) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.withSequenceCheck(input, async (tx) => {
             const client = await this.client(tx, companyId, clientId);
             const total = await this.checkTotals(tx, companyId, input);
             const invoice = await tx.invoice.create({
@@ -76,7 +77,7 @@ export class SalesService {
 
     /** Was create-invoice-form.tsx (editing). Outstanding = new total − payments made. */
     updateInvoice(companyId: string, user: AuthUser, clientId: string, invoiceId: string, input: InvoiceBody) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.withSequenceCheck(input, async (tx) => {
             const client = await this.client(tx, companyId, clientId);
             const invoice = await this.invoice(tx, companyId, clientId, invoiceId);
             const total = await this.checkTotals(tx, companyId, input);
@@ -104,6 +105,38 @@ export class SalesService {
             });
             return { id: invoiceId };
         });
+    }
+
+    /**
+     * The running number for the next invoice: one more than the highest
+     * number on a live invoice in any company (deleted invoices free theirs).
+     */
+    async nextInvoiceSequence(db: Tx | PrismaService = this.prisma) {
+        const { _max } = await db.invoice.aggregate({ where: { entityStatus: true }, _max: { sequenceNo: true } });
+        return { sequence: (_max.sequenceNo ?? 0) + 1 };
+    }
+
+    /**
+     * Every invoice number must end in a running number, and the partial
+     * unique index allows one live invoice per running number across all
+     * companies. Turn a clash into a message that names the next free one.
+     */
+    private async withSequenceCheck<T>(input: InvoiceBody, work: (tx: Tx) => Promise<T>): Promise<T> {
+        const sequence = invoiceSequence(input.taxInvoiceNo);
+        if (sequence === null) {
+            throw new BadRequestException("The invoice number must end with its running number, e.g. 26JUL_DMKT_0124.");
+        }
+        try {
+            return await this.prisma.$transaction(work);
+        } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                const { sequence: next } = await this.nextInvoiceSequence();
+                throw new ConflictException(
+                    `Invoice number ${formatSequence(sequence)} is already used by another invoice. The next free number is ${formatSequence(next)}.`,
+                );
+            }
+            throw error;
+        }
     }
 
     /** Was complete-invoice-dialog.tsx. */
@@ -307,6 +340,7 @@ export class SalesService {
     private invoiceFields(input: InvoiceBody) {
         return {
             taxInvoiceNo: input.taxInvoiceNo,
+            sequenceNo: invoiceSequence(input.taxInvoiceNo),
             date: input.date,
             deliveryDate: input.delivery.date,
             deliveryAddress: input.delivery.address,

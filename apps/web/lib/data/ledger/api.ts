@@ -39,6 +39,13 @@ export const ledgerApi = {
     write(api.post(`${co(companyId)}/transactions/${id}/delete`)),
 
   // Client invoices
+  /** Running number for the next invoice, shared by all companies. */
+  nextInvoiceSequence: async (companyId: string) => {
+    const { data } = await api.get<{ sequence: number }>(
+      `${co(companyId)}/invoices/next-number`,
+    );
+    return data.sequence;
+  },
   saveTemplate: (
     companyId: string,
     clientId: string,

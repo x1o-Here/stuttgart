@@ -335,6 +335,9 @@ model Invoice {
   clientId          String            @map("client_id")
   client            Client            @relation(fields: [clientId], references: [id])
   taxInvoiceNo      String            @map("tax_invoice_no")
+  /// Running number at the end of taxInvoiceNo (26JUL_DMKT_0124 → 124).
+  /// Shared by all companies: one live invoice per number.
+  sequenceNo        Int?              @map("sequence_no")
   date              DateTime          @db.Timestamptz(3)
   deliveryAddress   String            @default("") @map("delivery_address")
   deliveryDate      DateTime?         @map("delivery_date") @db.Timestamptz(3)
@@ -359,6 +362,7 @@ model Invoice {
   lineItems         InvoiceLineItem[]
   payments          InvoicePayment[]
 
+  @@unique([sequenceNo], where: raw("entity_status"))
   @@index([companyId, taxInvoiceNo])
   @@index([clientId, date])
   @@map("invoices")
