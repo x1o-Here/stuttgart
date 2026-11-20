@@ -7,6 +7,7 @@ import { AuditModule } from "./modules/audit/audit.module.js";
 import { AuthModule } from "./modules/auth/auth.module.js";
 import { ClientsModule } from "./modules/clients/clients.module.js";
 import { CompaniesModule } from "./modules/companies/companies.module.js";
+import { EmployeesModule } from "./modules/employees/employees.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { InventoryModule } from "./modules/inventory/inventory.module.js";
 import { LedgerModule } from "./modules/ledger/ledger.module.js";
@@ -30,6 +31,7 @@ import { UsersModule } from "./modules/users/users.module.js";
         UsersModule,
         CompaniesModule,
         ClientsModule,
+        EmployeesModule,
         LookupsModule,
         AuditModule,
         LedgerModule,

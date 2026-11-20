@@ -87,6 +87,8 @@ model User {
   sparePartsCreated       SparePart[]       @relation("SparePartCreatedBy")
   sparePartsUpdated       SparePart[]       @relation("SparePartUpdatedBy")
   reportsCreated          Report[]          @relation("ReportCreatedBy")
+  employeesCreated        Employee[]        @relation("EmployeeCreatedBy")
+  employeesUpdated        Employee[]        @relation("EmployeeUpdatedBy")
 
   @@index([email])
   @@map("users")
@@ -121,6 +123,7 @@ model Company {
   vatPayments      VatPayment[]
   spareParts       SparePart[]
   reports          Report[]
+  employees        Employee[]
   auditLogs        AuditLog[]
 
   @@map("companies")
@@ -232,6 +235,9 @@ model Account {
   /// a vehicle with an account is hidden on delete, never removed.
   vehicleId      String?     @unique @map("vehicle_id")
   vehicle        Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  /// Set on an employee's own ledger account, "EMP_<name>" (one per employee).
+  employeeId     String?     @unique @map("employee_id")
+  employee       Employee?   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   entityStatus   Boolean     @default(true) @map("entity_status")
   createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -546,6 +552,32 @@ model VatPayment {
 
   @@index([companyId, quarterKey])
   @@map("vat_payments")
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Employees
+// ════════════════════════════════════════════════════════════════════════
+
+/// Each employee gets a ledger account "EMP_<name>" under the system Employee type.
+model Employee {
+  id           String   @id @default(cuid())
+  companyId    String   @map("company_id")
+  company      Company  @relation(fields: [companyId], references: [id])
+  /// Employee number as typed (trimmed); unique per company among live employees.
+  employeeNo   String   @map("employee_no")
+  name         String
+  role         String
+  entityStatus Boolean  @default(true) @map("entity_status")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?  @map("created_by_id")
+  createdBy    User?    @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
+  updatedById  String?  @map("updated_by_id")
+  updatedBy    User?    @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id])
+  account      Account?
+
+  @@unique([companyId, employeeNo], where: raw("entity_status"))
+  @@map("employees")
 }
 
 // ════════════════════════════════════════════════════════════════════════
