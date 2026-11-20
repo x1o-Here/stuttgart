@@ -101,7 +101,7 @@ describe("purchases", () => {
         const invoiceId = (await api.post(`${base()}/invoices`, invoiceBody())).body.id;
         const paymentId = (await api.post(`${base()}/invoices/${invoiceId}/payments`, pay(500))).body.id;
         expect(await balance(db, ids.bank)).toBe(500);
-        expect(await balance(db, supplierAccount)).toBe(500);
+        expect(await balance(db, supplierAccount)).toBe(-680); // −1180 invoiced + 500 paid
 
         await api.put(`${base()}/invoices/${invoiceId}/payments/${paymentId}`, pay(600));
         expect(await balance(db, ids.bank)).toBe(400);
@@ -117,5 +117,34 @@ describe("purchases", () => {
         expect(Number(inv.outstandingAmount)).toBe(1180);
         expect(inv.status).toBe("issued");
         expect(await balance(db, ids.bank)).toBe(1000);
+        expect(await balance(db, supplierAccount)).toBe(-1180);
+    });
+
+    it("recording an invoice debits the supplier's account and credits Purchases", async () => {
+        const api = as(app, ids.general);
+        const invoiceId = (await api.post(`${base()}/invoices`, invoiceBody())).body.id;
+        const inv = await db.supplierInvoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { transaction: true } });
+        expect(inv.transaction?.debitAccountId).toBe(supplierAccount);
+        expect(inv.transaction?.tags).toEqual(["supplier-invoice", "SUP000000000001"]);
+        const purchases = await db.account.findUniqueOrThrow({ where: { id: inv.transaction!.creditAccountId! } });
+        expect(purchases.name).toBe("Purchases");
+        expect(await balance(db, supplierAccount)).toBe(-1180); // negative: we owe the supplier
+        expect(await balance(db, purchases.id)).toBe(1180);
+
+        expect((await api.put(`${base()}/invoices/${invoiceId}`, invoiceBody({ totalIncludingVat: 590 }))).status).toBe(200);
+        expect(await db.transaction.count({ where: { tags: { has: "supplier-invoice" } } })).toBe(1);
+        expect(await balance(db, supplierAccount)).toBe(-590);
+
+        expect((await api.delete(`${base()}/invoices/${invoiceId}`)).status).toBe(200);
+        expect(await db.transaction.count()).toBe(0);
+        expect(await balance(db, supplierAccount)).toBe(0);
+    });
+
+    it("a payment must be credited to the supplier's own account", async () => {
+        const api = as(app, ids.general);
+        const invoiceId = (await api.post(`${base()}/invoices`, invoiceBody())).body.id;
+        const res = await api.post(`${base()}/invoices/${invoiceId}/payments`, { ...pay(100), creditingAccountId: ids.cash });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain("supplier’s own account");
     });
 });

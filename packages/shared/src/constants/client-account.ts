@@ -22,6 +22,18 @@ export function isSupplierAccountTypeName(
   );
 }
 
+/** System account on the other side of every client invoice entry. */
+export const SALES_ACCOUNT_TYPE_NAME = "Sales";
+export const SALES_ACCOUNT_TYPE_SHORT_FORM = "SL";
+
+/** System account on the other side of every supplier invoice entry. */
+export const PURCHASES_ACCOUNT_TYPE_NAME = "Purchases";
+export const PURCHASES_ACCOUNT_TYPE_SHORT_FORM = "PU";
+
+function isNamed(name: string | undefined | null, wanted: string): boolean {
+  return (name ?? "").trim().toLowerCase() === wanted.toLowerCase();
+}
+
 /** Account types hidden from the Accounts dashboard unless explicitly filtered. */
 export function isHiddenByDefaultAccountType(
   name: string | undefined | null,
@@ -29,11 +41,16 @@ export function isHiddenByDefaultAccountType(
   return isClientAccountTypeName(name) || isSupplierAccountTypeName(name);
 }
 
-/** Client and Supplier account types are created and managed by the system. */
+/** Client, Supplier, Sales and Purchases account types are created and managed by the system. */
 export function isSystemAccountTypeName(
   name: string | undefined | null,
 ): boolean {
-  return isClientAccountTypeName(name) || isSupplierAccountTypeName(name);
+  return (
+    isClientAccountTypeName(name) ||
+    isSupplierAccountTypeName(name) ||
+    isNamed(name, SALES_ACCOUNT_TYPE_NAME) ||
+    isNamed(name, PURCHASES_ACCOUNT_TYPE_NAME)
+  );
 }
 
 export function isProtectedAccountType(item: {

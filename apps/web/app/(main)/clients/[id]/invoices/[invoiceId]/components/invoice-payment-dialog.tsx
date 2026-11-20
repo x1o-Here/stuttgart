@@ -25,6 +25,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { useAccountsContext } from "@/contexts/useAccountsContext";
 import type { Account } from "@/hooks/use-accounts";
 import { ApiError } from "@/lib/api-client";
+import {
+  isClientAccountTypeName,
+  isSystemAccountTypeName,
+} from "@/lib/constants/client-account";
 import { saveInvoicePayment } from "@/lib/data/ledger";
 import {
   type ClientInvoiceDocument,
@@ -60,11 +64,21 @@ function parseDateInput(value: string): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-function findAccountByName(accounts: Account[], name: string) {
+/** The client's own ledger account: linked by clientId, else by name. */
+function findClientAccount(
+  accounts: Account[],
+  clientId: string,
+  name: string,
+) {
   const target = name.trim().toLowerCase();
-  if (!target) return undefined;
-  return accounts.find(
-    (account) => account.name.trim().toLowerCase() === target,
+  return (
+    accounts.find((account) => account.clientId === clientId) ??
+    accounts.find(
+      (account) =>
+        isClientAccountTypeName(account.accountType) &&
+        !!target &&
+        account.name.trim().toLowerCase() === target,
+    )
   );
 }
 
@@ -102,8 +116,16 @@ export default function InvoicePaymentDialog({
   );
 
   const clientAccount = useMemo(
-    () => findAccountByName(activeAccounts, invoice.client.name),
-    [activeAccounts, invoice.client.name],
+    () => findClientAccount(activeAccounts, clientId, invoice.client.name),
+    [activeAccounts, clientId, invoice.client.name],
+  );
+  // Receive into our own accounts (cash, bank…), not client/supplier/system accounts.
+  const toAccounts = useMemo(
+    () =>
+      activeAccounts.filter(
+        (account) => !isSystemAccountTypeName(account.accountType),
+      ),
+    [activeAccounts],
   );
 
   useEffect(() => {
@@ -333,7 +355,7 @@ export default function InvoicePaymentDialog({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeAccounts.map((account) => (
+                  {toAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
                     </SelectItem>

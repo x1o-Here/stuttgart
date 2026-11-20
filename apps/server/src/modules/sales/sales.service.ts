@@ -9,6 +9,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit, type Tx } from "../audit/audit.js";
 import type { AuthUser } from "../auth/index.js";
 import { post, unpost } from "../ledger/ledger.primitives.js";
+import { partyAccountId, postClientInvoice } from "../ledger/party-postings.js";
 
 export type InvoiceBody = z.output<typeof invoiceInputSchema>;
 export type TemplateBody = z.output<typeof invoiceTemplateInputSchema>;
@@ -64,6 +65,8 @@ export class SalesService {
                 },
             });
             await this.replaceLines(tx, invoice.id, input);
+            const transactionId = await this.postEntry(tx, invoice, client.name);
+            if (transactionId) await tx.invoice.update({ where: { id: invoice.id }, data: { transactionId } });
             await audit(tx, {
                 userId: user.uid,
                 companyId,
@@ -86,7 +89,9 @@ export class SalesService {
                 throw new BadRequestException(`The total can’t be less than the ${paid.toFixed(2)} already paid.`);
             }
             const outstanding = roundMoney(Math.max(0, total - paid));
-            await tx.invoice.update({
+            // Invoices issued before invoices were posted stay unposted.
+            await unpost(tx, companyId, invoice.transactionId);
+            const updated = await tx.invoice.update({
                 where: { id: invoiceId },
                 data: {
                     ...this.invoiceFields(input),
@@ -96,6 +101,10 @@ export class SalesService {
                 },
             });
             await this.replaceLines(tx, invoiceId, input);
+            if (invoice.transactionId) {
+                const transactionId = await this.postEntry(tx, updated, client.name);
+                await tx.invoice.update({ where: { id: invoiceId }, data: { transactionId } });
+            }
             await audit(tx, {
                 userId: user.uid,
                 companyId,
@@ -167,9 +176,12 @@ export class SalesService {
     deleteInvoice(companyId: string, user: AuthUser, clientId: string, invoiceId: string) {
         return this.prisma.$transaction(async (tx) => {
             const invoice = await this.invoice(tx, companyId, clientId, invoiceId);
+            const payments = await tx.invoicePayment.count({ where: { invoiceId, entityStatus: true } });
+            if (payments > 0) throw new BadRequestException("This invoice has payments. Delete its payments first.");
+            await unpost(tx, companyId, invoice.transactionId);
             await tx.invoice.update({
                 where: { id: invoiceId },
-                data: { entityStatus: false, status: "cancelled", updatedById: user.uid },
+                data: { entityStatus: false, status: "cancelled", transactionId: null, updatedById: user.uid },
             });
             await audit(tx, {
                 userId: user.uid,
@@ -207,6 +219,9 @@ export class SalesService {
             const total = money(invoice.totalIncludingVat);
             const available = roundMoney(money(invoice.outstandingAmount) + (existing ? money(existing.amount) : 0));
             if (amount > available) throw new BadRequestException(`Amount cannot exceed ${available.toFixed(2)}.`);
+            if (input.debitingAccountId !== (await partyAccountId(tx, companyId, { clientId }))) {
+                throw new BadRequestException("A client payment must be debited from the client's own account.");
+            }
 
             if (existing) await unpost(tx, companyId, existing.transactionId);
             const entry = await post(tx, {
@@ -294,6 +309,22 @@ export class SalesService {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    /** Credit the client's account and debit Sales with the invoice total. */
+    private postEntry(
+        tx: Tx,
+        invoice: { companyId: string; clientId: string; taxInvoiceNo: string; date: Date; totalIncludingVat: Prisma.Decimal },
+        clientName: string,
+    ) {
+        return postClientInvoice(tx, {
+            companyId: invoice.companyId,
+            clientId: invoice.clientId,
+            taxInvoiceNo: invoice.taxInvoiceNo,
+            date: invoice.date,
+            total: money(invoice.totalIncludingVat),
+            partyName: clientName,
+        });
+    }
 
     private async client(tx: Tx, companyId: string, clientId: string) {
         const client = await tx.client.findFirst({ where: { id: clientId, companyId, entityStatus: true } });

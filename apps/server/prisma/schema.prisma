@@ -273,6 +273,9 @@ model Transaction {
   invoicePayment  InvoicePayment?
   supplierPayment SupplierPayment?
   vatPayment      VatPayment?
+  /// The entry posted when a client / supplier invoice is issued.
+  invoice         Invoice?
+  supplierInvoice SupplierInvoice?
 
   @@index([companyId, date])
   @@index([debitAccountId, date])
@@ -338,6 +341,10 @@ model Invoice {
   /// Running number at the end of taxInvoiceNo (26JUL_DMKT_0124 → 124).
   /// Shared by all companies: one live invoice per number.
   sequenceNo        Int?              @map("sequence_no")
+  /// Ledger entry: credit the client's account, debit Sales. Null for invoices
+  /// issued before invoices were posted, and for zero totals.
+  transactionId     String?           @unique @map("transaction_id")
+  transaction       Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
   date              DateTime          @db.Timestamptz(3)
   deliveryAddress   String            @default("") @map("delivery_address")
   deliveryDate      DateTime?         @map("delivery_date") @db.Timestamptz(3)
@@ -445,6 +452,10 @@ model SupplierInvoice {
   supplier          Supplier              @relation(fields: [supplierId], references: [id])
   /// Normalized (trimmed, upper-case), exactly 15 characters.
   taxInvoiceNo      String                @map("tax_invoice_no")
+  /// Ledger entry: debit the supplier's account, credit Purchases. Null for
+  /// invoices recorded before invoices were posted, and for zero totals.
+  transactionId     String?               @unique @map("transaction_id")
+  transaction       Transaction?          @relation(fields: [transactionId], references: [id], onDelete: SetNull)
   date              DateTime              @db.Timestamptz(3)
   billAmount        Decimal               @map("bill_amount") @db.Decimal(14, 2)
   vatAmount         Decimal               @map("vat_amount") @db.Decimal(14, 2)

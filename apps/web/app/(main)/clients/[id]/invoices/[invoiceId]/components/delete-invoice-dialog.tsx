@@ -13,6 +13,8 @@ type DeleteInvoiceDialogProps = {
   invoiceId: string;
   taxInvoiceNo: string;
   disabled?: boolean;
+  /** Invoices with payments can't be deleted; delete the payments first. */
+  hasPayments?: boolean;
 };
 
 export default function DeleteInvoiceDialog({
@@ -20,6 +22,7 @@ export default function DeleteInvoiceDialog({
   invoiceId,
   taxInvoiceNo,
   disabled = false,
+  hasPayments = false,
 }: DeleteInvoiceDialogProps) {
   const router = useRouter();
   const { activeCompany, user } = useAuth();
@@ -54,7 +57,13 @@ export default function DeleteInvoiceDialog({
         if (!deleting) setOpen(next);
       }}
       trigger={
-        <Button variant="outline" disabled={disabled}>
+        <Button
+          variant="outline"
+          disabled={disabled || hasPayments}
+          title={
+            hasPayments ? "Delete this invoice’s payments first." : undefined
+          }
+        >
           <Trash2 />
           Delete
         </Button>

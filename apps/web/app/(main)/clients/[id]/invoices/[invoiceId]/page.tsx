@@ -179,7 +179,8 @@ export default function ClientInvoiceDetailPage() {
               clientId={clientId}
               invoiceId={invoice.id}
               taxInvoiceNo={invoice.taxInvoiceNo}
-              disabled={locked}
+              disabled={locked || paymentsLoading}
+              hasPayments={payments.length > 0}
             />
             <Button asChild>
               <Link

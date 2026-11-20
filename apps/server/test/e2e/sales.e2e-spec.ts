@@ -77,6 +77,97 @@ describe("sales", () => {
         expect(lines.map((l) => l.description)).toEqual(["Colombo run", ""]);
     });
 
+    it("issuing an invoice credits the client's account and debits Sales", async () => {
+        const row = await invoice();
+        const entry = await db.transaction.findUniqueOrThrow({ where: { id: row.transactionId! } });
+        expect(Number(entry.amount)).toBe(1180);
+        expect(entry.creditAccountId).toBe(clientAccount);
+        expect(entry.tags).toEqual(["invoice", "INV-0001"]);
+        const sales = await db.account.findUniqueOrThrow({
+            where: { id: entry.debitAccountId! },
+            include: { accountType: true },
+        });
+        expect(sales.name).toBe("Sales");
+        expect(sales.accountType.isSystem).toBe(true);
+        expect(await balance(db, clientAccount)).toBe(1180); // positive: the client owes us
+        expect(await balance(db, sales.id)).toBe(-1180);
+    });
+
+    it("a second invoice reuses the same Sales account", async () => {
+        const res = await as(app, ids.general).post(`${base()}/invoices`, invoiceBody({ taxInvoiceNo: "INV-0002" }));
+        expect(res.status).toBe(201);
+        expect(await db.account.count({ where: { name: "Sales" } })).toBe(1);
+        expect(await balance(db, clientAccount)).toBe(2360);
+    });
+
+    it("editing an invoice reposts its entry at the new total", async () => {
+        const res = await as(app, ids.general).put(
+            `${base()}/invoices/${invoiceId}`,
+            invoiceBody({
+                lineItems: [{ date: today(), vehicleNo: "WP-1234", rate: 500, amount: 500, customValues: {} }],
+                totalAmount: 500,
+                vatAmount: 90,
+                totalIncludingVat: 590,
+            }),
+        );
+        expect(res.status).toBe(200);
+        expect(await db.transaction.count({ where: { tags: { has: "invoice" } } })).toBe(1);
+        expect(await balance(db, clientAccount)).toBe(590);
+    });
+
+    it("an invoice issued before invoices were posted stays unposted when edited", async () => {
+        // Simulate an invoice from before this change: no ledger entry.
+        const { transactionId } = await invoice();
+        const entry = await db.transaction.findUniqueOrThrow({ where: { id: transactionId! } });
+        await db.transaction.delete({ where: { id: entry.id } });
+        await db.account.updateMany({
+            where: { id: { in: [entry.debitAccountId!, entry.creditAccountId!] } },
+            data: { balance: 0 },
+        });
+        const res = await as(app, ids.general).put(`${base()}/invoices/${invoiceId}`, invoiceBody());
+        expect(res.status).toBe(200);
+        expect((await invoice()).transactionId).toBeNull();
+        expect(await balance(db, clientAccount)).toBe(0);
+    });
+
+    it("deleting an invoice takes its entry back out", async () => {
+        const res = await as(app, ids.general).delete(`${base()}/invoices/${invoiceId}`);
+        expect(res.status).toBe(200);
+        expect((await invoice()).transactionId).toBeNull();
+        expect(await db.transaction.count()).toBe(0);
+        expect(await balance(db, clientAccount)).toBe(0);
+    });
+
+    it("an invoice with payments can't be deleted", async () => {
+        const api = as(app, ids.general);
+        const paymentId = (await api.post(`${base()}/invoices/${invoiceId}/payments`, pay(500))).body.id;
+        const blocked = await api.delete(`${base()}/invoices/${invoiceId}`);
+        expect(blocked.status).toBe(400);
+        expect(blocked.body.message).toBe("This invoice has payments. Delete its payments first.");
+        expect((await invoice()).entityStatus).toBe(true);
+        expect(await balance(db, clientAccount)).toBe(680);
+
+        await api.delete(`${base()}/invoices/${invoiceId}/payments/${paymentId}`);
+        expect((await api.delete(`${base()}/invoices/${invoiceId}`)).status).toBe(200);
+        expect(await balance(db, clientAccount)).toBe(0);
+    });
+
+    it("the invoice entry can't be corrected or deleted from the ledger", async () => {
+        const { transactionId } = await invoice();
+        const res = await as(app, ids.general).post(`/companies/${CO}/transactions/${transactionId}/delete`);
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain("belongs to an invoice");
+    });
+
+    it("a payment must be debited from the client's own account", async () => {
+        const res = await as(app, ids.general).post(
+            `${base()}/invoices/${invoiceId}/payments`,
+            pay(100, { debitingAccountId: ids.cash }),
+        );
+        expect(res.status).toBe(400);
+        expect(res.body.message).toContain("client's own account");
+    });
+
     it("rejects totals that don't add up", async () => {
         const res = await as(app, ids.general).post(`${base()}/invoices`, invoiceBody({ totalAmount: 900 }));
         expect(res.status).toBe(400);
@@ -89,7 +180,7 @@ describe("sales", () => {
         expect(Number((await invoice()).outstandingAmount)).toBe(680);
         expect((await invoice()).status).toBe("partial");
         expect(await balance(db, ids.bank)).toBe(1500);
-        expect(await balance(db, clientAccount)).toBe(-500);
+        expect(await balance(db, clientAccount)).toBe(680); // 1180 invoiced − 500 paid
         const payment = await db.invoicePayment.findUniqueOrThrow({
             where: { id: res.body.id },
             include: { transaction: true },
@@ -103,7 +194,7 @@ describe("sales", () => {
         const id = (await api.post(`${base()}/invoices/${invoiceId}/payments`, pay(500))).body.id;
         const res = await api.put(`${base()}/invoices/${invoiceId}/payments/${id}`, pay(300, { creditingAccountId: ids.cash }));
         expect(res.status).toBe(200);
-        expect(await db.transaction.count()).toBe(1);
+        expect(await db.transaction.count({ where: { tags: { has: "invoice-payment" } } })).toBe(1);
         expect(await balance(db, ids.bank)).toBe(1000); // moved off the bank…
         expect(await balance(db, ids.cash)).toBe(300); // …onto cash
         expect(Number((await invoice()).outstandingAmount)).toBe(880);

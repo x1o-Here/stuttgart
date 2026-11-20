@@ -21,6 +21,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit, type Tx } from "../audit/audit.js";
 import type { AuthUser } from "../auth/index.js";
 import { post, unpost } from "../ledger/ledger.primitives.js";
+import { partyAccountId, postSupplierInvoice } from "../ledger/party-postings.js";
 
 export type SupplierBody = z.output<typeof supplierInputSchema>;
 export type SupplierInvoiceBody = z.output<typeof supplierInvoiceInputSchema>;
@@ -143,6 +144,8 @@ export class PurchasesService {
                 },
             });
             await this.replaceLines(tx, invoice.id, lines);
+            const transactionId = await this.postEntry(tx, invoice, supplier.name);
+            if (transactionId) await tx.supplierInvoice.update({ where: { id: invoice.id }, data: { transactionId } });
             await audit(tx, {
                 userId: user.uid,
                 companyId,
@@ -166,7 +169,9 @@ export class PurchasesService {
                 throw new BadRequestException(`The total can’t be less than the ${lkr(paid)} already paid.`);
             }
             const outstanding = roundMoney(split.total - paid);
-            await tx.supplierInvoice.update({
+            // Invoices recorded before invoices were posted stay unposted.
+            await unpost(tx, companyId, invoice.transactionId);
+            const updated = await tx.supplierInvoice.update({
                 where: { id: invoiceId },
                 data: {
                     taxInvoiceNo: taxNo,
@@ -180,6 +185,10 @@ export class PurchasesService {
                 },
             });
             await this.replaceLines(tx, invoiceId, lines);
+            if (invoice.transactionId) {
+                const transactionId = await this.postEntry(tx, updated, supplier.name);
+                await tx.supplierInvoice.update({ where: { id: invoiceId }, data: { transactionId } });
+            }
             await audit(tx, {
                 userId: user.uid,
                 companyId,
@@ -197,9 +206,10 @@ export class PurchasesService {
             const invoice = await this.invoice(tx, companyId, supplierId, invoiceId);
             const payments = await tx.supplierPayment.count({ where: { supplierInvoiceId: invoiceId, entityStatus: true } });
             if (payments > 0) throw new BadRequestException("This invoice has payments. Delete its payments first.");
+            await unpost(tx, companyId, invoice.transactionId);
             await tx.supplierInvoice.update({
                 where: { id: invoiceId },
-                data: { entityStatus: false, updatedById: user.uid },
+                data: { entityStatus: false, transactionId: null, updatedById: user.uid },
             });
             await audit(tx, {
                 userId: user.uid,
@@ -232,6 +242,9 @@ export class PurchasesService {
             if (paymentId && !existing) throw new NotFoundException("Payment not found");
             if (input.debitingAccountId === input.creditingAccountId) {
                 throw new BadRequestException("Pay from an account other than the supplier’s own account.");
+            }
+            if (input.creditingAccountId !== (await partyAccountId(tx, companyId, { supplierId }))) {
+                throw new BadRequestException("A supplier payment must be credited to the supplier’s own account.");
             }
 
             const amount = money(input.amount);
@@ -324,6 +337,22 @@ export class PurchasesService {
     private async vatRegistered(tx: Tx, companyId: string) {
         const company = await tx.company.findUniqueOrThrow({ where: { id: companyId }, select: { vatRegistered: true } });
         return company.vatRegistered;
+    }
+
+    /** Debit the supplier's account and credit Purchases with the invoice total. */
+    private postEntry(
+        tx: Tx,
+        invoice: { companyId: string; supplierId: string; taxInvoiceNo: string; date: Date; totalIncludingVat: Prisma.Decimal },
+        supplierName: string,
+    ) {
+        return postSupplierInvoice(tx, {
+            companyId: invoice.companyId,
+            supplierId: invoice.supplierId,
+            taxInvoiceNo: invoice.taxInvoiceNo,
+            date: invoice.date,
+            total: money(invoice.totalIncludingVat),
+            partyName: supplierName,
+        });
     }
 
     private async supplier(tx: Tx, companyId: string, supplierId: string) {
