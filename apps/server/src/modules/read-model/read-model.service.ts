@@ -125,6 +125,10 @@ export class ReadModelService {
                     },
                 },
                 vatPayment: { select: { id: true } },
+                invoice: { select: { id: true, taxInvoiceNo: true, clientSnapshot: true } },
+                supplierInvoice: {
+                    select: { id: true, taxInvoiceNo: true, supplier: { select: { id: true, name: true } } },
+                },
             },
         });
         const out: Record<string, Doc[]> = Object.fromEntries(accountIds.map((id) => [id, []]));
@@ -158,6 +162,21 @@ export class ReadModelService {
                     supplierInvoiceId: inv.id,
                     invoiceNo: inv.taxInvoiceNo,
                     paymentId: t.supplierPayment.id,
+                });
+            }
+            if (t.invoice) {
+                Object.assign(base, {
+                    invoiceId: t.invoice.id,
+                    invoiceNo: t.invoice.taxInvoiceNo,
+                    clientName: (t.invoice.clientSnapshot as { name?: string } | null)?.name ?? "",
+                });
+            }
+            if (t.supplierInvoice) {
+                Object.assign(base, {
+                    supplierId: t.supplierInvoice.supplier.id,
+                    supplierName: t.supplierInvoice.supplier.name,
+                    supplierInvoiceId: t.supplierInvoice.id,
+                    invoiceNo: t.supplierInvoice.taxInvoiceNo,
                 });
             }
             if (t.vatPayment) base.vatPaymentId = t.vatPayment.id;

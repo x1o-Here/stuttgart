@@ -6,6 +6,7 @@ import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit, type Tx } from "../audit/audit.js";
 import type { AuthUser } from "../auth/index.js";
 import { findTransactionOrThrow, post, resolveLookupIds } from "./ledger.primitives.js";
+import { INVOICE_ENTRY_TAGS } from "./party-postings.js";
 
 type ParsedTransaction = Omit<TransactionInput, "date" | "amount" | "vehicle" | "voucherNo"> & {
     date: Date;
@@ -106,6 +107,9 @@ export class LedgerService {
         const original = await findTransactionOrThrow(tx, companyId, id);
         if (hasRestrictedTags(original.tags)) {
             throw new BadRequestException("This entry was already corrected, deleted or is a reversal.");
+        }
+        if (original.tags.some((tag) => INVOICE_ENTRY_TAGS.includes(tag))) {
+            throw new BadRequestException("This entry belongs to an invoice. Edit or delete the invoice instead.");
         }
         return original;
     }

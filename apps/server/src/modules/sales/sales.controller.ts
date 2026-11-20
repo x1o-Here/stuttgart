@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
 import {
     invoiceInputSchema,
     invoiceTemplateInputSchema,
@@ -6,6 +6,19 @@ import {
 } from "@stuttgart/shared/schemas/ledger";
 import { type AuthUser, CompanyAccessGuard, CurrentUser } from "../auth/index.js";
 import { type InvoiceBody, type PaymentBody, SalesService, type TemplateBody } from "./sales.service.js";
+
+/** Company-wide invoice helpers. */
+@Controller("companies/:companyId/invoices")
+@UseGuards(CompanyAccessGuard)
+export class InvoiceNumbersController {
+    constructor(private readonly sales: SalesService) {}
+
+    /** The running number a new invoice should get (shared by all companies). */
+    @Get("next-number")
+    nextNumber() {
+        return this.sales.nextInvoiceSequence();
+    }
+}
 
 /** Client invoices, their payments and the per-client invoice template. */
 @Controller("companies/:companyId/clients/:clientId")

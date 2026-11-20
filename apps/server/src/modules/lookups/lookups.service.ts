@@ -2,6 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import {
     isProtectedAccountType,
     isSystemAccountTypeName,
+    VEHICLE_ACCOUNT_TYPE_NAME,
+    VEHICLE_ACCOUNT_TYPE_SHORT_FORM,
+    vehicleAccountName,
 } from "@stuttgart/shared/constants/client-account";
 import type {
     LookupInput,
@@ -14,6 +17,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit, type Tx } from "../audit/audit.js";
 import type { AuthUser } from "../auth/index.js";
+import { systemAccountTypeId } from "../ledger/party-postings.js";
 
 const LABEL: Record<LookupKind, string> = {
     "account-types": "Account type",
@@ -101,11 +105,12 @@ export class LookupsService {
             const row = existing
                 ? await table(tx, kind).update({ where: { id: existing.id }, data: { ...data, entityStatus: true } })
                 : await table(tx, kind).create({ data: { companyId, ...data } });
+            const withAccount = kind === "vehicles" && (await this.ensureVehicleAccount(tx, companyId, row));
             await audit(tx, {
                 userId: user.uid,
                 companyId,
                 action: "create",
-                description: `${LABEL[kind]} created: ${name}`,
+                description: `${LABEL[kind]} created: ${name}${withAccount ? " (with vehicle account)" : ""}`,
                 entityId: row.id,
             });
             return toDto(row);
@@ -135,6 +140,12 @@ export class LookupsService {
                 row = await table(tx, kind).update({ where: { id }, data });
             } catch (error) {
                 throw this.duplicateName(error, kind, input.name) ?? error;
+            }
+            if (kind === "vehicles" && row.name !== existing.name) {
+                await tx.account.updateMany({
+                    where: { companyId, vehicleId: id },
+                    data: { name: vehicleAccountName(row.name) },
+                });
             }
             await audit(tx, {
                 userId: user.uid,
@@ -180,6 +191,26 @@ export class LookupsService {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Every vehicle gets its own account, "Vehicle (<number>)". A vehicle that
+     * was deleted and added again keeps the account it had. Returns whether
+     * an account was created.
+     */
+    private async ensureVehicleAccount(tx: Tx, companyId: string, vehicle: LookupRow) {
+        const existing = await tx.account.findFirst({ where: { vehicleId: vehicle.id }, select: { id: true } });
+        if (existing) return false;
+        const accountTypeId = await systemAccountTypeId(
+            tx,
+            companyId,
+            VEHICLE_ACCOUNT_TYPE_NAME,
+            VEHICLE_ACCOUNT_TYPE_SHORT_FORM,
+        );
+        await tx.account.create({
+            data: { companyId, name: vehicleAccountName(vehicle.name), accountTypeId, vehicleId: vehicle.id },
+        });
+        return true;
+    }
 
     private async findOrThrow(db: Tx | PrismaService, companyId: string, kind: LookupKind, id: string) {
         const row = await table(db, kind).findFirst({ where: { id, companyId, entityStatus: true } });

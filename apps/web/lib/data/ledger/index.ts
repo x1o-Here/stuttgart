@@ -88,6 +88,12 @@ export function saveInvoicePayment(
   );
 }
 
+/** Running number for a new invoice, or null where the API isn't in use. */
+export async function nextInvoiceSequence(activeCompany: string) {
+  if (!api()) return null;
+  return ledgerApi.nextInvoiceSequence(activeCompany);
+}
+
 export function saveTemplate(p: Args<typeof firestore.saveTemplate>) {
   if (!api()) return firestore.saveTemplate(p);
   const payload = withCompanySupplier(p.draft, p.company);

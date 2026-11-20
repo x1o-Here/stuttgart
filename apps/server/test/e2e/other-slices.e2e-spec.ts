@@ -21,6 +21,39 @@ describe("lookups, inventory, VAT and reports", () => {
             expect(res.body.vehicles).toHaveLength(1);
         });
 
+        it("adding a vehicle creates its account, renaming renames it, deleting keeps it", async () => {
+            const api = as(app, ids.general);
+            const created = await api.post(`${L}/vehicles`, { name: "WP-9999" });
+            expect(created.status).toBe(201);
+            const vehicleId = created.body.id;
+            const account = await db.account.findFirstOrThrow({ where: { vehicleId }, include: { accountType: true } });
+            expect(account.name).toBe("Vehicle (WP-9999)");
+            expect(account.accountType.name).toBe("Vehicle");
+            expect(account.accountType.isSystem).toBe(true);
+            expect(await balance(db, account.id)).toBe(0);
+
+            expect((await api.patch(`${L}/vehicles/${vehicleId}`, { name: "WP-1000" })).status).toBe(200);
+            expect((await db.account.findUniqueOrThrow({ where: { id: account.id } })).name).toBe("Vehicle (WP-1000)");
+
+            expect((await api.delete(`${L}/vehicles/${vehicleId}`)).status).toBe(200);
+            const kept = await db.account.findUniqueOrThrow({ where: { id: account.id } });
+            expect(kept.entityStatus).toBe(true);
+            expect((await db.vehicle.findUniqueOrThrow({ where: { id: vehicleId } })).entityStatus).toBe(false);
+
+            // Adding the same number again brings the vehicle back with its old account.
+            expect((await api.post(`${L}/vehicles`, { name: "WP-1000" })).status).toBe(201);
+            expect(await db.account.count({ where: { name: "Vehicle (WP-1000)" } })).toBe(1);
+        });
+
+        it("the seeded vehicle (added before vehicle accounts) has none", async () => {
+            expect(await db.account.count({ where: { vehicleId: ids.vehicle } })).toBe(0);
+        });
+
+        it("the Vehicle account type can't be made by hand", async () => {
+            const res = await as(app, ids.admin).post(`${L}/account-types`, { name: "vehicle" });
+            expect(res.status).toBe(400);
+        });
+
         it("protects the system Client and Supplier account types", async () => {
             const api = as(app, ids.admin);
             expect((await api.post(`${L}/account-types`, { name: "client" })).status).toBe(400);

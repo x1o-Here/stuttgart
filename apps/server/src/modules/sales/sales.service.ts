@@ -1,13 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { formatSequence, invoiceSequence } from "@stuttgart/shared/invoices/invoice-number";
 import { roundMoney } from "@stuttgart/shared/invoices/money";
 import { type ClientInvoiceStatus, deriveStatusFromBalances } from "@stuttgart/shared/invoices/status";
 import type { invoiceInputSchema, invoiceTemplateInputSchema, paymentInputSchema } from "@stuttgart/shared/schemas/ledger";
 import type { z } from "zod";
-import type { Prisma } from "../../generated/prisma/client.js";
+import { Prisma } from "../../generated/prisma/client.js";
 import { PrismaService } from "../../infra/prisma/prisma.service.js";
 import { audit, type Tx } from "../audit/audit.js";
 import type { AuthUser } from "../auth/index.js";
 import { post, unpost } from "../ledger/ledger.primitives.js";
+import { partyAccountId, postClientInvoice } from "../ledger/party-postings.js";
 
 export type InvoiceBody = z.output<typeof invoiceInputSchema>;
 export type TemplateBody = z.output<typeof invoiceTemplateInputSchema>;
@@ -49,7 +51,7 @@ export class SalesService {
 
     /** Was create-invoice-form.tsx (new invoice). */
     createInvoice(companyId: string, user: AuthUser, clientId: string, input: InvoiceBody) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.withSequenceCheck(input, async (tx) => {
             const client = await this.client(tx, companyId, clientId);
             const total = await this.checkTotals(tx, companyId, input);
             const invoice = await tx.invoice.create({
@@ -63,6 +65,8 @@ export class SalesService {
                 },
             });
             await this.replaceLines(tx, invoice.id, input);
+            const transactionId = await this.postEntry(tx, invoice, client.name);
+            if (transactionId) await tx.invoice.update({ where: { id: invoice.id }, data: { transactionId } });
             await audit(tx, {
                 userId: user.uid,
                 companyId,
@@ -76,7 +80,7 @@ export class SalesService {
 
     /** Was create-invoice-form.tsx (editing). Outstanding = new total − payments made. */
     updateInvoice(companyId: string, user: AuthUser, clientId: string, invoiceId: string, input: InvoiceBody) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.withSequenceCheck(input, async (tx) => {
             const client = await this.client(tx, companyId, clientId);
             const invoice = await this.invoice(tx, companyId, clientId, invoiceId);
             const total = await this.checkTotals(tx, companyId, input);
@@ -85,7 +89,9 @@ export class SalesService {
                 throw new BadRequestException(`The total can’t be less than the ${paid.toFixed(2)} already paid.`);
             }
             const outstanding = roundMoney(Math.max(0, total - paid));
-            await tx.invoice.update({
+            // Invoices issued before invoices were posted stay unposted.
+            await unpost(tx, companyId, invoice.transactionId);
+            const updated = await tx.invoice.update({
                 where: { id: invoiceId },
                 data: {
                     ...this.invoiceFields(input),
@@ -95,6 +101,10 @@ export class SalesService {
                 },
             });
             await this.replaceLines(tx, invoiceId, input);
+            if (invoice.transactionId) {
+                const transactionId = await this.postEntry(tx, updated, client.name);
+                await tx.invoice.update({ where: { id: invoiceId }, data: { transactionId } });
+            }
             await audit(tx, {
                 userId: user.uid,
                 companyId,
@@ -104,6 +114,38 @@ export class SalesService {
             });
             return { id: invoiceId };
         });
+    }
+
+    /**
+     * The running number for the next invoice: one more than the highest
+     * number on a live invoice in any company (deleted invoices free theirs).
+     */
+    async nextInvoiceSequence(db: Tx | PrismaService = this.prisma) {
+        const { _max } = await db.invoice.aggregate({ where: { entityStatus: true }, _max: { sequenceNo: true } });
+        return { sequence: (_max.sequenceNo ?? 0) + 1 };
+    }
+
+    /**
+     * Every invoice number must end in a running number, and the partial
+     * unique index allows one live invoice per running number across all
+     * companies. Turn a clash into a message that names the next free one.
+     */
+    private async withSequenceCheck<T>(input: InvoiceBody, work: (tx: Tx) => Promise<T>): Promise<T> {
+        const sequence = invoiceSequence(input.taxInvoiceNo);
+        if (sequence === null) {
+            throw new BadRequestException("The invoice number must end with its running number, e.g. 26JUL_DMKT_0124.");
+        }
+        try {
+            return await this.prisma.$transaction(work);
+        } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                const { sequence: next } = await this.nextInvoiceSequence();
+                throw new ConflictException(
+                    `Invoice number ${formatSequence(sequence)} is already used by another invoice. The next free number is ${formatSequence(next)}.`,
+                );
+            }
+            throw error;
+        }
     }
 
     /** Was complete-invoice-dialog.tsx. */
@@ -134,9 +176,12 @@ export class SalesService {
     deleteInvoice(companyId: string, user: AuthUser, clientId: string, invoiceId: string) {
         return this.prisma.$transaction(async (tx) => {
             const invoice = await this.invoice(tx, companyId, clientId, invoiceId);
+            const payments = await tx.invoicePayment.count({ where: { invoiceId, entityStatus: true } });
+            if (payments > 0) throw new BadRequestException("This invoice has payments. Delete its payments first.");
+            await unpost(tx, companyId, invoice.transactionId);
             await tx.invoice.update({
                 where: { id: invoiceId },
-                data: { entityStatus: false, status: "cancelled", updatedById: user.uid },
+                data: { entityStatus: false, status: "cancelled", transactionId: null, updatedById: user.uid },
             });
             await audit(tx, {
                 userId: user.uid,
@@ -174,6 +219,9 @@ export class SalesService {
             const total = money(invoice.totalIncludingVat);
             const available = roundMoney(money(invoice.outstandingAmount) + (existing ? money(existing.amount) : 0));
             if (amount > available) throw new BadRequestException(`Amount cannot exceed ${available.toFixed(2)}.`);
+            if (input.debitingAccountId !== (await partyAccountId(tx, companyId, { clientId }))) {
+                throw new BadRequestException("A client payment must be debited from the client's own account.");
+            }
 
             if (existing) await unpost(tx, companyId, existing.transactionId);
             const entry = await post(tx, {
@@ -262,6 +310,22 @@ export class SalesService {
 
     // ── helpers ──────────────────────────────────────────────────────────
 
+    /** Credit the client's account and debit Sales with the invoice total. */
+    private postEntry(
+        tx: Tx,
+        invoice: { companyId: string; clientId: string; taxInvoiceNo: string; date: Date; totalIncludingVat: Prisma.Decimal },
+        clientName: string,
+    ) {
+        return postClientInvoice(tx, {
+            companyId: invoice.companyId,
+            clientId: invoice.clientId,
+            taxInvoiceNo: invoice.taxInvoiceNo,
+            date: invoice.date,
+            total: money(invoice.totalIncludingVat),
+            partyName: clientName,
+        });
+    }
+
     private async client(tx: Tx, companyId: string, clientId: string) {
         const client = await tx.client.findFirst({ where: { id: clientId, companyId, entityStatus: true } });
         if (!client) throw new NotFoundException("Client not found");
@@ -307,6 +371,7 @@ export class SalesService {
     private invoiceFields(input: InvoiceBody) {
         return {
             taxInvoiceNo: input.taxInvoiceNo,
+            sequenceNo: invoiceSequence(input.taxInvoiceNo),
             date: input.date,
             deliveryDate: input.delivery.date,
             deliveryAddress: input.delivery.address,

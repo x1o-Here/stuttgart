@@ -1,8 +1,12 @@
 "use client";
 
+import {
+  formatInvoiceNumber,
+  invoiceSequence,
+} from "@stuttgart/shared/invoices/invoice-number";
 import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CalendarPopover from "@/components/shared/calendar-popover";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionLabel } from "@/components/shared/ruled-dialog";
@@ -12,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { ApiError } from "@/lib/api-client";
-import { saveInvoice } from "@/lib/data/ledger";
+import { nextInvoiceSequence, saveInvoice } from "@/lib/data/ledger";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import {
   amountCalculator,
@@ -131,6 +135,37 @@ export default function CreateInvoiceForm({
   const [invoiceDate, setInvoiceDate] = useState(() =>
     invoice ? toDateInput(invoice.date) : todayValue(),
   );
+  /** True once the user types in the number, so the date no longer rewrites it. */
+  const [numberTouched, setNumberTouched] = useState(isEditing);
+  const [nextSequence, setNextSequence] = useState<number | null>(null);
+
+  // New invoices look up the next free running number once.
+  useEffect(() => {
+    if (isEditing || !activeCompany) return;
+    let cancelled = false;
+    nextInvoiceSequence(activeCompany)
+      .then((sequence) => {
+        if (!cancelled) setNextSequence(sequence);
+      })
+      .catch((loadError) =>
+        console.error("Failed to load the next invoice number", loadError),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompany, isEditing]);
+
+  // Until the user types in the field, the number follows the invoice date.
+  useEffect(() => {
+    if (nextSequence === null || numberTouched) return;
+    setTaxInvoiceNo(
+      formatInvoiceNumber(
+        parseDateInput(invoiceDate) ?? new Date(),
+        nextSequence,
+      ),
+    );
+  }, [nextSequence, numberTouched, invoiceDate]);
+
   const [deliveryDate, setDeliveryDate] = useState(() =>
     invoice ? toDateInput(invoice.delivery.date) : todayValue(),
   );
@@ -206,6 +241,9 @@ export default function CreateInvoiceForm({
 
   function validate() {
     if (!taxInvoiceNo.trim()) return "Tax invoice number is required.";
+    if (invoiceSequence(taxInvoiceNo) === null) {
+      return "The invoice number must end with its running number, e.g. 26JUL_DMKT_0124.";
+    }
     if (!invoiceDate || !deliveryDate) {
       return "Invoice and delivery dates are required.";
     }
@@ -461,8 +499,21 @@ export default function CreateInvoiceForm({
             id="invoice-no"
             className="font-mono"
             value={taxInvoiceNo}
-            onChange={(event) => setTaxInvoiceNo(event.target.value)}
+            onChange={(event) => {
+              setNumberTouched(true);
+              setTaxInvoiceNo(event.target.value);
+            }}
           />
+          {nextSequence !== null &&
+          invoiceSequence(taxInvoiceNo) !== nextSequence ? (
+            <p className="text-xs text-muted-foreground">
+              Next free number is{" "}
+              <span className="font-mono">
+                {String(nextSequence).padStart(4, "0")}
+              </span>
+              .
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-2">
           <Label>Date of invoice</Label>
