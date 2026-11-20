@@ -55,6 +55,8 @@ export class ReadModelService {
         if (is("suppliers", "*", "invoices", "*", "payments")) {
             return { docs: await this.supplierPayments(companyId, b, d) };
         }
+        if (is("employees")) return { docs: await this.employees(companyId) };
+        if (is("employees", "*")) return { doc: (await this.employees(companyId, b))[0] ?? null };
         if (is("vatPayments")) return { docs: await this.vatPayments(companyId) };
         if (is("reports")) return { docs: await this.reports(companyId) };
         if (is("reports", "*")) return { doc: (await this.reports(companyId, b))[0] ?? null };
@@ -92,6 +94,7 @@ export class ReadModelService {
                 initialBalance: num(r.initialBalance),
                 ...(r.clientId ? { clientId: r.clientId } : {}),
                 ...(r.supplierId ? { supplierId: r.supplierId } : {}),
+                ...(r.employeeId ? { employeeId: r.employeeId } : {}),
                 entityStatus: r.entityStatus,
                 createdAt: iso(r.createdAt),
             },
@@ -408,6 +411,31 @@ export class ReadModelService {
             createdAt: iso(r.createdAt),
             createdBy: r.createdById,
         };
+    }
+
+    // ── Employees ───────────────────────────────────────────────────────
+
+    private async employees(companyId: string, id?: string): Promise<Doc[]> {
+        const rows = await this.prisma.employee.findMany({
+            where: { companyId, ...(id ? { id } : {}) },
+            include: { account: { select: { id: true, name: true } } },
+            orderBy: { createdAt: "desc" },
+        });
+        return rows.map((r) => ({
+            id: r.id,
+            data: {
+                employeeNo: r.employeeNo,
+                name: r.name,
+                role: r.role,
+                accountId: r.account?.id ?? null,
+                accountName: r.account?.name ?? null,
+                entityStatus: r.entityStatus,
+                createdAt: iso(r.createdAt),
+                createdBy: r.createdById,
+                updatedAt: iso(r.updatedAt),
+                updatedBy: r.updatedById,
+            },
+        }));
     }
 
     // ── VAT, reports, inventory ─────────────────────────────────────────

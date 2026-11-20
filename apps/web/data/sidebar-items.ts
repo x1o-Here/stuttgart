@@ -2,6 +2,7 @@ import {
   ChartColumn,
   ContactRound,
   Factory,
+  IdCard,
   KeyRound,
   Landmark,
   LayoutDashboard,
@@ -61,6 +62,12 @@ const MainSidebarContent: SidebarItem[] = [
     href: "/inventory",
     icon: Warehouse,
     roles: ["admin", "manager", "general", "technician"],
+  },
+  {
+    key: "employees" as SidebarRouteKey,
+    title: "Employees",
+    href: "/employees",
+    icon: IdCard,
   },
   {
     key: "reports" as SidebarRouteKey,
