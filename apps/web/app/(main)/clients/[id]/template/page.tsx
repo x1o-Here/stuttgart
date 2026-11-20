@@ -149,11 +149,11 @@ export default function ClientInvoiceTemplatePage() {
         </span>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
           Every invoice already includes the base layout: the Tax Invoice
-          header, supplier and client details, delivery fields, the fixed cost
-          columns (No, Date, Vehicle No, Rate, Amount), VAT totals and signature
-          lines. Supplier details come from the active company. Use Manage
-          template to set signing details and add extra columns between Vehicle
-          No and Rate.
+          header, supplier and client details, delivery fields, the base cost
+          columns (No, Date, Vehicle No, Description, Quantity, Rate, Amount),
+          totals and signature lines. Supplier details come from the active
+          company. Use Manage template to rename and reorder columns, add extra
+          ones, set the amount formula and the signing details.
         </p>
       </div>
 

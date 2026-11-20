@@ -327,6 +327,7 @@ export class SalesService {
                 position: index + 1,
                 date: line.date,
                 vehicleNo: line.vehicleNo,
+                description: line.description,
                 quantity: line.quantity,
                 rate: money(line.rate),
                 amount: money(line.amount),

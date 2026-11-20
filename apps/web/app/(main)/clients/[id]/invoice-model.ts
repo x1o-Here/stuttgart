@@ -90,7 +90,16 @@ export type DeliveryDetails = {
 
 /** Display order of templates saved before columns could be reordered. */
 const LEGACY_LEADING_KEYS = ["no", "date", "vehicleNo"];
-const LEGACY_TRAILING_KEYS = ["quantity", "rate", "amount"];
+const LEGACY_TRAILING_KEYS = ["rate", "amount"];
+
+/**
+ * Where a base column added after a template was saved goes in by default:
+ * Description after Vehicle No, Quantity before Rate.
+ */
+const INSERT_AFTER: Record<string, string> = { description: "vehicleNo" };
+const INSERT_BEFORE: Record<string, string> = { quantity: "rate" };
+/** Base columns old invoices didn't have; they are not added to snapshots. */
+const LATER_SYSTEM_KEYS = new Set(["description", "quantity"]);
 
 export function supplierFromCompany(
   company?: CompanySupplierSource | null,
@@ -322,6 +331,7 @@ export type InvoiceLineItem = {
   no: number;
   date: Date;
   vehicleNo: string;
+  description: string;
   quantity: number;
   rate: number;
   amount: number;
@@ -487,6 +497,14 @@ export const DEFAULT_TEMPLATE_COLUMNS: TemplateColumn[] = [
     system: true,
   },
   {
+    id: "system-description",
+    key: "description",
+    label: "Description",
+    type: "text",
+    required: false,
+    system: true,
+  },
+  {
     id: "system-quantity",
     key: "quantity",
     label: "Quantity",
@@ -547,11 +565,17 @@ function mapColumn(value: unknown): TemplateColumn | null {
 }
 
 /**
- * Stored order, with system columns restored to their canonical definition.
- * Templates saved before Quantity existed get their old display order
- * (No, Date, Vehicle No, custom…, Quantity, Rate, Amount); any system column
- * missing from storage is appended so none can be lost. Invoice snapshots
- * from before Quantity existed don't get one, so old invoices print as issued.
+ * Stored order and labels; base (system) columns keep their key, type and
+ * flags from the defaults but their label can be renamed.
+ *
+ * - Templates saved before columns could be reordered (no Quantity stored)
+ *   get their old display order: No, Date, Vehicle No, custom…, Rate, Amount.
+ * - A base column missing from a client template is added at its default
+ *   spot (Description after Vehicle No, Quantity before Rate). If the
+ *   template already has a custom column with that name, that column
+ *   becomes the base column in place instead of a duplicate appearing.
+ * - Invoice snapshots never gain Description/Quantity, so old invoices
+ *   print as issued.
  */
 function normalizeColumns(
   stored: TemplateColumn[],
@@ -561,30 +585,61 @@ function normalizeColumns(
     DEFAULT_TEMPLATE_COLUMNS.map((column) => [column.key, column]),
   );
   const seen = new Set<string>();
-  const columns: TemplateColumn[] = [];
+  let columns: TemplateColumn[] = [];
   for (const column of stored) {
     if (seen.has(column.key)) continue;
     const systemColumn = defaults.get(column.key);
     if (column.system && !systemColumn) continue;
     seen.add(column.key);
-    columns.push(systemColumn ? { ...systemColumn } : column);
+    columns.push(
+      systemColumn
+        ? { ...systemColumn, label: column.label.trim() || systemColumn.label }
+        : column,
+    );
   }
 
   if (!seen.has("quantity")) {
-    const custom = columns.filter((column) => !column.system);
+    const byKey = new Map(columns.map((column) => [column.key, column]));
     const pick = (keys: string[]) =>
       keys
-        .filter((key) => !(snapshot && key === "quantity"))
-        .map((key) => ({ ...(defaults.get(key) as TemplateColumn) }));
-    return [
+        .map((key) => byKey.get(key))
+        .filter((column): column is TemplateColumn => !!column);
+    columns = [
       ...pick(LEGACY_LEADING_KEYS),
-      ...custom,
+      ...columns.filter(
+        (column) =>
+          !LEGACY_LEADING_KEYS.includes(column.key) &&
+          !LEGACY_TRAILING_KEYS.includes(column.key),
+      ),
       ...pick(LEGACY_TRAILING_KEYS),
     ];
   }
 
-  for (const column of DEFAULT_TEMPLATE_COLUMNS) {
-    if (!seen.has(column.key)) columns.push({ ...column });
+  for (const base of DEFAULT_TEMPLATE_COLUMNS) {
+    if (seen.has(base.key)) continue;
+    if (snapshot && LATER_SYSTEM_KEYS.has(base.key)) continue;
+
+    const sameName = columns.findIndex(
+      (column) =>
+        !column.system &&
+        column.label.trim().toLowerCase() === base.label.toLowerCase(),
+    );
+    if (sameName >= 0 && !snapshot) {
+      columns[sameName] = { ...base, label: columns[sameName].label.trim() };
+      continue;
+    }
+
+    const after = INSERT_AFTER[base.key];
+    const before = INSERT_BEFORE[base.key];
+    const afterIndex = after
+      ? columns.findIndex((column) => column.key === after)
+      : -1;
+    const beforeIndex = before
+      ? columns.findIndex((column) => column.key === before)
+      : -1;
+    if (afterIndex >= 0) columns.splice(afterIndex + 1, 0, { ...base });
+    else if (beforeIndex >= 0) columns.splice(beforeIndex, 0, { ...base });
+    else columns.push({ ...base });
   }
   return columns;
 }
@@ -676,6 +731,8 @@ export function mapClientInvoiceDocument(
         no: Number(item.no) || index + 1,
         date: toDate(item.date) ?? new Date(0),
         vehicleNo: typeof item.vehicleNo === "string" ? item.vehicleNo : "",
+        description:
+          typeof item.description === "string" ? item.description : "",
         quantity:
           item.quantity === undefined || item.quantity === null
             ? 1

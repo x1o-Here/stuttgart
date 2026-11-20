@@ -211,6 +211,7 @@ export class ReadModelService {
                     no: l.position,
                     date: iso(l.date),
                     vehicleNo: l.vehicleNo,
+                    description: l.description,
                     quantity: num(l.quantity),
                     rate: num(l.rate),
                     amount: num(l.amount),

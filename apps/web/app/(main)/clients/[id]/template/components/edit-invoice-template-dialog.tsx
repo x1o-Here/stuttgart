@@ -131,11 +131,6 @@ export default function EditInvoiceTemplateDialog({
     setOpen(nextOpen);
   }
 
-  const customColumns = useMemo(
-    () => draft.columns.filter((column) => !column.system),
-    [draft.columns],
-  );
-
   const numericColumns = useMemo(
     () => formulaColumns(draft.columns),
     [draft.columns],
@@ -170,7 +165,7 @@ export default function EditInvoiceTemplateDialog({
     };
   }, [formulaCheck, numericColumns]);
 
-  function updateCustomColumn(id: string, patch: Partial<TemplateColumn>) {
+  function updateColumn(id: string, patch: Partial<TemplateColumn>) {
     const previous = draft.columns.find((column) => column.id === id);
     if (
       previous &&
@@ -258,22 +253,16 @@ export default function EditInvoiceTemplateDialog({
   async function saveTemplate() {
     if (!activeCompany || !user) return;
 
-    const labels = customColumns.map((column) =>
+    // Base columns can be renamed too, so names are checked across all.
+    if (draft.columns.some((column) => !column.label.trim())) {
+      setError("Every column needs a name.");
+      return;
+    }
+    const labels = draft.columns.map((column) =>
       column.label.trim().toLowerCase(),
     );
-    if (customColumns.some((column) => !column.label.trim())) {
-      setError("Every custom column needs a name.");
-      return;
-    }
     if (new Set(labels).size !== labels.length) {
-      setError("Custom column names must be unique.");
-      return;
-    }
-    const defaultLabels = new Set(
-      DEFAULT_TEMPLATE_COLUMNS.map((column) => column.label.toLowerCase()),
-    );
-    if (labels.some((label) => defaultLabels.has(label))) {
-      setError("Custom columns cannot use a default column name.");
+      setError("Column names must be unique.");
       return;
     }
     if (!formulaCheck.ok) {
@@ -359,7 +348,8 @@ export default function EditInvoiceTemplateDialog({
                 <SectionLabel>02 / Cost breakdown columns</SectionLabel>
                 <p className="text-sm text-muted-foreground">
                   Use the arrows to set the order the columns appear in on the
-                  invoice. Base columns can be moved but not removed.
+                  invoice. Base columns can be renamed and moved but not
+                  removed.
                 </p>
               </div>
               <Button
@@ -386,23 +376,25 @@ export default function EditInvoiceTemplateDialog({
                     key={column.id}
                     className="grid grid-cols-[1fr_180px_90px_120px] items-center gap-2 border-b px-3 py-2 last:border-b-0"
                   >
-                    {column.system ? (
-                      <Input value={column.label} disabled />
-                    ) : (
-                      <Input
-                        value={column.label}
-                        onChange={(event) =>
-                          updateCustomColumn(column.id, {
-                            label: event.target.value,
-                          })
-                        }
-                      />
-                    )}
+                    <Input
+                      aria-label={`${column.system ? "Base column" : "Column"} name`}
+                      placeholder={
+                        DEFAULT_TEMPLATE_COLUMNS.find(
+                          (base) => base.key === column.key,
+                        )?.label ?? "Column name"
+                      }
+                      value={column.label}
+                      onChange={(event) =>
+                        updateColumn(column.id, {
+                          label: event.target.value,
+                        })
+                      }
+                    />
                     <Select
                       value={column.type}
                       disabled={column.system}
                       onValueChange={(value: TemplateColumnType) =>
-                        updateCustomColumn(column.id, { type: value })
+                        updateColumn(column.id, { type: value })
                       }
                     >
                       <SelectTrigger>
@@ -421,7 +413,7 @@ export default function EditInvoiceTemplateDialog({
                         checked={column.required}
                         disabled={column.system}
                         onCheckedChange={(checked) =>
-                          updateCustomColumn(column.id, {
+                          updateColumn(column.id, {
                             required: checked === true,
                           })
                         }

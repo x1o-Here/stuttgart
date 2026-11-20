@@ -372,6 +372,7 @@ model InvoiceLineItem {
   position     Int
   date         DateTime @db.Timestamptz(3)
   vehicleNo    String   @default("") @map("vehicle_no")
+  description  String   @default("")
   quantity     Decimal  @default(1) @db.Decimal(14, 4)
   rate         Decimal  @db.Decimal(14, 2)
   amount       Decimal  @db.Decimal(14, 2)
