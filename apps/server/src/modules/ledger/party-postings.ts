@@ -32,19 +32,29 @@ const SYSTEM_ACCOUNTS = {
     purchases: { name: PURCHASES_ACCOUNT_TYPE_NAME, shortForm: PURCHASES_ACCOUNT_TYPE_SHORT_FORM },
 } as const;
 
-/** Finds (or creates) the company's Sales / Purchases system account. */
-export async function systemAccountId(tx: Tx, companyId: string, kind: keyof typeof SYSTEM_ACCOUNTS) {
-    const { name, shortForm } = SYSTEM_ACCOUNTS[kind];
-    let type = await tx.accountType.findFirst({
+/**
+ * Finds (or creates) a system account type. A same-named type someone made by
+ * hand is taken over and marked as system.
+ */
+export async function systemAccountTypeId(tx: Tx, companyId: string, name: string, shortForm: string) {
+    const type = await tx.accountType.findFirst({
         where: { companyId, name: { equals: name, mode: "insensitive" } },
     });
     if (!type) {
-        type = await tx.accountType.create({ data: { companyId, name, shortForm, isSystem: true } });
-    } else if (!type.isSystem || !type.entityStatus) {
-        type = await tx.accountType.update({ where: { id: type.id }, data: { isSystem: true, entityStatus: true } });
+        return (await tx.accountType.create({ data: { companyId, name, shortForm, isSystem: true } })).id;
     }
+    if (!type.isSystem || !type.entityStatus) {
+        await tx.accountType.update({ where: { id: type.id }, data: { isSystem: true, entityStatus: true } });
+    }
+    return type.id;
+}
+
+/** Finds (or creates) the company's Sales / Purchases system account. */
+export async function systemAccountId(tx: Tx, companyId: string, kind: keyof typeof SYSTEM_ACCOUNTS) {
+    const { name, shortForm } = SYSTEM_ACCOUNTS[kind];
+    const type = { id: await systemAccountTypeId(tx, companyId, name, shortForm) };
     const existing = await tx.account.findFirst({
-        where: { companyId, accountTypeId: type.id, entityStatus: true, clientId: null, supplierId: null },
+        where: { companyId, accountTypeId: type.id, entityStatus: true, clientId: null, supplierId: null, vehicleId: null },
         orderBy: { createdAt: "asc" },
         select: { id: true },
     });

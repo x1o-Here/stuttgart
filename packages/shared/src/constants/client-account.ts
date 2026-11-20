@@ -22,6 +22,21 @@ export function isSupplierAccountTypeName(
   );
 }
 
+/** System account type for per-vehicle ledger accounts. */
+export const VEHICLE_ACCOUNT_TYPE_NAME = "Vehicle";
+export const VEHICLE_ACCOUNT_TYPE_SHORT_FORM = "VH";
+
+export function isVehicleAccountTypeName(
+  name: string | undefined | null,
+): boolean {
+  return isNamed(name, VEHICLE_ACCOUNT_TYPE_NAME);
+}
+
+/** A vehicle's account is named after its number: "Vehicle (WP-1234)". */
+export function vehicleAccountName(vehicleNumber: string): string {
+  return `${VEHICLE_ACCOUNT_TYPE_NAME} (${vehicleNumber.trim()})`;
+}
+
 /** System account on the other side of every client invoice entry. */
 export const SALES_ACCOUNT_TYPE_NAME = "Sales";
 export const SALES_ACCOUNT_TYPE_SHORT_FORM = "SL";
@@ -38,16 +53,21 @@ function isNamed(name: string | undefined | null, wanted: string): boolean {
 export function isHiddenByDefaultAccountType(
   name: string | undefined | null,
 ): boolean {
-  return isClientAccountTypeName(name) || isSupplierAccountTypeName(name);
+  return (
+    isClientAccountTypeName(name) ||
+    isSupplierAccountTypeName(name) ||
+    isVehicleAccountTypeName(name)
+  );
 }
 
-/** Client, Supplier, Sales and Purchases account types are created and managed by the system. */
+/** Client, Supplier, Vehicle, Sales and Purchases account types are created and managed by the system. */
 export function isSystemAccountTypeName(
   name: string | undefined | null,
 ): boolean {
   return (
     isClientAccountTypeName(name) ||
     isSupplierAccountTypeName(name) ||
+    isVehicleAccountTypeName(name) ||
     isNamed(name, SALES_ACCOUNT_TYPE_NAME) ||
     isNamed(name, PURCHASES_ACCOUNT_TYPE_NAME)
   );
