@@ -50,6 +50,7 @@ import {
   mapInvoicePayment,
   resolveOutstandingAmount,
   roundMoney,
+  storedVatAmount,
 } from "../invoice-model";
 import type {
   ClientAnalyticsInvoiceRow,
@@ -247,7 +248,7 @@ export default function ClientAnalyticsPage() {
               collectedAmount: roundMoney(
                 Math.max(0, totalIncludingVat - outstandingAmount),
               ),
-              vatAmount: roundMoney(Number(data.vatAmount) || totals.vatAmount),
+              vatAmount: storedVatAmount(data.vatAmount, supplyValue),
             });
 
             paymentFetches.push(

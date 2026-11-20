@@ -2,7 +2,11 @@
 
 import type * as React from "react";
 import type { ClientInvoiceDocument } from "../../../invoice-model";
-import { outstandingFromPayments, roundMoney } from "../../../invoice-model";
+import {
+  invoiceHasVat,
+  outstandingFromPayments,
+  roundMoney,
+} from "../../../invoice-model";
 
 function formatMoney(value: number) {
   return roundMoney(value).toLocaleString("en-US", {
@@ -42,29 +46,41 @@ export default function InvoiceSummaryCard({
       ? 0
       : outstandingFromPayments(invoice.totalIncludingVat, paidAmount);
 
-  const facts: { label: string; value: React.ReactNode }[] = [
+  const hasVat = invoiceHasVat(invoice);
+  const entries: { label: string; value: React.ReactNode }[] = [
     {
-      label: "01 / Purchaser",
+      label: "Purchaser",
       value: <span>{invoice.client.name || "–"}</span>,
     },
     {
-      label: "02 / Value of supply",
+      label: "Value of supply",
       value: <Money value={invoice.totalAmount} />,
     },
-    { label: "03 / VAT", value: <Money value={invoice.vatAmount} /> },
+    ...(hasVat
+      ? [
+          { label: "VAT", value: <Money value={invoice.vatAmount} /> },
+          {
+            label: "Total incl. VAT",
+            value: <Money value={invoice.totalIncludingVat} />,
+          },
+        ]
+      : []),
+    { label: "Paid", value: <Money value={paidAmount} /> },
     {
-      label: "04 / Total incl. VAT",
-      value: <Money value={invoice.totalIncludingVat} />,
-    },
-    { label: "05 / Paid", value: <Money value={paidAmount} /> },
-    {
-      label: "06 / Outstanding",
+      label: "Outstanding",
       value: <Money value={outstanding} strong />,
     },
   ];
+  // Numbered after filtering so the labels stay 01, 02, … without gaps.
+  const facts = entries.map((entry, index) => ({
+    ...entry,
+    label: `${String(index + 1).padStart(2, "0")} / ${entry.label}`,
+  }));
 
   return (
-    <dl className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+    <dl
+      className={`grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 ${hasVat ? "2xl:grid-cols-6" : "2xl:grid-cols-4"}`}
+    >
       {facts.map((fact) => (
         <div
           key={fact.label}

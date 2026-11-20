@@ -99,37 +99,55 @@ export default function SupplierInvoicePage() {
   const paid = roundMoney(
     invoice.totalIncludingVat - invoice.outstandingAmount,
   );
-  const facts: { label: string; value: React.ReactNode }[] = [
+  // No input VAT was claimed when the company isn't registered for VAT.
+  const hasVat = invoice.vatAmount !== 0 || invoice.totalIncludingVat === 0;
+  const entries: { label: string; value: React.ReactNode }[] = [
     {
-      label: "01 / Date",
+      label: "Date",
       value: (
         <span className="font-mono">
           {invoice.date.getTime() ? invoice.date.toLocaleDateString() : "–"}
         </span>
       ),
     },
-    { label: "02 / Bill amount", value: <Money value={invoice.billAmount} /> },
+    ...(hasVat
+      ? [
+          {
+            label: "Bill amount",
+            value: <Money value={invoice.billAmount} />,
+          },
+          {
+            label: `VAT (${Math.round(VAT_RATE * 100)}%)`,
+            value: <Money value={invoice.vatAmount} />,
+          },
+          {
+            label: "Total incl. VAT",
+            value: <Money value={invoice.totalIncludingVat} />,
+          },
+        ]
+      : [
+          {
+            label: "Total",
+            value: <Money value={invoice.totalIncludingVat} />,
+          },
+        ]),
+    { label: "Paid", value: <Money value={paid} /> },
     {
-      label: `03 / VAT (${Math.round(VAT_RATE * 100)}%)`,
-      value: <Money value={invoice.vatAmount} />,
-    },
-    {
-      label: "04 / Total incl. VAT",
-      value: <Money value={invoice.totalIncludingVat} />,
-    },
-    { label: "05 / Paid", value: <Money value={paid} /> },
-    {
-      label: "06 / Outstanding",
+      label: "Outstanding",
       value: <Money value={invoice.outstandingAmount} strong />,
     },
   ];
+  const facts = entries.map((entry, index) => ({
+    ...entry,
+    label: `${String(index + 1).padStart(2, "0")} / ${entry.label}`,
+  }));
 
   return (
     <div className="flex h-full flex-col divide-y overflow-y-auto bg-card font-sans">
       <PageHeader
         back={{ href: `/suppliers/${supplier.id}`, label: supplier.name }}
         eyebrow={`( ${supplier.name} · Purchase invoice )`}
-        lead="Tax invoice"
+        lead={hasVat ? "Tax invoice" : "Invoice"}
         title={<span className="font-mono">{invoice.taxInvoiceNo}</span>}
         description={`${invoice.lineItems.length} ${
           invoice.lineItems.length === 1 ? "item" : "items"
@@ -154,7 +172,9 @@ export default function SupplierInvoicePage() {
         }
       />
 
-      <dl className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      <dl
+        className={`grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 ${hasVat ? "2xl:grid-cols-6" : "2xl:grid-cols-5"}`}
+      >
         {facts.map((fact) => (
           <div
             key={fact.label}

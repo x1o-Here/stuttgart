@@ -11,6 +11,7 @@ import {
   AccountsLedgerProvider,
   useAccountsContext,
 } from "@/contexts/useAccountsContext";
+import { useActiveCompany } from "@/hooks/use-active-company";
 import AccountTypeBreakdownChart from "./components/account-type-breakdown-chart";
 import CashFlowCompositionChart from "./components/cash-flow-composition-chart";
 import CashFlowTable from "./components/cash-flow-table";
@@ -35,7 +36,10 @@ function ReportsContent() {
       : (accounts.find((account) => account.id === selectedAccountId)?.name ??
         "Account");
 
-  const [tab, setTab] = useState("overview");
+  const { vatRegistered } = useActiveCompany();
+  const [selectedTab, setTab] = useState("overview");
+  // VAT reports only exist for companies registered for VAT.
+  const tab = vatRegistered ? selectedTab : "overview";
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-card font-sans">
@@ -61,9 +65,11 @@ function ReportsContent() {
           <TabsTrigger value="overview" className={TAB_TRIGGER}>
             01 / Overview
           </TabsTrigger>
-          <TabsTrigger value="vat" className={TAB_TRIGGER}>
-            02 / VAT
-          </TabsTrigger>
+          {vatRegistered ? (
+            <TabsTrigger value="vat" className={TAB_TRIGGER}>
+              02 / VAT
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="overview" className="mt-0 flex flex-col divide-y">
@@ -92,9 +98,14 @@ function ReportsContent() {
           </div>
         </TabsContent>
 
-        <TabsContent value="vat" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <VatTab />
-        </TabsContent>
+        {vatRegistered ? (
+          <TabsContent
+            value="vat"
+            className="mt-0 flex min-h-0 flex-1 flex-col"
+          >
+            <VatTab />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </div>
   );

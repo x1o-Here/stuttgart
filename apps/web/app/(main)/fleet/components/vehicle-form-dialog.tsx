@@ -47,13 +47,33 @@ interface VehicleFormDialogProps {
   vehicle?: VehicleRow;
   /** Edit trigger style: "icon" for table rows (default), "button" for headers. */
   triggerVariant?: "icon" | "button";
+  /**
+   * Controlled mode (e.g. opened from the invoice vehicle picker): no
+   * trigger button is rendered.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Prefills the vehicle number when creating. */
+  initialName?: string;
+  /** Called with the saved vehicle number. */
+  onSaved?: (name: string) => void;
 }
 
 export default function VehicleFormDialog({
   vehicle,
   triggerVariant = "icon",
+  open: controlledOpen,
+  onOpenChange,
+  initialName = "",
+  onSaved,
 }: VehicleFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, activeCompany } = useAuth();
   const createItem = useLookupStore((s) => s.createItem);
@@ -71,11 +91,11 @@ export default function VehicleFormDialog({
   useEffect(() => {
     if (open) {
       form.reset({
-        name: vehicle?.name ?? "",
+        name: vehicle?.name ?? initialName,
         description: vehicle?.description ?? "",
       });
     }
-  }, [open, vehicle, form]);
+  }, [open, vehicle, form, initialName]);
 
   async function onSubmit(data: VehicleFormValues) {
     if (!activeCompany || !user || isSubmitting) return;
@@ -117,6 +137,7 @@ export default function VehicleFormDialog({
       }
       form.reset();
       setOpen(false);
+      onSaved?.(name);
     } catch (error) {
       console.error(`Failed to ${isEdit ? "update" : "create"} vehicle`, error);
     } finally {
@@ -133,31 +154,33 @@ export default function VehicleFormDialog({
         if (!isSubmitting) setOpen(next);
       }}
     >
-      <DialogTrigger asChild>
-        {isEdit ? (
-          triggerVariant === "button" ? (
-            <Button variant="outline">
-              <Pencil />
-              Edit details
-            </Button>
+      {isControlled ? null : (
+        <DialogTrigger asChild>
+          {isEdit ? (
+            triggerVariant === "button" ? (
+              <Button variant="outline">
+                <Pencil />
+                Edit details
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${vehicle.name}`}
+                className="text-muted-foreground hover:text-foreground"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Pencil />
+              </Button>
+            )
           ) : (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Edit ${vehicle.name}`}
-              className="text-muted-foreground hover:text-foreground"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <Pencil />
+            <Button>
+              <Plus />
+              New vehicle
             </Button>
-          )
-        ) : (
-          <Button>
-            <Plus />
-            New vehicle
-          </Button>
-        )}
-      </DialogTrigger>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent
         className={`${ruledDialogContentClass} sm:max-w-lg`}
         onClick={(event) => event.stopPropagation()}
@@ -170,7 +193,14 @@ export default function VehicleFormDialog({
           title={isEdit ? "vehicle." : "vehicle."}
           description="The vehicle number is what you pick when recording a transaction."
         />
-        <form id={formId} onSubmit={form.handleSubmit(onSubmit)}>
+        <form
+          id={formId}
+          onSubmit={(event) => {
+            // Opened inside another form's dialog: don't submit that form too.
+            event.stopPropagation();
+            void form.handleSubmit(onSubmit)(event);
+          }}
+        >
           <FieldGroup className="gap-0">
             <RuledDialogSection label="01 / Identification">
               <Controller

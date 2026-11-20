@@ -3,11 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { accountCreateSchema } from "@stuttgart/shared/schemas/ledger";
 import { Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type z from "zod";
 import ConfirmationDialog from "@/components/custom/confirmation-dialog";
+import { QuickAddLookupDialog } from "@/components/shared/quick-add-lookup-dialog";
 import {
   RuledDialogFooter,
   RuledDialogHeader,
@@ -45,7 +45,7 @@ export default function AddAccountDialog() {
   const [open, setOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
+  const [addingType, setAddingType] = useState(false);
   const { user, activeCompany } = useAuth();
 
   const accountTypes = useLookupStore((state) => state.accountTypes);
@@ -147,7 +147,7 @@ export default function AddAccountDialog() {
                     <Select
                       onValueChange={(value) => {
                         if (value === "__new__") {
-                          router.push("/settings/account-types");
+                          setAddingType(true);
                           return;
                         }
 
@@ -179,6 +179,18 @@ export default function AddAccountDialog() {
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+              <QuickAddLookupDialog
+                collectionKey="account-types"
+                entityLabel="Account type"
+                open={addingType}
+                onOpenChange={setAddingType}
+                onCreated={(name) =>
+                  form.setValue("accountType", name, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
               />
             </RuledDialogSection>
 

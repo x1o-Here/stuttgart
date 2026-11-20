@@ -27,7 +27,7 @@ export class SalesService {
         return this.prisma.$transaction(async (tx) => {
             const client = await this.client(tx, companyId, clientId);
             const existing = await tx.invoiceTemplate.findUnique({ where: { clientId } });
-            const data = { columns: json(input.columns), signing: json(input.signing), supplier: json(input.supplier) };
+            const data = { columns: json(input.columns), signing: json(input.signing), supplier: json(input.supplier), settings: json(input.settings) };
             if (existing) {
                 await tx.invoiceTemplate.update({ where: { clientId }, data: { ...data, updatedById: user.uid } });
             } else {
@@ -51,7 +51,7 @@ export class SalesService {
     createInvoice(companyId: string, user: AuthUser, clientId: string, input: InvoiceBody) {
         return this.prisma.$transaction(async (tx) => {
             const client = await this.client(tx, companyId, clientId);
-            const total = this.checkTotals(input);
+            const total = await this.checkTotals(tx, companyId, input);
             const invoice = await tx.invoice.create({
                 data: {
                     companyId,
@@ -79,7 +79,7 @@ export class SalesService {
         return this.prisma.$transaction(async (tx) => {
             const client = await this.client(tx, companyId, clientId);
             const invoice = await this.invoice(tx, companyId, clientId, invoiceId);
-            const total = this.checkTotals(input);
+            const total = await this.checkTotals(tx, companyId, input);
             const paid = await this.paidOn(tx, invoiceId);
             if (total < paid) {
                 throw new BadRequestException(`The total can’t be less than the ${paid.toFixed(2)} already paid.`);
@@ -284,8 +284,15 @@ export class SalesService {
         return money(sum._sum.amount);
     }
 
-    /** Line amounts must add up to the value of supply, and supply + VAT to the total. */
-    private checkTotals(input: InvoiceBody) {
+    /**
+     * Line amounts must add up to the value of supply, and supply + VAT to the
+     * total. Companies not registered for VAT charge none.
+     */
+    private async checkTotals(tx: Tx, companyId: string, input: InvoiceBody) {
+        const company = await tx.company.findUniqueOrThrow({ where: { id: companyId }, select: { vatRegistered: true } });
+        if (!company.vatRegistered && money(input.vatAmount) !== 0) {
+            throw new BadRequestException("This company isn't registered for VAT, so the invoice can't include VAT.");
+        }
         const lines = roundMoney(input.lineItems.reduce((sum, line) => sum + money(line.amount), 0));
         if (Math.abs(lines - money(input.totalAmount)) > 0.01) {
             throw new BadRequestException("Line amounts don't add up to the invoice total.");
@@ -320,6 +327,7 @@ export class SalesService {
                 position: index + 1,
                 date: line.date,
                 vehicleNo: line.vehicleNo,
+                quantity: line.quantity,
                 rate: money(line.rate),
                 amount: money(line.amount),
                 customValues: json(line.customValues),

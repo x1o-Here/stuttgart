@@ -50,6 +50,7 @@ export type PaymentInput = z.input<typeof paymentInputSchema>;
 const lineItemSchema = z.object({
   date: dateField,
   vehicleNo: z.string().default(""),
+  quantity: money.default(1),
   rate: money.default(0),
   amount: money,
   customValues: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
@@ -80,6 +81,8 @@ export const invoiceTemplateInputSchema = z.object({
   columns: z.array(z.record(z.string(), z.unknown())),
   signing: z.record(z.string(), z.unknown()),
   supplier: z.record(z.string(), z.unknown()),
+  /** Advanced settings: { amountFormula } */
+  settings: z.record(z.string(), z.unknown()).default({}),
 });
 export type InvoiceTemplateInput = z.input<typeof invoiceTemplateInputSchema>;
 

@@ -2,6 +2,8 @@ import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/co
 import {
     type CompanyInput,
     companyInputSchema,
+    type CompanySettingsInput,
+    companySettingsSchema,
     type CompanyStatusInput,
     companyStatusSchema,
 } from "@stuttgart/shared/schemas/identity";
@@ -39,6 +41,16 @@ export class CompaniesController {
         @Body({ schema: companyInputSchema }) body: CompanyInput,
     ) {
         return this.companies.update(user, companyId, body);
+    }
+
+    @Patch(":companyId/settings")
+    @Roles("admin", "manager")
+    updateSettings(
+        @CurrentUser() user: AuthUser,
+        @Param("companyId") companyId: string,
+        @Body({ schema: companySettingsSchema }) body: CompanySettingsInput,
+    ) {
+        return this.companies.updateSettings(user, companyId, body);
     }
 
     @Patch(":companyId/status")

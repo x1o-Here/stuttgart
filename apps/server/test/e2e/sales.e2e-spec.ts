@@ -17,7 +17,7 @@ describe("sales", () => {
         client: { id: clientId, name: "Client One" },
         template: { columns: [] },
         lineItems: [
-            { date: today(), vehicleNo: "WP-1234", rate: 600, amount: 600, customValues: {} },
+            { date: today(), vehicleNo: "WP-1234", quantity: 2.5, rate: 240, amount: 600, customValues: {} },
             { date: today(), vehicleNo: "WP-1234", rate: 400, amount: 400, customValues: { trip: "A" } },
         ],
         totalAmount: 1000,
@@ -72,7 +72,8 @@ describe("sales", () => {
         const row = await invoice();
         expect(Number(row.outstandingAmount)).toBe(1180);
         expect(row.status).toBe("issued");
-        expect(await db.invoiceLineItem.count({ where: { invoiceId } })).toBe(2);
+        const lines = await db.invoiceLineItem.findMany({ where: { invoiceId }, orderBy: { position: "asc" } });
+        expect(lines.map((l) => Number(l.quantity))).toEqual([2.5, 1]);
     });
 
     it("rejects totals that don't add up", async () => {
@@ -143,11 +144,24 @@ describe("sales", () => {
         expect(res.status).toBe(400);
     });
 
+    it("lists the invoice lines as trips on the vehicle", async () => {
+        const res = await as(app, ids.general).get(`/companies/${CO}/docs/vehicles/${ids.vehicle}/trips`);
+        expect(res.status).toBe(200);
+        const trips = res.body.docs.map((d: { data: Record<string, unknown> }) => d.data);
+        expect(trips).toHaveLength(2);
+        for (const trip of trips) {
+            expect(trip).toMatchObject({ invoiceId, clientId, clientName: "Client One" });
+        }
+        expect(trips.map((t: { amount: number }) => t.amount).sort()).toEqual([400, 600]);
+    });
+
     it("deleting an invoice cancels it and hides it", async () => {
         const res = await as(app, ids.general).delete(`${base()}/invoices/${invoiceId}`);
         expect(res.status).toBe(200);
         expect((await invoice()).entityStatus).toBe(false);
         expect((await invoice()).status).toBe("cancelled");
+        const trips = await as(app, ids.general).get(`/companies/${CO}/docs/vehicles/${ids.vehicle}/trips`);
+        expect(trips.body.docs).toHaveLength(0);
     });
 
     it("saves one template per client", async () => {
@@ -158,5 +172,27 @@ describe("sales", () => {
         expect(await db.invoiceTemplate.count({ where: { clientId } })).toBe(1);
         const actions = await db.auditLog.findMany({ where: { description: { startsWith: "Invoice template" } } });
         expect(actions.map((a) => a.action)).toEqual(["create", "update"]);
+    });
+
+    it("rejects VAT on invoices of a company not registered for VAT", async () => {
+        await db.company.update({ where: { id: CO }, data: { vatRegistered: false } });
+        const api = as(app, ids.general);
+        const withVat = await api.post(`${base()}/invoices`, invoiceBody({ taxInvoiceNo: "INV-0002" }));
+        expect(withVat.status).toBe(400);
+        const noVat = await api.post(
+            `${base()}/invoices`,
+            invoiceBody({ taxInvoiceNo: "INV-0002", vatAmount: 0, totalIncludingVat: 1000 }),
+        );
+        expect(noVat.status).toBe(201);
+        await db.company.update({ where: { id: CO }, data: { vatRegistered: true } });
+    });
+
+    it("keeps the template's amount formula", async () => {
+        const api = as(app, ids.general);
+        const settings = { amountFormula: "{quantity} * {rate} - {discount}" };
+        const body = { columns: [], signing: {}, supplier: {}, settings };
+        expect((await api.put(`${base()}/template`, body)).status).toBe(200);
+        const row = await db.invoiceTemplate.findUniqueOrThrow({ where: { clientId } });
+        expect(row.settings).toEqual(settings);
     });
 });

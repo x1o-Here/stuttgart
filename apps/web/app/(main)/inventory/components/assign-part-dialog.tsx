@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Truck } from "lucide-react";
+import { Check, Plus, Truck } from "lucide-react";
 import { useState } from "react";
 import {
   RuledDialogFooter,
@@ -30,6 +30,7 @@ import {
 } from "@/lib/inventory/spare-parts";
 import { cn } from "@/lib/utils";
 import { useLookupStore } from "@/stores/use-lookup-store";
+import VehicleFormDialog from "../../fleet/components/vehicle-form-dialog";
 
 /** Assigns an in-stock part to one fleet vehicle. */
 export function AssignPartDialog({ part }: { part: SparePart }) {
@@ -39,6 +40,8 @@ export function AssignPartDialog({ part }: { part: SparePart }) {
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [addingVehicle, setAddingVehicle] = useState(false);
 
   const vehicle = vehicles.find((v) => v.id === vehicleId);
 
@@ -73,6 +76,7 @@ export function AssignPartDialog({ part }: { part: SparePart }) {
         if (next) {
           setVehicleId(null);
           setError(null);
+          setQuery("");
         }
       }}
     >
@@ -92,12 +96,38 @@ export function AssignPartDialog({ part }: { part: SparePart }) {
         <RuledDialogSection label="01 / Vehicle">
           <div className="sm:col-span-2">
             <Command className="rounded-md border">
-              <CommandInput placeholder="Search vehicle number" />
+              <CommandInput
+                placeholder="Search vehicle number"
+                value={query}
+                onValueChange={setQuery}
+              />
               <CommandList className="max-h-56">
-                <CommandEmpty>
-                  {vehicles.length
-                    ? "No vehicle matches."
-                    : "No vehicles in the fleet yet."}
+                <CommandEmpty className="flex flex-col items-center gap-2 py-4 text-sm">
+                  <span className="text-muted-foreground">
+                    {query.trim() ? (
+                      <>
+                        No vehicle number{" "}
+                        <span className="font-mono text-foreground">
+                          {query.trim()}
+                        </span>
+                        .
+                      </>
+                    ) : vehicles.length ? (
+                      "No vehicle matches."
+                    ) : (
+                      "No vehicles in the fleet yet."
+                    )}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setAddingVehicle(true)}
+                  >
+                    <Plus />
+                    {query.trim()
+                      ? `Add vehicle ${query.trim()}`
+                      : "Add vehicle"}
+                  </Button>
                 </CommandEmpty>
                 {vehicles.map((v) => (
                   <CommandItem
@@ -117,6 +147,19 @@ export function AssignPartDialog({ part }: { part: SparePart }) {
                 ))}
               </CommandList>
             </Command>
+            <VehicleFormDialog
+              open={addingVehicle}
+              onOpenChange={setAddingVehicle}
+              initialName={query.trim().toUpperCase()}
+              onSaved={(name) => {
+                // The store has refreshed by now; select the new vehicle.
+                const added = useLookupStore
+                  .getState()
+                  .vehicles.find((v) => v.name === name);
+                if (added) setVehicleId(added.id);
+                setQuery("");
+              }}
+            />
           </div>
           {error ? (
             <p

@@ -59,6 +59,7 @@ export class ReadModelService {
         if (is("reports")) return { docs: await this.reports(companyId) };
         if (is("reports", "*")) return { doc: (await this.reports(companyId, b))[0] ?? null };
         if (is("spareParts")) return { docs: await this.spareParts(companyId) };
+        if (is("vehicles", "*", "trips")) return { docs: await this.vehicleTrips(companyId, b) };
         void [a, c, e, f];
         throw new BadRequestException(`Unknown path: ${path}`);
     }
@@ -70,7 +71,7 @@ export class ReadModelService {
         if (!c) return null;
         return {
             id: c.id,
-            data: { id: c.id, name: c.name, address: c.address, telephoneNo: c.telephoneNo, tin: c.tin, entityStatus: c.entityStatus },
+            data: { id: c.id, name: c.name, address: c.address, telephoneNo: c.telephoneNo, tin: c.tin, vatRegistered: c.vatRegistered, entityStatus: c.entityStatus },
         };
     }
 
@@ -210,6 +211,7 @@ export class ReadModelService {
                     no: l.position,
                     date: iso(l.date),
                     vehicleNo: l.vehicleNo,
+                    quantity: num(l.quantity),
                     rate: num(l.rate),
                     amount: num(l.amount),
                     customValues: l.customValues,
@@ -238,6 +240,47 @@ export class ReadModelService {
         return rows.map((r) => ({ id: r.id, data: this.paymentData(r) }));
     }
 
+    /**
+     * Invoice lines whose Vehicle No is this vehicle, newest first. Lines keep
+     * the vehicle's name (not its id), so they are matched by name. Lines on
+     * deleted invoices are left out; cancelled invoices stay with their status.
+     */
+    private async vehicleTrips(companyId: string, vehicleId: string): Promise<Doc[]> {
+        const vehicle = await this.prisma.vehicle.findFirst({ where: { id: vehicleId, companyId } });
+        if (!vehicle) return [];
+        const lines = await this.prisma.invoiceLineItem.findMany({
+            where: {
+                vehicleNo: vehicle.name,
+                invoice: { companyId, entityStatus: true },
+            },
+            include: {
+                invoice: {
+                    select: { id: true, clientId: true, taxInvoiceNo: true, date: true, status: true, clientSnapshot: true },
+                },
+            },
+            orderBy: [{ date: "desc" }, { position: "asc" }],
+        });
+        return lines.map((l) => {
+            const client = (l.invoice.clientSnapshot ?? {}) as Record<string, unknown>;
+            return {
+                id: l.id,
+                data: {
+                    invoiceId: l.invoice.id,
+                    clientId: l.invoice.clientId,
+                    clientName: typeof client.name === "string" ? client.name : "",
+                    taxInvoiceNo: l.invoice.taxInvoiceNo,
+                    invoiceDate: iso(l.invoice.date),
+                    status: l.invoice.status,
+                    date: iso(l.date),
+                    position: l.position,
+                    quantity: num(l.quantity),
+                    rate: num(l.rate),
+                    amount: num(l.amount),
+                },
+            };
+        });
+    }
+
     private async templates(companyId: string, clientId: string): Promise<Doc[]> {
         const t = await this.prisma.invoiceTemplate.findFirst({ where: { clientId, client: { companyId } } });
         if (!t) return [];
@@ -249,6 +292,7 @@ export class ReadModelService {
                     columns: t.columns,
                     signing: t.signing,
                     supplier: t.supplier,
+                    settings: t.settings,
                     entityStatus: t.entityStatus,
                     createdAt: iso(t.createdAt),
                     createdBy: t.createdById,

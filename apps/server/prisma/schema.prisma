@@ -98,6 +98,9 @@ model Company {
   address      String   @default("")
   telephoneNo  String   @default("") @map("telephone_no")
   tin          String   @default("")
+  /// Organization setting: false for companies not registered for VAT
+  /// (no VAT on client invoices, no input VAT on supplier invoices).
+  vatRegistered Boolean @default(true) @map("vat_registered")
   entityStatus Boolean  @default(true) @map("entity_status")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -312,6 +315,8 @@ model InvoiceTemplate {
   signing      Json     @default("{}")
   /// Our own company details printed as the supplier: { name, address, contactNo, vatNo }
   supplier     Json     @default("{}")
+  /// Advanced settings: { amountFormula } — formula refers to columns as {key}.
+  settings     Json     @default("{}")
   entityStatus Boolean  @default(true) @map("entity_status")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -367,12 +372,14 @@ model InvoiceLineItem {
   position     Int
   date         DateTime @db.Timestamptz(3)
   vehicleNo    String   @default("") @map("vehicle_no")
+  quantity     Decimal  @default(1) @db.Decimal(14, 4)
   rate         Decimal  @db.Decimal(14, 2)
   amount       Decimal  @db.Decimal(14, 2)
   /// Values for the client's custom template columns, keyed by column key.
   customValues Json     @default("{}") @map("custom_values")
 
   @@index([invoiceId, position])
+  @@index([vehicleNo])
   @@map("invoice_line_items")
 }
 

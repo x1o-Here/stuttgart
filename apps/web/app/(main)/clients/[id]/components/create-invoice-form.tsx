@@ -9,33 +9,28 @@ import { SectionLabel } from "@/components/shared/ruled-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { ApiError } from "@/lib/api-client";
 import { saveInvoice } from "@/lib/data/ledger";
 import { useLookupStore } from "@/stores/use-lookup-store";
 import {
+  amountCalculator,
   amountInWords,
   type ClientInvoiceDocument,
   type ClientSnapshot,
   calculateInvoiceTotals,
   type InvoiceTemplate,
-  orderedTemplateColumns,
   roundMoney,
   type TemplateColumn,
 } from "../invoice-model";
+import { VehiclePicker } from "./vehicle-picker";
 
 type DraftLine = {
   id: string;
   date: string;
   vehicleNo: string;
+  quantity: string;
   rate: string;
   amount: string;
   customValues: Record<string, string>;
@@ -46,6 +41,8 @@ type CreateInvoiceFormProps = {
   template: InvoiceTemplate;
   /** When set, the form updates this invoice instead of creating one. */
   invoice?: ClientInvoiceDocument;
+  /** Organization setting: false = no VAT on this invoice. */
+  vatRegistered?: boolean;
 };
 
 function todayValue() {
@@ -74,6 +71,7 @@ function lineFromInvoice(
     id: crypto.randomUUID(),
     date: toDateInput(item.date),
     vehicleNo: item.vehicleNo,
+    quantity: String(item.quantity),
     rate: String(item.rate),
     amount: String(item.amount),
     customValues: Object.fromEntries(
@@ -94,6 +92,7 @@ function newLine(columns: TemplateColumn[]): DraftLine {
     id: crypto.randomUUID(),
     date: todayValue(),
     vehicleNo: "",
+    quantity: "1",
     rate: "",
     amount: "",
     customValues: Object.fromEntries(
@@ -115,6 +114,7 @@ export default function CreateInvoiceForm({
   client,
   template,
   invoice,
+  vatRegistered = true,
 }: CreateInvoiceFormProps) {
   const router = useRouter();
   const { activeCompany, user } = useAuth();
@@ -149,21 +149,37 @@ export default function CreateInvoiceForm({
     ? roundMoney(invoice.totalIncludingVat - invoice.outstandingAmount)
     : 0;
 
-  const orderedColumns = useMemo(
-    () => orderedTemplateColumns(template.columns),
-    [template.columns],
-  );
+  const orderedColumns = template.columns;
   const customColumns = useMemo(
     () => template.columns.filter((column) => !column.system),
     [template.columns],
   );
+  const calculator = useMemo(() => amountCalculator(template), [template]);
+  /** Lines with Amount filled in from the template formula, when there is one. */
+  const resolvedLines = useMemo(() => {
+    if (!calculator) return lines;
+    return lines.map((line) => {
+      const values: Record<string, number> = {
+        quantity: Number(line.quantity) || 0,
+        rate: Number(line.rate) || 0,
+      };
+      for (const [key, value] of Object.entries(line.customValues)) {
+        values[key] = Number(value) || 0;
+      }
+      return { ...line, amount: String(calculator.calculate(values)) };
+    });
+  }, [calculator, lines]);
   const supplyValue = useMemo(
-    () => lines.reduce((total, line) => total + (Number(line.amount) || 0), 0),
-    [lines],
+    () =>
+      resolvedLines.reduce(
+        (total, line) => total + (Number(line.amount) || 0),
+        0,
+      ),
+    [resolvedLines],
   );
   const totals = useMemo(
-    () => calculateInvoiceTotals(supplyValue),
-    [supplyValue],
+    () => calculateInvoiceTotals(supplyValue, vatRegistered),
+    [supplyValue, vatRegistered],
   );
 
   function updateLine(id: string, patch: Partial<DraftLine>) {
@@ -193,20 +209,22 @@ export default function CreateInvoiceForm({
     if (!placeOfSupply.trim()) return "Place of supply is required.";
     if (lines.length === 0) return "Add at least one cost item.";
 
-    for (const [index, line] of lines.entries()) {
+    for (const [index, line] of resolvedLines.entries()) {
       if (
         !line.date ||
         !line.vehicleNo ||
+        line.quantity === "" ||
         line.rate === "" ||
         line.amount === ""
       ) {
         return `Complete the default fields in row ${index + 1}.`;
       }
       if (
+        !Number.isFinite(Number(line.quantity)) ||
         !Number.isFinite(Number(line.rate)) ||
         !Number.isFinite(Number(line.amount))
       ) {
-        return `Rate and amount must be valid numbers in row ${index + 1}.`;
+        return `Quantity, rate and amount must be valid numbers in row ${index + 1}.`;
       }
       const missingCustom = customColumns.find(
         (column) =>
@@ -253,7 +271,7 @@ export default function CreateInvoiceForm({
         deliveryDate,
         invoice,
         invoiceDate,
-        lines,
+        lines: resolvedLines,
         paidAmount,
         placeOfSupply,
         taxInvoiceNo,
@@ -282,21 +300,11 @@ export default function CreateInvoiceForm({
     const value = line.customValues[column.key] ?? "";
     if (column.type === "vehicle") {
       return (
-        <Select
+        <VehiclePicker
           value={value}
-          onValueChange={(next) => updateCustomValue(line.id, column.key, next)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Vehicle" />
-          </SelectTrigger>
-          <SelectContent>
-            {vehicles.map((vehicle) => (
-              <SelectItem key={vehicle.id} value={vehicle.name}>
-                {vehicle.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          vehicles={vehicles}
+          onChange={(next) => updateCustomValue(line.id, column.key, next)}
+        />
       );
     }
 
@@ -351,21 +359,22 @@ export default function CreateInvoiceForm({
         );
       case "vehicleNo":
         return (
-          <Select
+          <VehiclePicker
             value={line.vehicleNo}
-            onValueChange={(vehicleNo) => updateLine(line.id, { vehicleNo })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Vehicle" />
-            </SelectTrigger>
-            <SelectContent>
-              {vehicles.map((vehicle) => (
-                <SelectItem key={vehicle.id} value={vehicle.name}>
-                  {vehicle.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            vehicles={vehicles}
+            onChange={(vehicleNo) => updateLine(line.id, { vehicleNo })}
+          />
+        );
+      case "quantity":
+        return (
+          <Input
+            type="number"
+            step="any"
+            value={line.quantity}
+            onChange={(event) =>
+              updateLine(line.id, { quantity: event.target.value })
+            }
+          />
         );
       case "rate":
         return (
@@ -379,6 +388,20 @@ export default function CreateInvoiceForm({
           />
         );
       case "amount":
+        if (calculator) {
+          const computed =
+            resolvedLines.find((item) => item.id === line.id)?.amount ?? "0";
+          return (
+            <Input
+              readOnly
+              tabIndex={-1}
+              aria-label={`Amount, row ${index + 1}`}
+              title="Calculated from the template's amount formula"
+              className="bg-surface-muted text-right font-mono"
+              value={formatMoney(Number(computed) || 0)}
+            />
+          );
+        }
         return (
           <Input
             type="number"
@@ -546,14 +569,18 @@ export default function CreateInvoiceForm({
               {formatMoney(totals.supplyValue)}
             </dd>
           </div>
-          <div className="flex justify-between gap-4 px-4 py-2">
-            <dt className="text-muted-foreground">VAT (18%)</dt>
-            <dd className="font-mono tabular-nums">
-              {formatMoney(totals.vatAmount)}
-            </dd>
-          </div>
+          {vatRegistered ? (
+            <div className="flex justify-between gap-4 px-4 py-2">
+              <dt className="text-muted-foreground">VAT (18%)</dt>
+              <dd className="font-mono tabular-nums">
+                {formatMoney(totals.vatAmount)}
+              </dd>
+            </div>
+          ) : null}
           <div className="flex items-baseline justify-between gap-4 bg-surface-muted px-4 py-3">
-            <dt className="font-medium">Total including VAT</dt>
+            <dt className="font-medium">
+              {vatRegistered ? "Total including VAT" : "Total"}
+            </dt>
             <dd className="flex items-baseline gap-2">
               <span className="font-mono text-xs text-muted-foreground">
                 LKR

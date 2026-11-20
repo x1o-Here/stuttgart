@@ -62,6 +62,10 @@ export const identityApi = {
     await api.patch(`/companies/${id}/status`, { active });
   },
 
+  setCompanyVatRegistered: async (id: string, vatRegistered: boolean) => {
+    await api.patch(`/companies/${id}/settings`, { vatRegistered });
+  },
+
   auditLogs: async () => {
     const { data } = await api.get<AuditLogDto[]>("/audit-logs");
     return data.map((log) => ({

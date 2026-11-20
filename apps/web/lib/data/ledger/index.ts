@@ -95,6 +95,7 @@ export function saveTemplate(p: Args<typeof firestore.saveTemplate>) {
     columns: payload.columns as unknown as Record<string, unknown>[],
     signing: payload.signing as unknown as Record<string, unknown>,
     supplier: payload.supplier as unknown as Record<string, unknown>,
+    settings: payload.settings as unknown as Record<string, unknown>,
   });
 }
 

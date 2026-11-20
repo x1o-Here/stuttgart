@@ -12,6 +12,7 @@ import { onLiveDoc } from "@/lib/data/live";
 import InvoicePreview from "../../../components/invoice-preview";
 import {
   type ClientInvoiceDocument,
+  invoiceHasVat,
   mapClientInvoiceDocument,
 } from "../../../invoice-model";
 import {
@@ -258,6 +259,7 @@ export default function InvoiceDocumentPage() {
                 lineItems={invoice.lineItems}
                 totalAmount={invoice.totalAmount}
                 status={invoice.status}
+                vatRegistered={invoiceHasVat(invoice)}
                 exportTopGap={exporting}
               />
             </div>

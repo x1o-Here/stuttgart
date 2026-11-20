@@ -61,6 +61,23 @@ describe("purchases", () => {
         expect(Number(inv.outstandingAmount)).toBe(1180);
     });
 
+    it("claims no VAT when the company isn't registered for VAT", async () => {
+        const off = await as(app, ids.manager).patch(`/companies/${CO}/settings`, { vatRegistered: false });
+        expect(off.status).toBe(200);
+        expect(off.body.vatRegistered).toBe(false);
+        const res = await as(app, ids.general).post(`${base()}/invoices`, invoiceBody());
+        expect(res.status).toBe(201);
+        const inv = await db.supplierInvoice.findUniqueOrThrow({ where: { id: res.body.id } });
+        expect(Number(inv.billAmount)).toBe(1180);
+        expect(Number(inv.vatAmount)).toBe(0);
+        expect(Number(inv.totalIncludingVat)).toBe(1180);
+    });
+
+    it("only managers and admins change the VAT setting", async () => {
+        const res = await as(app, ids.general).patch(`/companies/${CO}/settings`, { vatRegistered: false });
+        expect(res.status).toBe(403);
+    });
+
     it("allows each live tax number once per company, and frees it on delete", async () => {
         const api = as(app, ids.general);
         const first = (await api.post(`${base()}/invoices`, invoiceBody())).body.id;

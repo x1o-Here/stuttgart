@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
+import { useActiveCompany } from "@/hooks/use-active-company";
 import {
   normalizeTaxInvoiceNo,
   roundMoney,
@@ -79,10 +80,15 @@ export function SupplierInvoiceForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { vatRegistered } = useActiveCompany();
   const totalValue = Number(total);
   const split = useMemo(
-    () => splitVatInclusive(Number.isFinite(totalValue) ? totalValue : 0),
-    [totalValue],
+    () =>
+      splitVatInclusive(
+        Number.isFinite(totalValue) ? totalValue : 0,
+        vatRegistered,
+      ),
+    [totalValue, vatRegistered],
   );
   const normalizedTaxNo = normalizeTaxInvoiceNo(taxNo);
   const taxError = validateTaxInvoiceNo(taxNo);
@@ -226,7 +232,9 @@ export function SupplierInvoiceForm({
           <SectionLabel>02 / Amount</SectionLabel>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-total">Total amount including VAT</Label>
+          <Label htmlFor="invoice-total">
+            {vatRegistered ? "Total amount including VAT" : "Total amount"}
+          </Label>
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-mono text-xs text-muted-foreground">
               LKR
@@ -244,25 +252,29 @@ export function SupplierInvoiceForm({
             />
           </div>
         </div>
-        <dl
-          aria-live="polite"
-          className="grid grid-cols-2 gap-px self-end overflow-hidden rounded-md border bg-border"
-        >
-          <div className="flex flex-col gap-1 bg-surface-muted px-4 py-3">
-            <dt className="eyebrow normal-case tracking-normal">Bill amount</dt>
-            <dd className="font-mono text-lg tabular-nums">
-              {money(split.billAmount)}
-            </dd>
-          </div>
-          <div className="flex flex-col gap-1 bg-surface-muted px-4 py-3">
-            <dt className="eyebrow normal-case tracking-normal">
-              VAT ({Math.round(VAT_RATE * 100)}%)
-            </dt>
-            <dd className="font-mono text-lg tabular-nums">
-              {money(split.vatAmount)}
-            </dd>
-          </div>
-        </dl>
+        {vatRegistered ? (
+          <dl
+            aria-live="polite"
+            className="grid grid-cols-2 gap-px self-end overflow-hidden rounded-md border bg-border"
+          >
+            <div className="flex flex-col gap-1 bg-surface-muted px-4 py-3">
+              <dt className="eyebrow normal-case tracking-normal">
+                Bill amount
+              </dt>
+              <dd className="font-mono text-lg tabular-nums">
+                {money(split.billAmount)}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1 bg-surface-muted px-4 py-3">
+              <dt className="eyebrow normal-case tracking-normal">
+                VAT ({Math.round(VAT_RATE * 100)}%)
+              </dt>
+              <dd className="font-mono text-lg tabular-nums">
+                {money(split.vatAmount)}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
       </section>
 
       <section className="flex flex-col">
@@ -356,7 +368,8 @@ export function SupplierInvoiceForm({
         ) : (
           <p className="font-mono text-xs tabular-nums text-muted-foreground">
             {lines.length} {lines.length === 1 ? "item" : "items"} · LKR{" "}
-            {money(split.total)} · VAT {money(split.vatAmount)}
+            {money(split.total)}
+            {vatRegistered ? ` · VAT ${money(split.vatAmount)}` : ""}
           </p>
         )}
         <div className="flex gap-2">
