@@ -28,6 +28,7 @@ type DraftLine = {
   id: string;
   date: string;
   vehicleNo: string;
+  description: string;
   quantity: string;
   rate: string;
   amount: string;
@@ -91,6 +92,7 @@ export async function saveInvoice({
     no: index + 1,
     date: Timestamp.fromDate(new Date(`${line.date}T00:00:00`)),
     vehicleNo: line.vehicleNo,
+    description: line.description.trim(),
     quantity: Number(line.quantity),
     rate: Number(line.rate),
     amount: Number(line.amount),

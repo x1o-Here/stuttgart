@@ -50,6 +50,7 @@ export type PaymentInput = z.input<typeof paymentInputSchema>;
 const lineItemSchema = z.object({
   date: dateField,
   vehicleNo: z.string().default(""),
+  description: z.string().default(""),
   quantity: money.default(1),
   rate: money.default(0),
   amount: money,

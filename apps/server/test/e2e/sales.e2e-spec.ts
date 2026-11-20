@@ -17,7 +17,7 @@ describe("sales", () => {
         client: { id: clientId, name: "Client One" },
         template: { columns: [] },
         lineItems: [
-            { date: today(), vehicleNo: "WP-1234", quantity: 2.5, rate: 240, amount: 600, customValues: {} },
+            { date: today(), vehicleNo: "WP-1234", description: "Colombo run", quantity: 2.5, rate: 240, amount: 600, customValues: {} },
             { date: today(), vehicleNo: "WP-1234", rate: 400, amount: 400, customValues: { trip: "A" } },
         ],
         totalAmount: 1000,
@@ -74,6 +74,7 @@ describe("sales", () => {
         expect(row.status).toBe("issued");
         const lines = await db.invoiceLineItem.findMany({ where: { invoiceId }, orderBy: { position: "asc" } });
         expect(lines.map((l) => Number(l.quantity))).toEqual([2.5, 1]);
+        expect(lines.map((l) => l.description)).toEqual(["Colombo run", ""]);
     });
 
     it("rejects totals that don't add up", async () => {

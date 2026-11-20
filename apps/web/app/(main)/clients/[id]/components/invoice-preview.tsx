@@ -69,6 +69,8 @@ function displayCell(
       return formatDate(item.date);
     case "vehicleNo":
       return item.vehicleNo || "—";
+    case "description":
+      return item.description || "—";
     case "quantity":
       return item.quantity.toLocaleString(undefined, {
         maximumFractionDigits: 4,

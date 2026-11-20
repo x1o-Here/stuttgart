@@ -30,6 +30,7 @@ type DraftLine = {
   id: string;
   date: string;
   vehicleNo: string;
+  description: string;
   quantity: string;
   rate: string;
   amount: string;
@@ -71,6 +72,7 @@ function lineFromInvoice(
     id: crypto.randomUUID(),
     date: toDateInput(item.date),
     vehicleNo: item.vehicleNo,
+    description: item.description,
     quantity: String(item.quantity),
     rate: String(item.rate),
     amount: String(item.amount),
@@ -92,6 +94,7 @@ function newLine(columns: TemplateColumn[]): DraftLine {
     id: crypto.randomUUID(),
     date: todayValue(),
     vehicleNo: "",
+    description: "",
     quantity: "1",
     rate: "",
     amount: "",
@@ -363,6 +366,16 @@ export default function CreateInvoiceForm({
             value={line.vehicleNo}
             vehicles={vehicles}
             onChange={(vehicleNo) => updateLine(line.id, { vehicleNo })}
+          />
+        );
+      case "description":
+        return (
+          <Input
+            value={line.description}
+            placeholder={column.label}
+            onChange={(event) =>
+              updateLine(line.id, { description: event.target.value })
+            }
           />
         );
       case "quantity":
